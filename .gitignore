@@ -1,0 +1,26 @@
+# --- IDE ve Editör Ayarları (Bunlar repoya gitmez) ---
+.idea/
+*.iml
+.vscode/
+*.iws
+*.ipr
+
+# --- İşletim Sistemi Çöpleri ---
+.DS_Store
+Thumbs.db
+
+# --- Maven ve Build Çıktıları ---
+target/
+*.jar
+*.war
+*.ear
+*.log
+
+# --- Wrapper (Bunlar KALSIN, silme) ---
+# !.mvn/wrapper/maven-wrapper.jar
+# !mvnw
+# !mvnw.cmd
+
+# --- Diğer Gereksizler ---
+help.md
+HELP.md
