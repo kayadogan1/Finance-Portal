@@ -3,18 +3,21 @@ package com.finance.models;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
 @Entity
 @Getter
+@Builder
 @Setter
 @ToString
 @RequiredArgsConstructor
 @Table(name = "portfolios")
+@AllArgsConstructor
 public class Portfolio {
     @Id
-    @GeneratedValue()
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     private String userId;
@@ -24,6 +27,6 @@ public class Portfolio {
     @OneToMany(mappedBy = "portfolio", cascade = CascadeType.ALL)
     private List<PortfolioItem> items;
 
-
+    private BigDecimal cashBalance= BigDecimal.ZERO;
 
 }
