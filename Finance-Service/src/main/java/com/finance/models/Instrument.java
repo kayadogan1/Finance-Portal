@@ -9,11 +9,13 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
+@Builder
 @Getter
 @Setter
 @ToString
 @RequiredArgsConstructor
 @Table(name = "instruments")
+@AllArgsConstructor
 public class Instrument {
     @Id
     @GeneratedValue

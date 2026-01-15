@@ -1,9 +1,11 @@
 package com.finance.shared;
 
 public enum InstrumentType {
-
-    FIAT,
-    STOCK,
-    CRYPTO,
-    COMMODITY
+    FIAT,              // Para birimleri
+    STOCK,             // Hisse senetleri
+    CRYPTO,            // Kripto paralar
+    COMMODITY,         // Emtialar
+    FOREX,             // Döviz çiftleri
+    INDEX,             // Endeksler
+    BOND               // Tahviller
 }
