@@ -1,0 +1,28 @@
+package com.finance.models;
+
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.UUID;
+
+@Entity
+@Getter
+@Setter
+@ToString
+@RequiredArgsConstructor
+@Table(name = "market_data")
+public class MarketData {
+    @Id
+    @GeneratedValue
+    private UUID id;
+    @ManyToOne
+    @JoinColumn(name = "instructor_id")
+    private Instrument instrument;
+
+    private BigDecimal price;
+
+    private LocalDateTime timestamp;
+
+}
