@@ -29,11 +29,14 @@ public class CryptoService {
         this.restClient = restClient;
     }
     public void fetchAndStoreCryptoData(String symbol) {
-        String url = CRYPTO_API_URL + "/api/v3/ticker/price?symbol=" + symbol;
-        logger.info("Fetching crypto data from URL: {}" ,url);
+        String binanceSymbol = symbol.toUpperCase();
+        if (!binanceSymbol.endsWith("USDT")) {
+            binanceSymbol += "USDT";
+        }
+        logger.info("Fetching crypto data for: {} (Binance Symbol: {})", symbol, binanceSymbol);
         try {
             BinanceResponseDto responseDto = restClient.get()
-                    .uri(CRYPTO_API_URL + "/api/v3/ticker/price?symbol={symbol}" , symbol)
+                    .uri(CRYPTO_API_URL + "/api/v3/ticker/price?symbol={symbol}" , binanceSymbol)
                     .retrieve()
                     .body(BinanceResponseDto.class);
             if(responseDto != null){
