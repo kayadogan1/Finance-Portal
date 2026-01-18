@@ -19,7 +19,7 @@ public class PortfolioController {
         this.portfolioService= portfolioService;
     }
     @GetMapping
-    public ResponseEntity<Portfolio> getAllPortfolios(@RequestParam String userId){
+    public ResponseEntity<Portfolio> getAllPortfolios(@RequestParam("userId") String userId){
         logger.info("Fetching portfolio for user: {}", userId);
         return ResponseEntity.ok(portfolioService.getOrCreatePortfolio(userId)) ;
     }

@@ -9,13 +9,15 @@ import java.util.UUID;
 
 @Entity
 @Getter
+@Builder
 @Setter
 @ToString
 @RequiredArgsConstructor
 @Table(name = "market_data")
+@AllArgsConstructor
 public class MarketData {
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     @ManyToOne
     @JoinColumn(name = "instructor_id")
@@ -23,6 +25,6 @@ public class MarketData {
 
     private BigDecimal price;
 
-    private LocalDateTime timestamp;
+    private LocalDateTime timestamp = LocalDateTime.now();
 
 }
