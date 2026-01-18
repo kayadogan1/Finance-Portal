@@ -20,4 +20,6 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - run: mvn -B package -DskipTests
+      - run: |
+          cd Finance-Service
+          mvn -B package -DskipTests
