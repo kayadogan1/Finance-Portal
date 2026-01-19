@@ -20,7 +20,7 @@ public class MarketData {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
     @ManyToOne
-    @JoinColumn(name = "instructor_id")
+    @JoinColumn(name = "instrument_id")
     private Instrument instrument;
 
     private BigDecimal price;
