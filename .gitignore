@@ -27,3 +27,9 @@ target/
 # --- Diğer Gereksizler ---
 help.md
 HELP.md
+# React / Node
+**/node_modules/
+**/dist/
+**/build/
+.env
+.env.*
