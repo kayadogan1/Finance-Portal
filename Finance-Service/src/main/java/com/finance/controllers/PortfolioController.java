@@ -2,7 +2,7 @@ package com.finance.controllers;
 
 import com.finance.models.Portfolio;
 import com.finance.services.PortfolioService;
-import com.finance.shared.BuyRequest;
+import com.finance.shared.BuyOrSellRequestDto;
 import com.finance.shared.DepositRequest;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -31,9 +31,28 @@ public class PortfolioController {
         logger.info("Deposited {} for user {}", request.amount, request.userId);
         return ResponseEntity.ok().build();
     }
+    @PostMapping("/sell")
+    public ResponseEntity<Void> sellInstrument(@RequestBody BuyOrSellRequestDto sellRequest) {
+        if(sellRequest.quantity.compareTo(java.math.BigDecimal.ZERO) <= 0){
+            logger.warn("Invalid sell quantity: {} for user {}", sellRequest.quantity, sellRequest.userId);
+            return ResponseEntity.badRequest().build();
+        }
+        if(sellRequest.instrumentSymbol == null || sellRequest.instrumentSymbol.isEmpty()){
+            logger.warn("Invalid instrument symbol for user {}", sellRequest.userId);
+            return ResponseEntity.badRequest().build();
+        }
+        if(sellRequest.userId == null || sellRequest.userId.isEmpty()){
+            logger.warn("Invalid user ID for sell request.");
+            return ResponseEntity.badRequest().build();
+        }
+        portfolioService.sellInstrument(sellRequest.userId, sellRequest.instrumentSymbol, sellRequest.quantity);
+        logger.info("User {} sold {} of {}", sellRequest.userId, sellRequest.quantity, sellRequest.instrumentSymbol);
+        return ResponseEntity.ok().build();
+
+    }
 
     @PostMapping("/buy")
-    public ResponseEntity<Void> buyInstrument(@RequestBody BuyRequest buyRequest) {
+    public ResponseEntity<Void> buyInstrument(@RequestBody BuyOrSellRequestDto buyRequest) {
         portfolioService.buyInstrument(buyRequest.userId, buyRequest.instrumentSymbol, buyRequest.quantity);
         logger.info("User {} bought {} of {}", buyRequest.userId, buyRequest.quantity, buyRequest.instrumentSymbol);
         return ResponseEntity.ok().build();

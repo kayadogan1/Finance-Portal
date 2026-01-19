@@ -1,9 +1,7 @@
 package com.finance.shared;
 
-import java.math.BigDecimal;
-
-public class BuyRequest {
+public class BuyOrSellRequestDto {
     public String userId;
     public String instrumentSymbol;
-    public BigDecimal quantity;
+    public java.math.BigDecimal quantity;
 }
