@@ -11,7 +11,8 @@ services:
       KEYCLOAK_ADMIN_PASSWORD: admin
     ports:
       - "9090:8080"
-
+    volumes:
+      - ./keycloak/realms:/opt/keycloak/data/import
   postgres:
     image: postgres:16
     container_name: finance_db
