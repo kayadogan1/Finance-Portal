@@ -5,14 +5,18 @@ import com.finance.models.Instrument;
 import com.finance.models.MarketData;
 import com.finance.repositories.InstrumentRepository;
 import com.finance.repositories.MarketDataRepository;
+import com.finance.shared.CandleDto;
 import com.finance.shared.InstrumentType;
+import com.finance.shared.TimeSlot;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -41,14 +45,66 @@ public class MarketDataService {
             logger.info("Instruments loaded successfully");
         }
     }
-    public List<MarketData> getMarketDataHistory(String symbol, LocalDateTime fromTimestamp) {
+    public List<CandleDto> getMarketDataHistory(String symbol, LocalDateTime fromTimestamp,TimeSlot slot) {
 
         if(instrumentRepository.findInstrumentBySymbol(symbol).isEmpty()){
             logger.warn("Instrument with symbol {} not found when fetching market data history.", symbol);
             return List.of();
         }
-        return marketDataRepository.findByInstrumentSymbolAndTimestampAfterOrderByTimestampAsc(symbol, fromTimestamp);
+        List<MarketData> rawData = marketDataRepository.findByInstrumentSymbolAndTimestampAfterOrderByTimestampAsc(symbol, fromTimestamp);
+        if(rawData.isEmpty()){
+            logger.warn("No market data found for symbol {} ", symbol);
+            return List.of();
+        }
+
+        List<CandleDto> candleDtoList = new ArrayList<>();
+
+        MarketData firstMarketData = rawData.getFirst();
+        LocalDateTime currentCandleTime = truncateTime(firstMarketData.getTimestamp(),slot);
+
+        BigDecimal open = firstMarketData.getPrice();
+        BigDecimal high = firstMarketData.getPrice();
+        BigDecimal low = firstMarketData.getPrice();
+        BigDecimal close = firstMarketData.getPrice();
+
+        for (MarketData data : rawData) {
+            LocalDateTime dateTime = data.getTimestamp();
+            LocalDateTime bucketTime = truncateTime(dateTime, slot);
+            if(bucketTime.equals(currentCandleTime)){
+                if(data.getPrice().compareTo(high)>0) high = data.getPrice();
+                if(data.getPrice().compareTo(low)<0) low = data.getPrice();
+                close = data.getPrice();
+
+            }
+            else{
+                candleDtoList.add(new CandleDto(currentCandleTime,open,high,low,close));
+                currentCandleTime = bucketTime;
+                open = data.getPrice();
+                high = data.getPrice();
+                low = data.getPrice();
+                close = data.getPrice();
+            }
+
+        }
+
+        candleDtoList.add(new CandleDto(currentCandleTime, open, high, low, close));
+        return candleDtoList;
     }
+    private LocalDateTime truncateTime(LocalDateTime dateTime, TimeSlot slot) {
+        int intervalMinutes = slot.getMinutes();
+
+        if (intervalMinutes >= 60) {
+            int hours = intervalMinutes / 60;
+            int currentHour = dateTime.getHour();
+            int truncatedHour = (currentHour / hours) * hours;
+            return dateTime.withHour(truncatedHour).withMinute(0).withSecond(0).withNano(0);
+        } else {
+            int currentMinute = dateTime.getMinute();
+            int truncatedMinute = (currentMinute / intervalMinutes) * intervalMinutes;
+            return dateTime.withMinute(truncatedMinute).withSecond(0).withNano(0);
+        }
+    }
+
     private void saveInstruments(Map<String, String> instruments, InstrumentType type) {
         if (instruments == null || instruments.isEmpty()) {
             logger.warn("No instruments found for type: {}", type);

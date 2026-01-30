@@ -20,8 +20,11 @@ public class Portfolio {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    private String userId;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
+    
     private String name;
 
     @OneToMany(mappedBy = "portfolio", cascade = CascadeType.ALL)
