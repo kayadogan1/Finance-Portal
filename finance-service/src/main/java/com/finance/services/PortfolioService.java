@@ -146,7 +146,6 @@ public class PortfolioService {
         return portfolioRepository.findByUserId(userId)
                 .orElseGet(()->{
                     Portfolio newPortfolio= new Portfolio();
-                    newPortfolio.setUserId(userId);
                     newPortfolio.setCashBalance(BigDecimal.ZERO);
                     portfolioRepository.save(newPortfolio);
                     logger.info("Created new portfolio for user {}", userId);
