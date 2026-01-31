@@ -70,7 +70,20 @@ public class MarketController {
     @GetMapping("line/{symbol}")
     public ResponseEntity<List<LineChartDto>> getLinesBySymbol(@PathVariable String symbol, @RequestParam(required = false )@DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)LocalDateTime dateTime){
         logger.info("fetching lines for symbol {} with date time: {}", symbol, dateTime);
-        return ResponseEntity.noContent().build();
+        if(dateTime.isAfter(LocalDateTime.now())){
+            logger.warn("Invalid 'dateTime' timestamp: {}. Cannot be in future.", dateTime);
+            return ResponseEntity.badRequest().build();
+        }
+        if(symbol.isEmpty()){
+            logger.warn("symbol is empty.");
+            return ResponseEntity.badRequest().build();
+        }
+        List<LineChartDto> lineChartDtoList =marketDataService.getLineChartDataFrom(symbol, dateTime);
+        if(lineChartDtoList.isEmpty()){
+            logger.warn("No lines found for symbol {}", symbol);
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(lineChartDtoList);
     }
 
 

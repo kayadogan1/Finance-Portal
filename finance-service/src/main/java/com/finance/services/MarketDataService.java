@@ -7,6 +7,7 @@ import com.finance.repositories.InstrumentRepository;
 import com.finance.repositories.MarketDataRepository;
 import com.finance.shared.CandleDto;
 import com.finance.shared.InstrumentType;
+import com.finance.shared.LineChartDto;
 import com.finance.shared.TimeSlot;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -88,8 +89,22 @@ public class MarketDataService {
         }
 
         candleDtoList.add(new CandleDto(currentCandleTime, open, high, low, close));
+        logger.info("totally {} candle found", candleDtoList.size());
         return candleDtoList;
     }
+    public List<LineChartDto> getLineChartDataFrom(String symbol, LocalDateTime from){
+        List<MarketData> rawData = marketDataRepository.findByInstrumentSymbolAndTimestampAfterOrderByTimestampAsc(symbol, from);
+        logger.info("fetching line chart data...");
+        if(rawData.isEmpty()){
+            logger.info("No market data found for symbol {} ", symbol);
+            return List.of();
+        }
+        return rawData.stream()
+                .map(data -> new LineChartDto(data.getTimestamp(),data.getPrice()))
+                .toList();
+    }
+
+
     private LocalDateTime truncateTime(LocalDateTime dateTime, TimeSlot slot) {
         int intervalMinutes = slot.getMinutes();
 
