@@ -4,10 +4,14 @@ import com.finance.models.Portfolio;
 import com.finance.services.PortfolioService;
 import com.finance.shared.BuyOrSellRequestDto;
 import com.finance.shared.DepositRequest;
+import jakarta.validation.Valid;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.UUID;
 
 
 @RestController()
@@ -19,41 +23,39 @@ public class PortfolioController {
         this.portfolioService= portfolioService;
     }
     @GetMapping
-    public ResponseEntity<Portfolio> getAllPortfolios(@RequestParam("userId") String userId){
+    public ResponseEntity<List<Portfolio>> getAllPortfolios(@RequestParam("userId") String userId){
         logger.info("Fetching portfolio for user: {}", userId);
-        return ResponseEntity.ok(portfolioService.getOrCreatePortfolio(userId)) ;
+        return ResponseEntity.ok(portfolioService.getAllPortfolios()) ;
+    }
+    @GetMapping("/{portfolioId}")
+    public ResponseEntity<Portfolio> getPortfolio(
+            String userId,
+            @PathVariable UUID portfolioId) {
+
+        return ResponseEntity.ok(
+                portfolioService.getPortfolio(userId,portfolioId )
+        );
     }
 
     @PostMapping("/deposit")
-    public ResponseEntity<Void> depositFunds(@RequestBody DepositRequest request) {
+    public ResponseEntity<Void> depositFunds(@RequestBody @Valid DepositRequest request) {
 
-        portfolioService.depositCash(request.userId, request.amount);
+        portfolioService.depositCash(request.userId, request.amount,request.portfolioId);
         logger.info("Deposited {} for user {}", request.amount, request.userId);
         return ResponseEntity.ok().build();
     }
     @PostMapping("/sell")
-    public ResponseEntity<Void> sellInstrument(@RequestBody BuyOrSellRequestDto sellRequest) {
-        if(sellRequest.quantity.compareTo(java.math.BigDecimal.ZERO) <= 0){
-            logger.warn("Invalid sell quantity: {} for user {}", sellRequest.quantity, sellRequest.userId);
-            return ResponseEntity.badRequest().build();
-        }
-        if(sellRequest.instrumentSymbol == null || sellRequest.instrumentSymbol.isEmpty()){
-            logger.warn("Invalid instrument symbol for user {}", sellRequest.userId);
-            return ResponseEntity.badRequest().build();
-        }
-        if(sellRequest.userId == null || sellRequest.userId.isEmpty()){
-            logger.warn("Invalid user ID for sell request.");
-            return ResponseEntity.badRequest().build();
-        }
-        portfolioService.sellInstrument(sellRequest.userId, sellRequest.instrumentSymbol, sellRequest.quantity);
+    public ResponseEntity<Void> sellInstrument(@RequestBody @Valid BuyOrSellRequestDto sellRequest) {
+
+        portfolioService.sellInstrument(sellRequest.userId, sellRequest.instrumentSymbol, sellRequest.quantity,sellRequest.portfolioId);
         logger.info("User {} sold {} of {}", sellRequest.userId, sellRequest.quantity, sellRequest.instrumentSymbol);
         return ResponseEntity.ok().build();
 
     }
 
     @PostMapping("/buy")
-    public ResponseEntity<Void> buyInstrument(@RequestBody BuyOrSellRequestDto buyRequest) {
-        portfolioService.buyInstrument(buyRequest.userId, buyRequest.instrumentSymbol, buyRequest.quantity);
+    public ResponseEntity<Void> buyInstrument(@RequestBody @Valid BuyOrSellRequestDto buyRequest) {
+        portfolioService.buyInstrument(buyRequest.userId, buyRequest.instrumentSymbol, buyRequest.quantity,buyRequest.portfolioId);
         logger.info("User {} bought {} of {}", buyRequest.userId, buyRequest.quantity, buyRequest.instrumentSymbol);
         return ResponseEntity.ok().build();
     }

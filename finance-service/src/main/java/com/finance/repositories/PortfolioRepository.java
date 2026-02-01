@@ -4,13 +4,16 @@ import com.finance.models.Portfolio;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface PortfolioRepository extends JpaRepository<Portfolio, UUID> {
 
-    Optional<Portfolio> findByUserId(String userId);
+    List<Portfolio> findAllByUserId(String userId);
 
+    Optional<Portfolio> findByIdAndUserId(UUID portfolioId,String userId);
 
+    Boolean existsByIdAndUserId(UUID portfolioId,String userId);
 }
