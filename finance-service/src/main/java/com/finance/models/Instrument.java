@@ -1,5 +1,6 @@
 package com.finance.models;
 
+import com.finance.shared.Currency;
 import com.finance.shared.InstrumentType;
 import jakarta.persistence.*;
 import lombok.*;
@@ -28,6 +29,10 @@ public class Instrument {
     private InstrumentType type;
 
     private BigDecimal currentPrice;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "base_currency", nullable = false)
+    private Currency baseCurrency;
 
     private LocalDateTime lastUpdateTime;
 

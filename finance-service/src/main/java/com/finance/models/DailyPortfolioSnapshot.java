@@ -25,8 +25,6 @@ public class DailyPortfolioSnapshot {
     private BigDecimal cashBalance;
     private BigDecimal totalValue;
     private BigDecimal investmentValue;
-
+    @Column(name = "snapshot_date", nullable = false)
     private LocalDate  date;
-
-
 }

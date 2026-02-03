@@ -63,11 +63,6 @@ public class FetchMarketDataService {
         });
     }
 
-    private void updateCategoryFromCrypto(Map<String, String> instruments) {
-        if (instruments == null || instruments.isEmpty()) return;
-        instruments.keySet().forEach(dbSymbol -> fetchAndSave(dbSymbol, "CRYPTO"));
-    }
-
     private void fetchAndSave(String dbSymbol, String category) {
         try {
             String yahooSymbol = convertToYahooFormat(dbSymbol, category);
@@ -142,7 +137,7 @@ public class FetchMarketDataService {
             case "SILVER" -> "SI=F";
             case "OIL" -> "CL=F";
             case "NATGAS" -> "NG=F";
-            default -> symbol;
+            default -> symbol ;
         };
     }
 
@@ -175,7 +170,7 @@ public class FetchMarketDataService {
                     .timestamp(LocalDateTime.now())
                     .build();
             marketDataRepository.save(marketDataEntry);
-            logger.info("✅ Updated {}: {}", symbol, price);
+            logger.info("Updated {}: {}", symbol, price);
         } else {
             logger.warn("Instrument not found in DB: {}", symbol);
         }

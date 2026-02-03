@@ -4,6 +4,7 @@ import com.finance.models.Portfolio;
 import com.finance.services.PortfolioService;
 import com.finance.shared.BuyOrSellRequestDto;
 import com.finance.shared.DepositRequest;
+import com.finance.shared.PerformanceLineChartDto;
 import jakarta.validation.Valid;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -37,6 +38,20 @@ public class PortfolioController {
         );
     }
 
+    @GetMapping("/{portfolioId}/history")
+    public ResponseEntity<List<PerformanceLineChartDto>> getPortfolioHistory(
+            String userId,
+            @PathVariable UUID portfolioId,
+            @RequestParam(defaultValue = "30") int days
+    ) {
+        List<PerformanceLineChartDto> history = portfolioService.getPerformanceLineChartValues(userId, portfolioId, days);
+
+        if (history.isEmpty()) {
+            return ResponseEntity.noContent().build();
+        }
+
+        return ResponseEntity.ok(history);
+    }
     @PostMapping("/deposit")
     public ResponseEntity<Void> depositFunds(@RequestBody @Valid DepositRequest request) {
 
