@@ -4,18 +4,18 @@ import com.finance.config.InstrumentPropertiesConfig;
 import com.finance.models.MarketData;
 import com.finance.repositories.InstrumentRepository;
 import com.finance.repositories.MarketDataRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
-import tools.jackson.databind.JsonNode;
-import tools.jackson.databind.ObjectMapper;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.Set;
 
 @Service
 public class FetchMarketDataService {
@@ -45,7 +45,8 @@ public class FetchMarketDataService {
     public void updateAllMarketData() {
         logger.info("Starting GLOBAL market data update from YAHOO FINANCE...");
 
-        updateCategory(instrumentProperties.getStock(), "STOCK");
+        updateStocks(instrumentProperties.getStock());
+
         updateCategory(instrumentProperties.getForex(), "FOREX");
         updateCategory(instrumentProperties.getIndex(), "INDEX");
         updateCategory(instrumentProperties.getCommodity(), "COMMODITY");
@@ -55,20 +56,24 @@ public class FetchMarketDataService {
         logger.info("GLOBAL market data update completed.");
     }
 
+
+    private void updateStocks(Map<String, Map<String, String>> stockInstruments) {
+        if (stockInstruments == null || stockInstruments.isEmpty()) return;
+
+        stockInstruments.forEach((exchange, symbolsMap) -> symbolsMap.keySet().forEach(dbSymbol -> fetchAndSave(dbSymbol, "STOCK", exchange)));
+    }
+
     private void updateCategory(Map<String, String> instruments, String categoryName) {
         if (instruments == null || instruments.isEmpty()) return;
 
-        instruments.keySet().forEach(dbSymbol -> {
-            fetchAndSave(dbSymbol, categoryName);
-        });
+        instruments.keySet().forEach(dbSymbol -> fetchAndSave(dbSymbol, categoryName, null));
     }
 
-    private void fetchAndSave(String dbSymbol, String category) {
+    private void fetchAndSave(String dbSymbol, String category, String exchangeContext) {
         try {
-            String yahooSymbol = convertToYahooFormat(dbSymbol, category);
+            String yahooSymbol = convertToYahooFormat(dbSymbol, category, exchangeContext);
 
             String finalUrl = YAHOO_API_URL.replace("{symbol}", yahooSymbol);
-
             logger.debug("Fetching {} -> {} URL: {}", dbSymbol, yahooSymbol, finalUrl);
 
             String jsonResponse = restClient.get()
@@ -82,22 +87,24 @@ public class FetchMarketDataService {
             if (price != null) {
                 saveToDatabase(dbSymbol, price);
             } else {
-                logger.warn("Price not found for {}", yahooSymbol);
+                logger.warn("Price not found for {} (Yahoo: {})", dbSymbol, yahooSymbol);
             }
 
-            Thread.sleep(2000);
 
         } catch (Exception e) {
-            logger.error("Error updating {}: {}", dbSymbol, e.getMessage());
+            logger.error("Error updating symbol {}: {}", dbSymbol, e.getMessage());
         }
     }
 
-    private String convertToYahooFormat(String dbSymbol, String category) {
+
+    private String convertToYahooFormat(String dbSymbol, String category, String exchangeContext) {
         return switch (category) {
             case "FOREX" -> dbSymbol + "=X";
             case "CRYPTO" -> dbSymbol + "-USD";
             case "STOCK" -> {
-                if (isBistStock(dbSymbol)) yield dbSymbol + ".IS";
+                if ("BIST".equalsIgnoreCase(exchangeContext)) {
+                    yield dbSymbol + ".IS";
+                }
                 yield dbSymbol;
             }
             case "COMMODITY" -> getCommodityCode(dbSymbol);
@@ -127,17 +134,23 @@ public class FetchMarketDataService {
     }
 
 
-    private boolean isBistStock(String symbol) {
-        return Set.of("THYAO", "GARAN", "XU100", "ASELS", "AKBNK", "EREGL").contains(symbol);
-    }
-
     private String getCommodityCode(String symbol) {
         return switch (symbol) {
             case "GOLD" -> "GC=F";
             case "SILVER" -> "SI=F";
             case "OIL" -> "CL=F";
+            case "BRENT" -> "BZ=F";
             case "NATGAS" -> "NG=F";
-            default -> symbol ;
+            case "COPPER" -> "HG=F";
+            case "PLATINUM" -> "PL=F";
+            case "PALLADIUM" -> "PA=F";
+            case "CORN" -> "ZC=F";
+            case "WHEAT" -> "ZW=F";
+            case "SOYBEAN" -> "ZS=F";
+            case "COFFEE" -> "KC=F";
+            case "SUGAR" -> "SB=F";
+            case "COTTON" -> "CT=F";
+            default -> symbol + "=F";
         };
     }
 
@@ -145,17 +158,27 @@ public class FetchMarketDataService {
         return switch (symbol) {
             case "SPX" -> "^GSPC";
             case "DJI" -> "^DJI";
+            case "NDX" -> "^NDX";
+            case "DAX" -> "^GDAXI";
+            case "UK100" -> "^FTSE";
             case "XU100" -> "XU100.IS";
-            case "NIKKEI" -> "^N225";
+            case "XU030" -> "XU030.IS";
+            case "N225" -> "^N225";
+            case "CAC40" -> "^FCHI";
+            case "HSI" -> "^HSI";
+            case "VIX" -> "^VIX";
             default -> symbol;
         };
     }
 
     private String getBondCode(String symbol) {
-        if ("US10Y".equals(symbol)) return "^TNX";
-        return symbol;
+        return switch (symbol) {
+            case "US10Y" -> "^TNX";
+            case "US30Y" -> "^TYX";
+            case "US02Y" -> "^IRX";
+            default -> symbol;
+        };
     }
-
     public void saveToDatabase(String symbol, BigDecimal price) {
         var updatedInstrument = instrumentRepository.findInstrumentBySymbol(symbol);
         if (updatedInstrument.isPresent()) {

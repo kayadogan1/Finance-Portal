@@ -5,12 +5,8 @@ import com.finance.models.Instrument;
 import com.finance.models.MarketData;
 import com.finance.repositories.InstrumentRepository;
 import com.finance.repositories.MarketDataRepository;
-import com.finance.shared.CandleDto;
-import com.finance.shared.InstrumentType;
-import com.finance.shared.LineChartDto;
-import com.finance.shared.TimeSlot;
+import com.finance.shared.*;
 import jakarta.annotation.PostConstruct;
-import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
@@ -20,22 +16,27 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
-@RequiredArgsConstructor
+
 public class MarketDataService {
 
     private final InstrumentRepository instrumentRepository;
     private final InstrumentPropertiesConfig instrumentProperties;
     private final MarketDataRepository marketDataRepository;
     private static final Logger logger = LogManager.getLogger(MarketDataService.class);
+    public MarketDataService(InstrumentRepository instrumentRepository, MarketDataRepository marketDataRepository, InstrumentPropertiesConfig instrumentProperties) {
+        this.instrumentRepository = instrumentRepository;
+        this.marketDataRepository = marketDataRepository;
+        this.instrumentProperties = instrumentProperties;
+    }
     @PostConstruct
     public void initDefaultInstruments() {
-        if (instrumentRepository.count() == 0) {
-            logger.info("Database is empty, initializing default instruments");
+
             logger.info("Loading instruments from properties file..");
 
-            saveInstruments(instrumentProperties.getStock(), InstrumentType.STOCK);
+            saveStockInstruments(instrumentProperties.getStock());
             saveInstruments(instrumentProperties.getForex(), InstrumentType.FOREX);
             saveInstruments(instrumentProperties.getCrypto(), InstrumentType.CRYPTO);
             saveInstruments(instrumentProperties.getCommodity(), InstrumentType.COMMODITY);
@@ -44,6 +45,76 @@ public class MarketDataService {
             saveInstruments(instrumentProperties.getFiat(), InstrumentType.FIAT);
 
             logger.info("Instruments loaded successfully");
+    }
+    private void saveStockInstruments(Map<String, Map<String, String>> stockInstruments) {
+        if (stockInstruments == null || stockInstruments.isEmpty()) {
+            return;
+        }
+
+        stockInstruments.forEach((exchange, symbolsMap) -> {
+            Currency targetCurrency = "BIST".equalsIgnoreCase(exchange) ? Currency.TRY : Currency.USD;
+
+            symbolsMap.forEach((symbol, name) -> {
+                Optional<Instrument> existingInstrumentOpt = instrumentRepository.findInstrumentBySymbol(symbol);
+
+                if (existingInstrumentOpt.isPresent()) {
+                    boolean changed = false;
+
+                    if (existingInstrumentOpt.get().getBaseCurrency() != targetCurrency) {
+                        existingInstrumentOpt.get().setBaseCurrency(targetCurrency);
+                        changed = true;
+                    }
+                    if (!existingInstrumentOpt.get().getName().equals(name)) {
+                        existingInstrumentOpt.get().setName(name);
+                        changed = true;
+                    }
+                    if (changed) {
+                        instrumentRepository.save(existingInstrumentOpt.get());
+                        logger.debug("Updated STOCK: {} -> Currency: {}", symbol, targetCurrency);
+                    }
+
+                } else {
+                    Instrument newInstrument = Instrument.builder()
+                            .symbol(symbol)
+                            .name(name)
+                            .type(InstrumentType.STOCK)
+                            .baseCurrency(targetCurrency)
+                            .isActive(true)
+                            .build();
+                    instrumentRepository.save(newInstrument);
+                    logger.info("Created new STOCK: {} ({})", symbol, exchange);
+                }
+            });
+        });
+    }
+    private Currency resolveBaseCurrency(String symbol,InstrumentType type) {
+
+        return switch (type) {
+
+            case FIAT -> Currency.valueOf(symbol.toUpperCase());
+
+            case CRYPTO -> Currency.USDT;
+
+            case COMMODITY, INDEX, BOND -> Currency.USD;
+
+            case FOREX -> extractQuoteCurrency(symbol);
+
+            default -> {
+                logger.error("Unsupported or unexpected  instrumentType:{} "  ,type);
+                throw new IllegalArgumentException("Unsupported instrumentType: " + type);
+            }
+        };
+    }
+    private Currency extractQuoteCurrency(String forexPair) {
+        if (forexPair == null || forexPair.length() != 6) {
+            logger.error("Unsupported or unexpected  forexPair:{} " , forexPair);
+            return Currency.USD;
+        }
+        try {
+            return Currency.valueOf(forexPair.substring(3, 6).toUpperCase());
+        } catch (IllegalArgumentException e) {
+            logger.error("unexpected  exception :{} " , e.getMessage());
+            return Currency.USD;
         }
     }
     public List<CandleDto> getMarketDataHistory(String symbol, LocalDateTime fromTimestamp,TimeSlot slot) {
@@ -122,21 +193,42 @@ public class MarketDataService {
 
     private void saveInstruments(Map<String, String> instruments, InstrumentType type) {
         if (instruments == null || instruments.isEmpty()) {
-            logger.warn("No instruments found for type: {}", type);
             return;
         }
 
         instruments.forEach((symbol, name) -> {
-            if (instrumentRepository.findInstrumentBySymbol(symbol).isEmpty()) {
-                Instrument instrument = Instrument.builder()
+            Optional<Instrument> existingInstrumentOpt = instrumentRepository.findInstrumentBySymbol(symbol);
+            Currency targetCurrency = resolveBaseCurrency(symbol, type);
+
+            if (existingInstrumentOpt.isPresent()) {
+                Instrument existing = existingInstrumentOpt.get();
+                boolean changed = false;
+
+                if (existing.getBaseCurrency() != targetCurrency) {
+                    existing.setBaseCurrency(targetCurrency);
+                    changed = true;
+                }
+                if (!existing.getName().equals(name)) {
+                    existing.setName(name);
+                    changed = true;
+                }
+                if (changed) {
+                    instrumentRepository.save(existing);
+                    logger.debug("Updated Instrument: {} -> Currency: {}", symbol, targetCurrency);
+                }
+
+            } else {
+                Instrument newInstrument = Instrument.builder()
                         .symbol(symbol)
                         .name(name)
                         .type(type)
+                        .baseCurrency(targetCurrency)
                         .isActive(true)
                         .build();
-                instrumentRepository.save(instrument);
-                logger.debug("Saved instrument: {} - {}", symbol, name);
+                instrumentRepository.save(newInstrument);
+                logger.info("Created new Instrument: {} - Type: {}", symbol, type);
             }
         });
     }
+
 }
