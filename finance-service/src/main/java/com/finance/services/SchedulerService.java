@@ -8,20 +8,20 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class SchedulerService {
-    private final FetchMarketDataService polygonService;
+    private final FetchMarketDataService yahooService;
     private final CryptoService cryptoService;
     private final InstrumentPropertiesConfig config;
     private final Logger logger = LogManager.getLogger(SchedulerService.class);
-    public SchedulerService(FetchMarketDataService polygonService, CryptoService cryptoService, InstrumentPropertiesConfig config) {
-        this.polygonService = polygonService;
+    public SchedulerService(FetchMarketDataService yahooService, CryptoService cryptoService, InstrumentPropertiesConfig config) {
+        this.yahooService = yahooService;
         this.cryptoService = cryptoService;
         this.config = config;
     }
 
     @Scheduled(fixedRate = 200000)
     public void updateGeneralMarkets() {
-        logger.info("Updating general market data (stocks, forex, indices) from Polygon...");
-        polygonService.updateAllMarketData();
+        logger.info("Updating general market data (stocks, forex, indices) from Yahoo...");
+        yahooService.updateAllMarketData();
     }
 
     @Scheduled(fixedRate = 500000)
