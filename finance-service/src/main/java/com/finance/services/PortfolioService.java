@@ -44,8 +44,7 @@ public class PortfolioService {
     public List<PieChartDto> getPieChartValues(String userId, UUID portfolioId){
         logger.info("getPieChartValues  for user and portfolio {} : {}", userId, portfolioId);
         Portfolio portfolio = getPortfolio(userId,portfolioId);
-        List<PieChartDto> pieChartDtos = portfolio.getItems().stream().map(item -> new PieChartDto(item.getInstrument().getName(), item.getInstrument().getCurrentPrice())).collect(Collectors.toList());
-        return pieChartDtos;
+        return portfolio.getItems().stream().map(item -> new PieChartDto(item.getInstrument().getName(), item.getInstrument().getCurrentPrice())).collect(Collectors.toList());
     }
 
     public List<PerformanceLineChartDto> getPerformanceLineChartValues(String userId, UUID portfolioId, int backDays) {
@@ -153,7 +152,7 @@ public class PortfolioService {
                 .findFirst()
                 .orElse(null);
         if(portfolioItem == null){
-            portfolioItem = portfolioItem.builder()
+            portfolioItem = PortfolioItem.builder()
                     .portfolio(portfolio)
                     .instrument(instrument)
                     .quantity(quantity)
