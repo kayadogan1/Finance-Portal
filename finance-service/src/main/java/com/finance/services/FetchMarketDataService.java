@@ -1,44 +1,35 @@
 package com.finance.services;
 
 import com.finance.config.InstrumentPropertiesConfig;
-import com.finance.models.MarketData;
-import com.finance.repositories.InstrumentRepository;
-import com.finance.repositories.MarketDataRepository;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 import java.util.Map;
 
 @Service
 public class FetchMarketDataService {
 
-    private final InstrumentRepository instrumentRepository;
     private final InstrumentPropertiesConfig instrumentProperties;
-    private final MarketDataRepository marketDataRepository;
+    private final MarketDataPersistenceService persistenceService;
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
-
-    private final static Logger logger = LogManager.getLogger(FetchMarketDataService.class);
+    private static final Logger logger = LogManager.getLogger(FetchMarketDataService.class);
 
     @Value("${finance.YAHOO_API_URL}")
     private String YAHOO_API_URL;
 
-    public FetchMarketDataService(InstrumentRepository instrumentRepository,
-                                  MarketDataRepository marketDataRepository,
-                                  RestClient restClient,
-                                  InstrumentPropertiesConfig instrumentProperties) {
+    public FetchMarketDataService(InstrumentPropertiesConfig instrumentProperties,
+                                  MarketDataPersistenceService persistenceService,
+                                  RestClient restClient) {
         this.instrumentProperties = instrumentProperties;
-        this.marketDataRepository = marketDataRepository;
+        this.persistenceService = persistenceService;
         this.restClient = restClient;
-        this.instrumentRepository = instrumentRepository;
         this.objectMapper = new ObjectMapper();
     }
 
@@ -46,7 +37,6 @@ public class FetchMarketDataService {
         logger.info("Starting GLOBAL market data update from YAHOO FINANCE...");
 
         updateStocks(instrumentProperties.getStock());
-
         updateCategory(instrumentProperties.getForex(), "FOREX");
         updateCategory(instrumentProperties.getIndex(), "INDEX");
         updateCategory(instrumentProperties.getCommodity(), "COMMODITY");
@@ -56,24 +46,29 @@ public class FetchMarketDataService {
         logger.info("GLOBAL market data update completed.");
     }
 
-
     private void updateStocks(Map<String, Map<String, String>> stockInstruments) {
         if (stockInstruments == null || stockInstruments.isEmpty()) return;
 
-        stockInstruments.forEach((exchange, symbolsMap) -> symbolsMap.keySet().forEach(dbSymbol -> fetchAndSave(dbSymbol, "STOCK", exchange)));
+        stockInstruments.forEach((exchange, symbolsMap) ->
+                symbolsMap.keySet().forEach(dbSymbol ->
+                        fetchAndSave(dbSymbol, "STOCK", exchange)
+                )
+        );
     }
 
     private void updateCategory(Map<String, String> instruments, String categoryName) {
         if (instruments == null || instruments.isEmpty()) return;
 
-        instruments.keySet().forEach(dbSymbol -> fetchAndSave(dbSymbol, categoryName, null));
+        instruments.keySet().forEach(dbSymbol ->
+                fetchAndSave(dbSymbol, categoryName, null)
+        );
     }
 
     private void fetchAndSave(String dbSymbol, String category, String exchangeContext) {
         try {
             String yahooSymbol = convertToYahooFormat(dbSymbol, category, exchangeContext);
-
             String finalUrl = YAHOO_API_URL.replace("{symbol}", yahooSymbol);
+
             logger.debug("Fetching {} -> {} URL: {}", dbSymbol, yahooSymbol, finalUrl);
 
             String jsonResponse = restClient.get()
@@ -85,17 +80,15 @@ public class FetchMarketDataService {
             BigDecimal price = parseYahooPrice(jsonResponse);
 
             if (price != null) {
-                saveToDatabase(dbSymbol, price);
+                persistenceService.saveMarketData(dbSymbol, price);
             } else {
                 logger.warn("Price not found for {} (Yahoo: {})", dbSymbol, yahooSymbol);
             }
-
 
         } catch (Exception e) {
             logger.error("Error updating symbol {}: {}", dbSymbol, e.getMessage());
         }
     }
-
 
     private String convertToYahooFormat(String dbSymbol, String category, String exchangeContext) {
         return switch (category) {
@@ -132,7 +125,6 @@ public class FetchMarketDataService {
         }
         return null;
     }
-
 
     private String getCommodityCode(String symbol) {
         return switch (symbol) {
@@ -178,24 +170,5 @@ public class FetchMarketDataService {
             case "US02Y" -> "^IRX";
             default -> symbol;
         };
-    }
-    public void saveToDatabase(String symbol, BigDecimal price) {
-        var updatedInstrument = instrumentRepository.findInstrumentBySymbol(symbol);
-        if (updatedInstrument.isPresent()) {
-            var instrument = updatedInstrument.get();
-            instrument.setCurrentPrice(price);
-            instrument.setLastUpdateTime(LocalDateTime.now());
-            instrumentRepository.save(instrument);
-
-            var marketDataEntry = MarketData.builder()
-                    .instrument(instrument)
-                    .price(price)
-                    .timestamp(LocalDateTime.now())
-                    .build();
-            marketDataRepository.save(marketDataEntry);
-            logger.info("Updated {}: {}", symbol, price);
-        } else {
-            logger.warn("Instrument not found in DB: {}", symbol);
-        }
     }
 }

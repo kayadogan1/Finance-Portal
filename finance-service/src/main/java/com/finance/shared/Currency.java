@@ -24,3 +24,26 @@ public enum Currency {
     XAU,  // Gold (Troy Ounce)
     XAG   // Silver (Troy Ounce)
 }
+
+    USD,
+    EUR,
+    GBP,
+    JPY,
+
+    TRY,
+    CNY,
+    CHF,
+    CAD,
+    AUD,
+    NZD,
+    SEK,
+    NOK,
+    DKK,
+    SAR,
+    INR,
+    ZAR,
+    RUB,
+
+    USDT
+}
+
