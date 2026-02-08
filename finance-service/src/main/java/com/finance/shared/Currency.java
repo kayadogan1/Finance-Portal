@@ -1,7 +1,6 @@
 package com.finance.shared;
 
 public enum Currency {
-    // Fiat Para Birimleri
     AUD,  // Australian Dollar
     CAD,  // Canadian Dollar
     CHF,  // Swiss Franc
@@ -20,12 +19,10 @@ public enum Currency {
     USD,  // US Dollar
     ZAR,  // South African Rand
 
-    // Kripto Para Birimleri
     BTC,  // Bitcoin
     ETH,  // Ethereum
     USDT, // Tether
 
-    // Emtia Birimleri (Gold/Silver için)
     XAU,  // Gold (Troy Ounce)
     XAG   // Silver (Troy Ounce)
 }
