@@ -18,7 +18,6 @@ public enum Currency {
     TRY,  // Turkish Lira
     USD,  // US Dollar
     ZAR,  // South African Rand
-
     BTC,  // Bitcoin
     ETH,  // Ethereum
     USDT, // Tether
