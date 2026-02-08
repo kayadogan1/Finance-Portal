@@ -1,33 +1,11 @@
 
 services:
 
-
-  finance-service:
-    container_name: finance-service
-    restart: always
-    build:
-      context: .
-      dockerfile: ./finance-service/Dockerfile
-    environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${DB_NAME:-finance_db}
-      - SPRING_DATASOURCE_USERNAME=${DB_USER:-postgres}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-253421}
-      - SPRING_DATA_REDIS_HOST=redis
-      - SPRING_DATA_REDIS_PORT=6379
-      - SPRING_FLYWAY_URL=jdbc:postgresql://postgres:5432/${DB_NAME:-finance_db}
-      - SPRING_FLYWAY_USER=${DB_USER:-postgres}
-      - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD:-253421}
-    ports:
-      - "8081:8081"
-    depends_on:
-      - redis
-      - postgres
-    networks:
-      - finance-network
-
   redis:
     image: redis:alpine
     container_name: finance-redis
+    ports:
+      - "6379:6379"
     volumes:
       - redis_data:/data
     restart: always
