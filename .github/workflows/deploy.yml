@@ -1,0 +1,76 @@
+name: Build and Deploy to EC2
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build with Maven
+        run: mvn -B clean package -DskipTests --file pom.xml
+
+      - name: Deploy to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          echo "$EC2_SSH_KEY" > key.pem
+          chmod 600 key.pem
+          
+          # Parent POM kopyala
+          scp -i key.pem -o StrictHostKeyChecking=no \
+            pom.xml \
+            $EC2_USER@$EC2_HOST:~/finance-portal/
+          
+          # Finance service klasörü oluştur
+          ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "mkdir -p ~/finance-portal/finance-service/target ~/finance-portal/api-gateway ~/finance-portal/news-service"
+          
+          # JAR dosyasını kopyala
+          scp -i key.pem -o StrictHostKeyChecking=no \
+            finance-service/target/*.jar \
+            $EC2_USER@$EC2_HOST:~/finance-portal/finance-service/target/
+          
+          # Dockerfile kopyala
+          scp -i key.pem -o StrictHostKeyChecking=no \
+            finance-service/Dockerfile \
+            $EC2_USER@$EC2_HOST:~/finance-portal/
+          
+          # Modül POM'larını kopyala
+          scp -i key.pem -o StrictHostKeyChecking=no \
+            finance-service/pom.xml \
+            $EC2_USER@$EC2_HOST:~/finance-portal/finance-service/
+          
+          scp -i key.pem -o StrictHostKeyChecking=no \
+            api-gateway/pom.xml \
+            $EC2_USER@$EC2_HOST:~/finance-portal/api-gateway/
+          
+          scp -i key.pem -o StrictHostKeyChecking=no \
+            news-service/pom.xml \
+            $EC2_USER@$EC2_HOST:~/finance-portal/news-service/
+          
+          # Deploy
+          ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'ENDSSH'
+            cd ~/finance-portal
+            docker-compose down || true
+            docker-compose build finance-service
+            docker-compose up -d
+            sleep 10
+            echo "=== Deployment Logs ==="
+            docker-compose logs --tail=30 finance-service
+          ENDSSH
+          
+          rm -f key.pem

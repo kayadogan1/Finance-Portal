@@ -1,6 +1,47 @@
-version: "3.9"
 
 services:
+
+
+  finance-service:
+    container_name: finance-service
+    restart: always
+    build:
+      context: .
+      dockerfile: ./finance-service/Dockerfile
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${DB_NAME:-finance_db}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-253421}
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_FLYWAY_URL=jdbc:postgresql://postgres:5432/${DB_NAME:-finance_db}
+      - SPRING_FLYWAY_USER=${DB_USER:-postgres}
+      - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD:-253421}
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - finance-network
+
+  redis:
+    image: redis:alpine
+    container_name: finance-redis
+    volumes:
+      - redis_data:/data
+    restart: always
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: redis-gui
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8085:8081"
+    depends_on:
+      - redis
+    networks:
+      - finance-network
 
   keycloak:
     image: quay.io/keycloak/keycloak:23.0.0
@@ -13,18 +54,24 @@ services:
       - "9090:8080"
     volumes:
       - ./keycloak/realms:/opt/keycloak/data/import
+
   postgres:
     image: postgres:16
     container_name: finance_db
     restart: always
-    ports:
-      - "5432:5432"
     environment:
       POSTGRES_DB: finance_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 253421
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - finance-network
+
+networks:
+  finance-network:
+    driver: bridge
 
 volumes:
   postgres_data:
+  redis_data:
