@@ -1,4 +1,3 @@
-version: "3.9"
 
 services:
 
@@ -16,9 +15,11 @@ services:
     environment:
       - REDIS_HOSTS=local:redis:6379
     ports:
-      - "8081:8081"
+      - "8085:8081"
     depends_on:
       - redis
+    networks:
+      - finance-network
 
   keycloak:
     image: quay.io/keycloak/keycloak:23.0.0
@@ -31,18 +32,24 @@ services:
       - "9090:8080"
     volumes:
       - ./keycloak/realms:/opt/keycloak/data/import
+
   postgres:
     image: postgres:16
     container_name: finance_db
     restart: always
-    ports:
-      - "5432:5432"
     environment:
       POSTGRES_DB: finance_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 253421
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - finance-network
+
+networks:
+  finance-network:
+    driver: bridge
 
 volumes:
   postgres_data:
+  redis_data:
