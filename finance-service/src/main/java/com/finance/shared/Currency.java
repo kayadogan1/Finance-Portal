@@ -21,7 +21,6 @@ public enum Currency {
     BTC,  // Bitcoin
     ETH,  // Ethereum
     USDT, // Tether
-
     XAU,  // Gold (Troy Ounce)
     XAG   // Silver (Troy Ounce)
 }
