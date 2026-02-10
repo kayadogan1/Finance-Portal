@@ -1,17 +1,57 @@
-
 services:
+  finance-service:
+    container_name: finance-service
+    restart: always
+    build:
+      context: .
+      dockerfile: ./finance-service/Dockerfile
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${DB_NAME:-finance_db}
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-253421}
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_FLYWAY_URL=jdbc:postgresql://postgres:5432/${DB_NAME:-finance_db}
+      - SPRING_FLYWAY_USER=${DB_USER:-postgres}
+      - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD:-253421}
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - finance-network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: finance_db
+    restart: always
+    environment:
+      POSTGRES_DB: ${DB_NAME:-finance_db}
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-253421}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - finance-network
 
   redis:
-    image: redis:alpine
+    image: redis:7-alpine
     container_name: finance-redis
-    ports:
-      - "6379:6379"
+    restart: always
     volumes:
       - redis_data:/data
-    restart: always
+    ports:
+      - "6379:6379"
+    networks:
+      - finance-network
+
   redis-commander:
     image: rediscommander/redis-commander:latest
     container_name: redis-gui
+    restart: always
     environment:
       - REDIS_HOSTS=local:redis:6379
     ports:
@@ -24,6 +64,7 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:23.0.0
     container_name: finance_keycloak
+    restart: always
     command: start-dev --import-realm
     environment:
       KEYCLOAK_ADMIN: admin
@@ -32,17 +73,6 @@ services:
       - "9090:8080"
     volumes:
       - ./keycloak/realms:/opt/keycloak/data/import
-
-  postgres:
-    image: postgres:16
-    container_name: finance_db
-    restart: always
-    environment:
-      POSTGRES_DB: finance_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: 253421
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
     networks:
       - finance-network
 

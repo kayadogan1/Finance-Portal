@@ -1,0 +1,11 @@
+package com.finance.shared;
+
+import java.math.BigDecimal;
+
+public record PortfolioItemDto(
+        InstrumentDto instrumentDto,
+        BigDecimal amount,
+        BigDecimal averageCost
+
+) {
+}

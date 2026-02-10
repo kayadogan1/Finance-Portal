@@ -1,4 +1,4 @@
-name: Build and Deploy
+name: Build and Dockerize
 
 on:
   push:
@@ -6,15 +6,12 @@ on:
   pull_request:
     branches: [ "main", "master" ]
 
-env:
-  AWS_REGION: eu-central-1
-
 jobs:
-  build:
+  build-and-dockerize:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up JDK 21
@@ -25,83 +22,8 @@ jobs:
           cache: 'maven'
 
       - name: Build with Maven
-        run: mvn -B clean package -DskipTests --file pom.xml
+        run: mvn -B clean package -DskipTests
 
-      - name: Upload Finance Service Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: finance-service-artifacts
-          path: |
-            finance-service/target/*.jar
-            finance-service/Dockerfile
-            finance-service/pom.xml
-          retention-days: 7
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    # Sadece main branch'e push olduğunda deploy et
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: finance-service-artifacts
-
-      - name: Deploy to EC2
-        env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USER }}
-          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+      - name: Build Finance Service Docker Image
         run: |
-          echo "$EC2_SSH_KEY" > key.pem
-          chmod 600 key.pem
-          
-          # Finance service klasörlerini oluştur
-          ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST "mkdir -p ~/finance-portal/finance-service/target ~/finance-portal/api-gateway ~/finance-portal/news-service"
-          
-          # Parent POM kopyala
-          scp -i key.pem -o StrictHostKeyChecking=no \
-            pom.xml \
-            $EC2_USER@$EC2_HOST:~/finance-portal/
-          
-          # Finance service dosyalarını kopyala
-          scp -i key.pem -o StrictHostKeyChecking=no \
-            finance-service/target/*.jar \
-            $EC2_USER@$EC2_HOST:~/finance-portal/finance-service/target/
-          
-          scp -i key.pem -o StrictHostKeyChecking=no \
-            finance-service/Dockerfile \
-            $EC2_USER@$EC2_HOST:~/finance-portal/
-          
-          scp -i key.pem -o StrictHostKeyChecking=no \
-            finance-service/pom.xml \
-            $EC2_USER@$EC2_HOST:~/finance-portal/finance-service/
-          
-          # Diğer modül POM'larını kopyala (build için gerekli)
-          scp -i key.pem -o StrictHostKeyChecking=no \
-            api-gateway/pom.xml \
-            $EC2_USER@$EC2_HOST:~/finance-portal/api-gateway/
-          
-          scp -i key.pem -o StrictHostKeyChecking=no \
-            news-service/pom.xml \
-            $EC2_USER@$EC2_HOST:~/finance-portal/news-service/
-          
-          # Deploy
-          ssh -i key.pem -o StrictHostKeyChecking=no $EC2_USER@$EC2_HOST << 'ENDSSH'
-            cd ~/finance-portal
-            docker-compose down || true
-            docker-compose build finance-service
-            docker-compose up -d
-            sleep 10
-            echo "=== Deployment Status ==="
-            docker-compose ps
-            echo "=== Recent Logs ==="
-            docker-compose logs --tail=30 finance-service
-          ENDSSH
-          
-          rm -f key.pem
+          docker build -t finance-service:latest ./finance-service

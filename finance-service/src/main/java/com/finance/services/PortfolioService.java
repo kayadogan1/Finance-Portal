@@ -1,11 +1,9 @@
 package com.finance.services;
 import com.finance.models.*;
-import com.finance.repositories.InstrumentRepository;
-import com.finance.repositories.PortfolioRepository;
-import com.finance.repositories.PortfolioSnapshotRepository;
-import com.finance.repositories.TransactionRepository;
+import com.finance.repositories.*;
 import com.finance.shared.PerformanceLineChartDto;
 import com.finance.shared.PieChartDto;
+import com.finance.shared.PortfolioDto;
 import com.finance.shared.TransactionType;
 import jakarta.transaction.Transactional;
 import org.apache.logging.log4j.LogManager;
@@ -28,9 +26,11 @@ public class PortfolioService {
     private final PortfolioRepository portfolioRepository;
     private final TransactionRepository transactionRepository;
     private final InstrumentRepository instrumentRepository;
+    private final UserRepository userRepository;
     private final PortfolioSnapshotRepository portfolioSnapshotRepository;
-    public PortfolioService(InstrumentRepository instrumentRepository,PortfolioRepository portfolioRepository, TransactionRepository transactionRepository, PortfolioSnapshotRepository portfolioSnapshotRepository) {
+    public PortfolioService(InstrumentRepository instrumentRepository,PortfolioRepository portfolioRepository, TransactionRepository transactionRepository, PortfolioSnapshotRepository portfolioSnapshotRepository, UserRepository userRepository) {
         this.portfolioSnapshotRepository = portfolioSnapshotRepository;
+        this.userRepository = userRepository;
         this.instrumentRepository= instrumentRepository;
         this.portfolioRepository = portfolioRepository;
         this.transactionRepository = transactionRepository;
@@ -41,6 +41,26 @@ public class PortfolioService {
         Optional<Portfolio> portfolio = portfolioRepository.findByIdAndUserId(portfolioId,userId);
         return portfolio.orElseThrow(() -> new RuntimeException("Portfolio not found for user and portfolio id: " + userId + portfolioId) );
     }
+
+    public boolean createPortfolio(String userId,PortfolioDto portfolio){
+        logger.info("creating Portfolio {}", portfolio.portfolioName());
+
+        User user = userRepository.findById(userId).orElseThrow(() ->{
+            logger.error("user not found");
+            return  new RuntimeException("User not found");
+        });
+        Portfolio portfolioEntity = Portfolio.builder()
+                .user(user)
+                .purpose(portfolio.purpose())
+                .name(portfolio.portfolioName())
+                .riskTolerance(portfolio.riskTolerance())
+                .cashBalance(BigDecimal.ZERO)
+                .build();
+        portfolioRepository.save(portfolioEntity);
+        logger.info("{} with name portfolio created", portfolio.portfolioName());
+        return true;
+
+    }
     public List<PieChartDto> getPieChartValues(String userId, UUID portfolioId){
         logger.info("getPieChartValues  for user and portfolio {} : {}", userId, portfolioId);
         Portfolio portfolio = getPortfolio(userId,portfolioId);
@@ -49,7 +69,6 @@ public class PortfolioService {
 
     public List<PerformanceLineChartDto> getPerformanceLineChartValues(String userId, UUID portfolioId, int backDays) {
         logger.info("getPerformanceLineChartValues for user, portfolio and back days: {} : {} : {}", userId, portfolioId,backDays);
-        Portfolio portfolio = getPortfolio(userId,portfolioId);
         LocalDate endDate = LocalDate.now();
         LocalDate startTime = endDate.minusDays(backDays);
         List<DailyPortfolioSnapshot> dbSnapshots = portfolioSnapshotRepository.findByPortfolioIdAndDateAfterOrderByDateAsc(portfolioId,startTime);

@@ -7,8 +7,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 public class DepositRequest {
-    @NotBlank
-    public String userId;
+
     @NotBlank
     public UUID portfolioId;
     @Positive

@@ -4,8 +4,7 @@ package com.finance.models;
 import com.finance.shared.RiskTolerance;
 import com.finance.shared.SubscriptionType;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
@@ -14,8 +13,11 @@ import java.util.List;
 
 @Getter
 @Setter
+@Builder
 @Entity
 @Table(name = "users")
+@NoArgsConstructor
+@AllArgsConstructor
 public class User {
     @Id
     private String id;
@@ -27,8 +29,6 @@ public class User {
     private List<Portfolio> portfolios;
 
 
-
-
     @Enumerated(EnumType.STRING)
     private RiskTolerance riskTolerance = RiskTolerance.UNDEFINED;
 
@@ -38,9 +38,6 @@ public class User {
     private SubscriptionType subscriptionType = SubscriptionType.FREE;
 
     private boolean isFrozen = false;
-
-
-
 
 
     @CreationTimestamp

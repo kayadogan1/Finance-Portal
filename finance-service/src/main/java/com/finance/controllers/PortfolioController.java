@@ -1,50 +1,71 @@
 package com.finance.controllers;
 
 import com.finance.models.Portfolio;
+import com.finance.models.User;
 import com.finance.services.PortfolioService;
+import com.finance.services.UserService;
 import com.finance.shared.BuyOrSellRequestDto;
 import com.finance.shared.DepositRequest;
 import com.finance.shared.PerformanceLineChartDto;
+import com.finance.shared.PortfolioDto;
 import jakarta.validation.Valid;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
 
 
-@RestController()
+@RestController
 @RequestMapping("/api/portfolio")
 public class PortfolioController {
     private final Logger logger = LogManager.getLogger(PortfolioController.class);
     private final PortfolioService portfolioService;
-    public PortfolioController(PortfolioService portfolioService){
+    private final UserService userService;
+    public PortfolioController(PortfolioService portfolioService, UserService userService) {
         this.portfolioService= portfolioService;
+        this.userService = userService;
     }
     @GetMapping
-    public ResponseEntity<List<Portfolio>> getAllPortfolios(@RequestParam("userId") String userId){
-        logger.info("Fetching portfolio for user: {}", userId);
+    public ResponseEntity<List<Portfolio>> getAllPortfolios(@AuthenticationPrincipal Jwt jwt){
+        User user = userService.getOrCreateUser(jwt);
+        logger.info("Fetching all portfolios for user: {}", user.getId());
         return ResponseEntity.ok(portfolioService.getAllPortfolios()) ;
     }
+
+
     @GetMapping("/{portfolioId}")
     public ResponseEntity<Portfolio> getPortfolio(
-            String userId,
+            @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID portfolioId) {
-
+        User user = userService.getOrCreateUser(jwt);
+        logger.info("Fetching portfolio for user: {}", user.getId());
         return ResponseEntity.ok(
-                portfolioService.getPortfolio(userId,portfolioId )
+                portfolioService.getPortfolio(user.getId(),portfolioId )
         );
+    }
+    @PostMapping("/create")
+    public ResponseEntity<Void> createPortfolio(@RequestBody @Valid PortfolioDto portfolio,@AuthenticationPrincipal Jwt jwt) {
+        User user = userService.getOrCreateUser(jwt);
+        boolean result = portfolioService.createPortfolio(user.getId(),portfolio);
+        if(result){
+            return ResponseEntity.ok().build();
+        }
+        return ResponseEntity.badRequest().build();
     }
 
     @GetMapping("/{portfolioId}/history")
     public ResponseEntity<List<PerformanceLineChartDto>> getPortfolioHistory(
-            String userId,
+            @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID portfolioId,
             @RequestParam(defaultValue = "30") int days
     ) {
-        List<PerformanceLineChartDto> history = portfolioService.getPerformanceLineChartValues(userId, portfolioId, days);
+        User user = userService.getOrCreateUser(jwt);
+        List<PerformanceLineChartDto> history = portfolioService.getPerformanceLineChartValues(user.getId(), portfolioId, days);
 
         if (history.isEmpty()) {
             return ResponseEntity.noContent().build();
@@ -53,25 +74,27 @@ public class PortfolioController {
         return ResponseEntity.ok(history);
     }
     @PostMapping("/deposit")
-    public ResponseEntity<Void> depositFunds(@RequestBody @Valid DepositRequest request) {
-
-        portfolioService.depositCash(request.userId, request.amount,request.portfolioId);
-        logger.info("Deposited {} for user {}", request.amount, request.userId);
+    public ResponseEntity<Void> depositFunds(@RequestBody @Valid DepositRequest request, @AuthenticationPrincipal Jwt jwt) {
+        User user = userService.getOrCreateUser(jwt);
+        portfolioService.depositCash(user.getId(),request.amount,request.portfolioId);
+        logger.info("Deposited {} for user {}", request.amount, user.getId());
         return ResponseEntity.ok().build();
     }
     @PostMapping("/sell")
-    public ResponseEntity<Void> sellInstrument(@RequestBody @Valid BuyOrSellRequestDto sellRequest) {
-
-        portfolioService.sellInstrument(sellRequest.userId, sellRequest.instrumentSymbol, sellRequest.quantity,sellRequest.portfolioId);
-        logger.info("User {} sold {} of {}", sellRequest.userId, sellRequest.quantity, sellRequest.instrumentSymbol);
+    public ResponseEntity<Void> sellInstrument(@RequestBody @Valid BuyOrSellRequestDto sellRequest, @AuthenticationPrincipal Jwt jwt) {
+        User user = userService.getOrCreateUser(jwt);
+        portfolioService.sellInstrument(user.getId(), sellRequest.instrumentSymbol, sellRequest.quantity,sellRequest.portfolioId);
+        logger.info("User {} sold {} of {}", user.getId(), sellRequest.quantity, sellRequest.instrumentSymbol);
         return ResponseEntity.ok().build();
 
     }
 
     @PostMapping("/buy")
-    public ResponseEntity<Void> buyInstrument(@RequestBody @Valid BuyOrSellRequestDto buyRequest) {
-        portfolioService.buyInstrument(buyRequest.userId, buyRequest.instrumentSymbol, buyRequest.quantity,buyRequest.portfolioId);
-        logger.info("User {} bought {} of {}", buyRequest.userId, buyRequest.quantity, buyRequest.instrumentSymbol);
+    public ResponseEntity<Void> buyInstrument(@RequestBody @Valid BuyOrSellRequestDto buyRequest, @AuthenticationPrincipal Jwt jwt) {
+        User user = userService.getOrCreateUser(jwt);
+
+        portfolioService.buyInstrument(user.getId(), buyRequest.instrumentSymbol, buyRequest.quantity,buyRequest.portfolioId);
+        logger.info("User {} bought {} of {}", user.getId(), buyRequest.quantity, buyRequest.instrumentSymbol);
         return ResponseEntity.ok().build();
     }
 }

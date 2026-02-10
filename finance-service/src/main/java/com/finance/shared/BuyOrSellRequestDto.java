@@ -8,8 +8,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 public class BuyOrSellRequestDto {
-    @NotBlank(message = "user id required")
-    public String userId;
+
     @NotNull
     public UUID portfolioId;
     @NotBlank
