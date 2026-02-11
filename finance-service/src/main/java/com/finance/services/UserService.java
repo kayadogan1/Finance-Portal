@@ -18,7 +18,7 @@ public class UserService {
         this.userRepository = userRepository;
     }
     public User getOrCreateUser(Jwt jwt){
-        String userId = jwt.getClaim("sub");
+        String userId = jwt.getSubject();
         logger.info("user id: {}",userId);
         return userRepository.findById(userId)
                 .map(existingUser-> updateUser(existingUser,jwt))

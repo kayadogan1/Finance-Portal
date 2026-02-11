@@ -1,6 +1,5 @@
 package com.finance.controllers;
 
-import com.finance.models.Portfolio;
 import com.finance.models.User;
 import com.finance.services.PortfolioService;
 import com.finance.services.UserService;
@@ -12,6 +11,7 @@ import jakarta.validation.Valid;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -31,7 +31,8 @@ public class PortfolioController {
         this.userService = userService;
     }
     @GetMapping
-    public ResponseEntity<List<Portfolio>> getAllPortfolios(@AuthenticationPrincipal Jwt jwt){
+    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    public ResponseEntity<List<PortfolioDto>> getAllPortfolios(@AuthenticationPrincipal Jwt jwt){
         User user = userService.getOrCreateUser(jwt);
         logger.info("Fetching all portfolios for user: {}", user.getId());
         return ResponseEntity.ok(portfolioService.getAllPortfolios()) ;
@@ -39,7 +40,8 @@ public class PortfolioController {
 
 
     @GetMapping("/{portfolioId}")
-    public ResponseEntity<Portfolio> getPortfolio(
+    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    public ResponseEntity<PortfolioDto> getPortfolio(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID portfolioId) {
         User user = userService.getOrCreateUser(jwt);
@@ -49,6 +51,7 @@ public class PortfolioController {
         );
     }
     @PostMapping("/create")
+    @PreAuthorize("hasAnyRole('USER','ADMIN')")
     public ResponseEntity<Void> createPortfolio(@RequestBody @Valid PortfolioDto portfolio,@AuthenticationPrincipal Jwt jwt) {
         User user = userService.getOrCreateUser(jwt);
         boolean result = portfolioService.createPortfolio(user.getId(),portfolio);
@@ -74,6 +77,7 @@ public class PortfolioController {
         return ResponseEntity.ok(history);
     }
     @PostMapping("/deposit")
+    @PreAuthorize("hasAnyRole('USER','ADMIN')")
     public ResponseEntity<Void> depositFunds(@RequestBody @Valid DepositRequest request, @AuthenticationPrincipal Jwt jwt) {
         User user = userService.getOrCreateUser(jwt);
         portfolioService.depositCash(user.getId(),request.amount,request.portfolioId);
@@ -81,6 +85,7 @@ public class PortfolioController {
         return ResponseEntity.ok().build();
     }
     @PostMapping("/sell")
+    @PreAuthorize("hasAnyRole('USER','ADMIN')")
     public ResponseEntity<Void> sellInstrument(@RequestBody @Valid BuyOrSellRequestDto sellRequest, @AuthenticationPrincipal Jwt jwt) {
         User user = userService.getOrCreateUser(jwt);
         portfolioService.sellInstrument(user.getId(), sellRequest.instrumentSymbol, sellRequest.quantity,sellRequest.portfolioId);
@@ -90,6 +95,7 @@ public class PortfolioController {
     }
 
     @PostMapping("/buy")
+    @PreAuthorize("hasAnyRole('USER','ADMIN')")
     public ResponseEntity<Void> buyInstrument(@RequestBody @Valid BuyOrSellRequestDto buyRequest, @AuthenticationPrincipal Jwt jwt) {
         User user = userService.getOrCreateUser(jwt);
 

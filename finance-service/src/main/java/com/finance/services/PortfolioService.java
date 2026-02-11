@@ -1,10 +1,8 @@
 package com.finance.services;
 import com.finance.models.*;
 import com.finance.repositories.*;
-import com.finance.shared.PerformanceLineChartDto;
-import com.finance.shared.PieChartDto;
-import com.finance.shared.PortfolioDto;
-import com.finance.shared.TransactionType;
+import com.finance.shared.*;
+import com.finance.shared.PortfolioItemDto;
 import jakarta.transaction.Transactional;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -36,10 +34,50 @@ public class PortfolioService {
         this.transactionRepository = transactionRepository;
     }
 
-    public Portfolio getPortfolio(String userId,UUID portfolioId){
+    public PortfolioDto getPortfolio(String userId,UUID portfolioId){
         logger.info("fetching Portfolio for {}", userId);
-        Optional<Portfolio> portfolio = portfolioRepository.findByIdAndUserId(portfolioId,userId);
-        return portfolio.orElseThrow(() -> new RuntimeException("Portfolio not found for user and portfolio id: " + userId + portfolioId) );
+
+
+        return portfolioRepository.findByIdAndUserId(portfolioId,userId)
+                .map(this::toPortfolioDto)
+                .orElseThrow(() -> new RuntimeException(
+                        "Portfolio not found. userId=" + userId + ", portfolioId=" + portfolioId
+                ));
+    }
+    private PortfolioDto toPortfolioDto(Portfolio portfolio) {
+
+        List<PortfolioItemDto> itemDtos = portfolio.getItems()
+                .stream()
+                .map(this::toPortfolioItemDto)
+                .toList();
+
+        return PortfolioDto.builder()
+                .portfolioName(portfolio.getName())
+                .riskTolerance(portfolio.getRiskTolerance())
+                .purpose(portfolio.getPurpose())
+                .portfolioItems(itemDtos)
+                .build();
+    }
+    private Portfolio getPortfolioEntity(String userId, UUID portfolioId) {
+        return portfolioRepository.findByIdAndUserId(portfolioId, userId)
+                .orElseThrow(() ->
+                        new RuntimeException("Portfolio not found for user: " + userId));
+    }
+
+    private PortfolioItemDto toPortfolioItemDto(PortfolioItem item) {
+
+        InstrumentDto instrumentDto = new InstrumentDto(
+                item.getInstrument().getSymbol(),
+                item.getInstrument().getName(),
+                item.getInstrument().getType(),
+                item.getInstrument().getCurrentPrice()
+        );
+
+        return new PortfolioItemDto(
+                instrumentDto,
+                item.getQuantity(),
+                item.getAverageCost()
+        );
     }
 
     public boolean createPortfolio(String userId,PortfolioDto portfolio){
@@ -63,7 +101,7 @@ public class PortfolioService {
     }
     public List<PieChartDto> getPieChartValues(String userId, UUID portfolioId){
         logger.info("getPieChartValues  for user and portfolio {} : {}", userId, portfolioId);
-        Portfolio portfolio = getPortfolio(userId,portfolioId);
+        Portfolio portfolio = getPortfolioEntity(userId,portfolioId);
         return portfolio.getItems().stream().map(item -> new PieChartDto(item.getInstrument().getName(), item.getInstrument().getCurrentPrice())).collect(Collectors.toList());
     }
 
@@ -71,12 +109,13 @@ public class PortfolioService {
         logger.info("getPerformanceLineChartValues for user, portfolio and back days: {} : {} : {}", userId, portfolioId,backDays);
         LocalDate endDate = LocalDate.now();
         LocalDate startTime = endDate.minusDays(backDays);
-        List<DailyPortfolioSnapshot> dbSnapshots = portfolioSnapshotRepository.findByPortfolioIdAndDateAfterOrderByDateAsc(portfolioId,startTime);
-        BigDecimal lastKnownValue = dbSnapshots.getFirst().getTotalValue();
         List<PerformanceLineChartDto> performanceLineChartDtos = new ArrayList<>();
+        List<DailyPortfolioSnapshot> dbSnapshots = portfolioSnapshotRepository.findByPortfolioIdAndDateAfterOrderByDateAsc(portfolioId,startTime);
         if(dbSnapshots.isEmpty()){
             return performanceLineChartDtos;
         }
+        BigDecimal lastKnownValue = dbSnapshots.getFirst().getTotalValue();
+
         for(LocalDate date = startTime; !date.isAfter(endDate); date = date.plusDays(1)) {
             LocalDate currentDate = date;
             Optional<DailyPortfolioSnapshot> foundSnapshot = dbSnapshots.stream()
@@ -91,10 +130,38 @@ public class PortfolioService {
         return performanceLineChartDtos;
 
     }
-    public List<Portfolio> getAllPortfolios(){
-        logger.info("fetching all Portfolios");
-        return portfolioRepository.findAll();
+    public List<PortfolioDto> getAllPortfolios() {
+
+        logger.info("fetching all portfolios");
+
+        return portfolioRepository.findAll()
+                .stream()
+                .map(portfolio -> {
+
+                    List<PortfolioItemDto> itemDtoList = portfolio.getItems()
+                            .stream()
+                            .map(item -> new PortfolioItemDto(
+                                    new InstrumentDto(
+                                            item.getInstrument().getSymbol(),
+                                            item.getInstrument().getName(),
+                                            item.getInstrument().getType(),
+                                            item.getInstrument().getCurrentPrice()
+                                    ),
+                                    item.getQuantity(),
+                                    item.getAverageCost()
+                            ))
+                            .toList();
+
+                    return PortfolioDto.builder()
+                            .portfolioName(portfolio.getName())
+                            .riskTolerance(portfolio.getRiskTolerance())
+                            .purpose(portfolio.getPurpose())
+                            .portfolioItems(itemDtoList)
+                            .build();
+                })
+                .toList();
     }
+
     @Transactional
     public void sellInstrument(String userId, String instrumentSymbol, BigDecimal quantity,UUID portfolioId){
         Instrument instrument= instrumentRepository.findInstrumentBySymbol(instrumentSymbol)
@@ -214,11 +281,7 @@ public class PortfolioService {
 
     @Transactional
     public void depositCash(String userId, BigDecimal amount, UUID portfolioId){
-        Portfolio portfolio = getPortfolio(userId,portfolioId);
-        if (portfolio == null) {
-            logger.error("Portfolio not found for user {} and portfolio id: {}", userId, portfolioId);
-            throw new RuntimeException("Portfolio not found for user " + userId + " and portfolio id: " + portfolioId);
-        }
+        Portfolio portfolio = getPortfolioEntity(userId,portfolioId);
 
         portfolio.setCashBalance(portfolio.getCashBalance().add(amount));
         Transaction transaction = Transaction.builder()

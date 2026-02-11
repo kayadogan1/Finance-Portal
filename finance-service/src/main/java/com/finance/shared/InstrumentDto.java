@@ -1,7 +1,11 @@
 package com.finance.shared;
 
-import java.math.BigDecimal;
+import lombok.AllArgsConstructor;
+import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+@NoArgsConstructor
+@AllArgsConstructor
 public class InstrumentDto {
 
     private String symbol;
