@@ -1,5 +1,6 @@
 package com.newsservice.config;
 
+import com.newsservice.service.UserService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,6 +20,10 @@ import java.util.stream.Collectors;
 @Component
 public class KeycloakRoleConverter implements Converter<Jwt, AbstractAuthenticationToken> {
     private final static Logger logger = LogManager.getLogger(KeycloakRoleConverter.class);
+    private final UserService userService;
+    public KeycloakRoleConverter(UserService userService) {
+        this.userService = userService;
+    }
     @Value("${keycloak.clientId}")
     private String CLIENT_ID;
 
@@ -26,6 +31,8 @@ public class KeycloakRoleConverter implements Converter<Jwt, AbstractAuthenticat
     public AbstractAuthenticationToken convert(Jwt jwt) {
 
         Map<String, Object> resourceAccess = jwt.getClaim("resource_access");
+        logger.info("user id passing to method for invoke :{}",jwt.getSubject());
+        userService.getOrCreateUser(jwt);
         if (resourceAccess == null) {
             return new JwtAuthenticationToken(jwt, Collections.emptyList());
         }
@@ -49,6 +56,7 @@ public class KeycloakRoleConverter implements Converter<Jwt, AbstractAuthenticat
                         .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
                         .collect(Collectors.toList());
         logger.info("authorities: {}", authorities.toString());
+
         return new JwtAuthenticationToken(jwt, authorities);
     }
 }

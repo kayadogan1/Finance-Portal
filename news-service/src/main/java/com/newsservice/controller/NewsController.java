@@ -7,10 +7,8 @@ import com.newsservice.service.NewsService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -50,8 +48,10 @@ public class NewsController {
 
         return ResponseEntity.ok(articles);
     }
-    @GetMapping("/refresh")
+    @PostMapping("/refresh")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> refreshNews() {
+
         logger.info("Received request to refresh news articles");
         newsService.refresh();
         return ResponseEntity.ok().build();
