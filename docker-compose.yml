@@ -6,12 +6,12 @@ services:
       context: .
       dockerfile: ./finance-service/Dockerfile
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/${DB_NAME:-finance_db}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/finance_db
       - SPRING_DATASOURCE_USERNAME=${DB_USER:-postgres}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-253421}
       - SPRING_DATA_REDIS_HOST=redis
       - SPRING_DATA_REDIS_PORT=6379
-      - SPRING_FLYWAY_URL=jdbc:postgresql://postgres:5432/${DB_NAME:-finance_db}
+      - SPRING_FLYWAY_URL=jdbc:postgresql://postgres:5432/finance_db
       - SPRING_FLYWAY_USER=${DB_USER:-postgres}
       - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD:-253421}
     ports:
@@ -22,12 +22,33 @@ services:
     networks:
       - finance-network
 
+  news-service:
+    container_name: news-service
+    restart: always
+    build:
+      context: .
+      dockerfile: ./news-service/Dockerfile
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/news_db
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-253421}
+      - SPRING_FLYWAY_URL=jdbc:postgresql://postgres:5432/news_db
+      - SPRING_FLYWAY_USER=${DB_USER:-postgres}
+      - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD:-253421}
+      - SPRING_FLYWAY_ENABLED=true
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres
+    networks:
+      - finance-network
+
   postgres:
     image: postgres:16-alpine
     container_name: finance_db
     restart: always
     environment:
-      POSTGRES_DB: ${DB_NAME:-finance_db}
+      POSTGRES_DB: finance_db
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-253421}
     volumes:

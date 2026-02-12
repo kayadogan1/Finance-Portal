@@ -26,3 +26,5 @@ jobs:
 
       - name: Build Finance Service Docker Image
         run: docker build -t finance-service:latest -f finance-service/Dockerfile .
+      - name: Build News Service Docker image
+        run: docker build -t news-service:latest -f news-service/Dockerfile .
