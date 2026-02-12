@@ -1,6 +1,8 @@
 package com.newsservice.service;
 
 import com.newsservice.dto.*;
+import com.newsservice.model.NewsArticle;
+import com.newsservice.repository.NewsArticleRepository;
 import jakarta.annotation.PostConstruct;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -10,6 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.time.ZonedDateTime;
 import java.util.*;
 
 @Service
@@ -17,51 +20,70 @@ public class NewsService {
 
     private final Logger logger = LogManager.getLogger(NewsService.class);
     private final RestClient restClient;
+    private final NewsArticleRepository newsArticleRepository;
     @Value("${news.api.key}")
     private String API_KEY;
     @Value("${news.api.url}")
     private String API_URL;
 
-    private final List<FilteredArticleDto> allArticles;
-    public NewsService(RestClient restClient) {
+    public NewsService(RestClient restClient, NewsArticleRepository newsArticleRepository) {
         this.restClient = restClient;
-        this.allArticles = new ArrayList<>();
+        this.newsArticleRepository = newsArticleRepository;
     }
 
     @PostConstruct
     private void getAllArticles(){
-        List<FilteredArticleDto> articles = new ArrayList<>();
         for(NewsTopic topic : NewsTopic.values()){
             for(NewsCountry country: NewsCountry.values()){
-                articles.addAll(fetchArticlesFromAPI(topic,country));
+                List<FilteredArticleDto> articles = fetchArticlesFromAPI(topic, country);
+                for(FilteredArticleDto article : articles){
+                    if(!newsArticleRepository.existsByUrl(article.url())){
+                        saveToDatabase(toEntity(article));
+                    }
+                }
             }
         }
-        logger.info("Total articles fetched: {}", articles.size());
-        allArticles.addAll(articles);
+        logger.info("all articles fetched.");
     }
 
     public List<FilteredArticleDto>  getAllArticlesList(){
-        return allArticles;
+        return newsArticleRepository.findAll()
+                .stream()
+                .map(this::toDto)
+                .toList();
     }
-    public List<FilteredArticleDto> getArticlesByTopicAndCountry(NewsTopic topic , NewsCountry country){
+    public List<FilteredArticleDto> getArticlesByTopicAndCountry(NewsTopic topic, NewsCountry country) {
+        return newsArticleRepository.findByTopicAndCountry(topic, country).stream()
+                .map(this::toDto)
+                .toList();
+    }
 
-        return allArticles.stream()
-                .filter(article -> article.category().equalsIgnoreCase(topic.name()))
-                .filter(article -> article.country().equalsIgnoreCase(country.name()))
+    public List<FilteredArticleDto> getArticlesByTopic(NewsTopic topic) {
+        return newsArticleRepository.findByTopic(topic).stream()
+                .map(this::toDto)
                 .toList();
     }
-    public List<FilteredArticleDto> getArticlesByTopic(NewsTopic topic){
-        return allArticles.stream()
-                .filter(article -> article.category().equalsIgnoreCase(topic.name()))
+
+    public List<FilteredArticleDto> getArticlesByCountry(NewsCountry country) {
+        return newsArticleRepository.findByCountry(country).stream()
+                .map(this::toDto)
                 .toList();
     }
-    public List<FilteredArticleDto> getArticlesByCountry(NewsCountry country){
-        return allArticles.stream()
-                .filter(article -> article.country().equalsIgnoreCase(country.name()))
-                .toList();
+    private FilteredArticleDto toDto(NewsArticle entity) {
+        return new FilteredArticleDto(
+                new Source(null, entity.getSourceName()),
+                entity.getAuthorName(),
+                entity.getTitle(),
+                entity.getCountry().name(),
+                entity.getTopic().name(),
+                "",
+                entity.getContent(),
+                entity.getUrl(),
+                "",
+                entity.getPublishedDate().toString()
+        );
     }
     public void refresh() {
-        allArticles.clear();
         getAllArticles();
     }
     private List<FilteredArticleDto> fetchArticlesFromAPI(NewsTopic topic, NewsCountry country) {
@@ -113,5 +135,19 @@ public class NewsService {
             return new ArrayList<>();
         }
     }
-
+    private NewsArticle toEntity(FilteredArticleDto dto) {
+        return  NewsArticle.builder()
+                .sourceName(dto.source().name())
+                .title(dto.title())
+                .authorName(dto.author())
+                .country(NewsCountry.valueOf(dto.country()))
+                .topic(NewsTopic.valueOf(dto.category()))
+                .content(dto.content())
+                .url(dto.url())
+                .publishedDate(ZonedDateTime.parse(dto.publishedAt()).toLocalDateTime())
+                .build();
+    }
+    private void saveToDatabase(NewsArticle newsArticle) {
+        newsArticleRepository.save(newsArticle);
+    }
 }

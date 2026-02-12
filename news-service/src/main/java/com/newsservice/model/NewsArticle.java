@@ -26,6 +26,7 @@ public class NewsArticle {
     @Column(name = "source_name",nullable = false)
     private  String sourceName;
     private  String title;
+    @Column(unique = true)
     private  String url;
     @Column(nullable = false)
     @Enumerated(EnumType.STRING)
@@ -35,6 +36,10 @@ public class NewsArticle {
     private  NewsCountry country;
     @Column(columnDefinition = "TEXT")
     private  String content;
+    @Column(columnDefinition = "TEXT")
+    private String description;
+    @Column(name = "url_to_image")
+    private String urlToImage;
     @Column(name = "published_date")
     private LocalDateTime publishedDate;
 
