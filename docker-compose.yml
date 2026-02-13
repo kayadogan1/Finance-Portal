@@ -1,4 +1,26 @@
 services:
+  api-gateway:
+    container_name: api-gateway
+    restart: always
+    build:
+      context: .
+      dockerfile: ./api-gateway/Dockerfile
+    environment:
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://keycloak:8080/realms/FinancePortal
+      - SPRING_CLOUD_GATEWAY_ROUTES_0_ID=news-service
+      - SPRING_CLOUD_GATEWAY_ROUTES_0_URI=http://news-service:8082
+      - SPRING_CLOUD_GATEWAY_ROUTES_0_PREDICATES_0=Path=/api/news/**
+      - SPRING_CLOUD_GATEWAY_ROUTES_1_ID=finance-service
+      - SPRING_CLOUD_GATEWAY_ROUTES_1_URI=http://finance-service:8081
+      - SPRING_CLOUD_GATEWAY_ROUTES_1_PREDICATES_0=Path=/api/market/**,/api/trade/**,/api/portfolio/**
+    ports:
+      - "8080:8080"
+    depends_on:
+      - news-service
+      - finance-service
+      - keycloak
+    networks:
+      - finance-network
   finance-service:
     container_name: finance-service
     restart: always
