@@ -1,0 +1,30 @@
+FROM maven:3.9.9-eclipse-temurin-21 AS builder
+
+WORKDIR /build
+
+COPY pom.xml .
+
+COPY api-gateway/pom.xml ./api-gateway/
+
+RUN mvn -f api-gateway/pom.xml dependency:go-offline -B
+
+COPY api-gateway/src ./api-gateway/src
+
+RUN mvn -f api-gateway/pom.xml clean package -DskipTests -B
+
+
+FROM eclipse-temurin:21-jre-alpine
+
+RUN adduser -S appuser
+
+WORKDIR /app
+
+COPY --from=builder /build/api-gateway/target/*.jar app.jar
+
+RUN chown appuser app.jar
+
+USER appuser
+
+EXPOSE 8080
+
+CMD ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
