@@ -3,6 +3,7 @@ package com.finance.services;
 import com.finance.config.InstrumentPropertiesConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.finance.shared.Currency;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
@@ -49,11 +50,13 @@ public class FetchMarketDataService {
     private void updateStocks(Map<String, Map<String, String>> stockInstruments) {
         if (stockInstruments == null || stockInstruments.isEmpty()) return;
 
-        stockInstruments.forEach((exchange, symbolsMap) ->
-                symbolsMap.keySet().forEach(dbSymbol ->
-                        fetchAndSave(dbSymbol, "STOCK", exchange)
-                )
-        );
+        stockInstruments.forEach((exchange, symbolsMap) -> {
+            Currency currency = "BIST".equalsIgnoreCase(exchange) ? Currency.TRY : Currency.USD;
+
+            symbolsMap.keySet().forEach(dbSymbol ->
+                    fetchAndSave(dbSymbol, "STOCK", currency)
+            );
+        });
     }
 
     private void updateCategory(Map<String, String> instruments, String categoryName) {
@@ -64,9 +67,9 @@ public class FetchMarketDataService {
         );
     }
 
-    private void fetchAndSave(String dbSymbol, String category, String exchangeContext) {
+    private void fetchAndSave(String dbSymbol, String category, Currency  baseCurrency) {
         try {
-            String yahooSymbol = convertToYahooFormat(dbSymbol, category, exchangeContext);
+            String yahooSymbol = convertToYahooFormat(dbSymbol, category, baseCurrency);
             String finalUrl = YAHOO_API_URL.replace("{symbol}", yahooSymbol);
 
             logger.debug("Fetching {} -> {} URL: {}", dbSymbol, yahooSymbol, finalUrl);
@@ -90,12 +93,12 @@ public class FetchMarketDataService {
         }
     }
 
-    private String convertToYahooFormat(String dbSymbol, String category, String exchangeContext) {
+    public String convertToYahooFormat(String dbSymbol, String category, Currency currency) {
         return switch (category) {
             case "FOREX" -> dbSymbol + "=X";
             case "CRYPTO" -> dbSymbol + "-USD";
             case "STOCK" -> {
-                if ("BIST".equalsIgnoreCase(exchangeContext)) {
+                if ( currency!=null && currency.equals(Currency.TRY)) {
                     yield dbSymbol + ".IS";
                 }
                 yield dbSymbol;
@@ -112,7 +115,7 @@ public class FetchMarketDataService {
         };
     }
 
-    private BigDecimal parseYahooPrice(String jsonResponse) {
+    public BigDecimal parseYahooPrice(String jsonResponse) {
         try {
             JsonNode root = objectMapper.readTree(jsonResponse);
             JsonNode meta = root.path("chart").path("result").get(0).path("meta");
@@ -126,7 +129,7 @@ public class FetchMarketDataService {
         return null;
     }
 
-    private String getCommodityCode(String symbol) {
+    public String getCommodityCode(String symbol) {
         return switch (symbol) {
             case "GOLD" -> "GC=F";
             case "SILVER" -> "SI=F";
@@ -146,7 +149,7 @@ public class FetchMarketDataService {
         };
     }
 
-    private String getIndexCode(String symbol) {
+    public String getIndexCode(String symbol) {
         return switch (symbol) {
             case "SPX" -> "^GSPC";
             case "DJI" -> "^DJI";
@@ -163,7 +166,7 @@ public class FetchMarketDataService {
         };
     }
 
-    private String getBondCode(String symbol) {
+    public String getBondCode(String symbol) {
         return switch (symbol) {
             case "US10Y" -> "^TNX";
             case "US30Y" -> "^TYX";

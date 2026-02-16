@@ -19,7 +19,7 @@ public class MarketData {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "instrument_id")
     private Instrument instrument;
 
