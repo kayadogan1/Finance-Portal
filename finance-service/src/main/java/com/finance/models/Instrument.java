@@ -37,7 +37,8 @@ public class Instrument {
     private LocalDateTime lastUpdateTime;
 
     private boolean isActive;
-
+    @JoinColumn(name = "historical_data_loaded")
+    private boolean historicalDataLoaded;
 
 
 }
