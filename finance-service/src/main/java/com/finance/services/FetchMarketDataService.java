@@ -12,6 +12,7 @@ import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.util.Map;
+import java.util.concurrent.Executors;
 
 @Service
 public class FetchMarketDataService {
@@ -36,36 +37,42 @@ public class FetchMarketDataService {
 
     public void updateAllMarketData() {
         logger.info("Starting GLOBAL market data update from YAHOO FINANCE...");
+        if (!instrumentProperties.getStock().isEmpty()) {
+            try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
 
-        updateStocks(instrumentProperties.getStock());
-        updateCategory(instrumentProperties.getForex(), "FOREX");
-        updateCategory(instrumentProperties.getIndex(), "INDEX");
-        updateCategory(instrumentProperties.getCommodity(), "COMMODITY");
-        updateCategory(instrumentProperties.getBond(), "BOND");
-        updateCategory(instrumentProperties.getFiat(), "FIAT");
+                if (instrumentProperties.getStock() != null) {
+                    instrumentProperties.getStock().forEach((exchange, symbolsMap) -> {
+                        Currency currency = "BIST".equalsIgnoreCase(exchange) ? Currency.TRY : Currency.USD;
+                        symbolsMap.keySet().forEach(dbSymbol ->
+                                executor.submit(() -> fetchAndSave(dbSymbol, "STOCK", currency))
+                        );
+                    });
+                }
+
+                Map.of(
+                        "FOREX",     instrumentProperties.getForex(),
+                        "INDEX",     instrumentProperties.getIndex(),
+                        "COMMODITY", instrumentProperties.getCommodity(),
+                        "BOND",      instrumentProperties.getBond(),
+                        "FIAT",      instrumentProperties.getFiat()
+                ).forEach((category, instruments) -> {
+                    if (instruments != null) {
+                        instruments.keySet().forEach(dbSymbol ->
+                                executor.submit(() -> fetchAndSave(dbSymbol, category, null))
+                        );
+                    }
+                });
+
+            }
+        }
 
         logger.info("GLOBAL market data update completed.");
     }
 
-    private void updateStocks(Map<String, Map<String, String>> stockInstruments) {
-        if (stockInstruments == null || stockInstruments.isEmpty()) return;
 
-        stockInstruments.forEach((exchange, symbolsMap) -> {
-            Currency currency = "BIST".equalsIgnoreCase(exchange) ? Currency.TRY : Currency.USD;
 
-            symbolsMap.keySet().forEach(dbSymbol ->
-                    fetchAndSave(dbSymbol, "STOCK", currency)
-            );
-        });
-    }
 
-    private void updateCategory(Map<String, String> instruments, String categoryName) {
-        if (instruments == null || instruments.isEmpty()) return;
 
-        instruments.keySet().forEach(dbSymbol ->
-                fetchAndSave(dbSymbol, categoryName, null)
-        );
-    }
 
     private void fetchAndSave(String dbSymbol, String category, Currency  baseCurrency) {
         try {
