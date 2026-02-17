@@ -6,6 +6,8 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.Executors;
+
 @Service
 public class SchedulerService {
     private final FetchMarketDataService yahooService;
@@ -26,11 +28,15 @@ public class SchedulerService {
 
     @Scheduled(fixedRate = 500000)
     public void updateBinanceCryptoData() {
+
         if (config.getCrypto().isEmpty()) {
             logger.info("No cryptocurrencies configured for update.");
             return;
         }
         logger.info("Updating cryptocurrency data from Binance...");
-        config.getCrypto().keySet().forEach(cryptoService::fetchAndStoreCryptoData);
+        try(var executor = Executors.newVirtualThreadPerTaskExecutor()){
+           config.getCrypto().keySet().forEach(key -> executor.submit(() -> cryptoService.fetchAndStoreCryptoData(key)));
+        }
+        logger.info("Binance crypto data completed.");
     }
 }
