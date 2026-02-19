@@ -12,8 +12,11 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 @Service
 public class NewsService {
@@ -33,16 +36,29 @@ public class NewsService {
 
     @PostConstruct
     private void getAllArticles(){
-        for(NewsTopic topic : NewsTopic.values()){
-            for(NewsCountry country: NewsCountry.values()){
-                List<FilteredArticleDto> articles = fetchArticlesFromAPI(topic, country);
-                for(FilteredArticleDto article : articles){
-                    if(!newsArticleRepository.existsByUrl(article.url())){
-                        saveToDatabase(toEntity(article));
+        try(var executor = Executors.newVirtualThreadPerTaskExecutor()){
+            List<Future<List<FilteredArticleDto>>> futures = new ArrayList<>();
+            for (NewsTopic topic : NewsTopic.values()) {
+                for (NewsCountry country : NewsCountry.values()) {
+                    futures.add(
+                            executor.submit(() -> fetchArticlesFromAPI(topic, country))
+                    );
+                }
+            }
+            for (Future<List<FilteredArticleDto>> future : futures) {
+                try {
+                    List<FilteredArticleDto> articles = future.get();
+                    for (FilteredArticleDto article : articles) {
+                        if(!newsArticleRepository.existsByUrl(article.url())){
+                            saveToDatabase(toEntity(article));
+                        }
                     }
+                }catch (Exception e) {
+                    logger.error("Fetch task failed: {}", e.getMessage());
                 }
             }
         }
+
         logger.info("all articles fetched.");
     }
 
@@ -136,15 +152,17 @@ public class NewsService {
         }
     }
     private NewsArticle toEntity(FilteredArticleDto dto) {
-        return  NewsArticle.builder()
-                .sourceName(dto.source().name())
+        return NewsArticle.builder()
+                .sourceName(dto.source() != null ? dto.source().name() : "Unknown")
                 .title(dto.title())
                 .authorName(dto.author())
                 .country(NewsCountry.valueOf(dto.country()))
                 .topic(NewsTopic.valueOf(dto.category()))
                 .content(dto.content())
                 .url(dto.url())
-                .publishedDate(ZonedDateTime.parse(dto.publishedAt()).toLocalDateTime())
+                .publishedDate(dto.publishedAt() != null
+                        ? ZonedDateTime.parse(dto.publishedAt()).toLocalDateTime()
+                        : LocalDateTime.now())
                 .build();
     }
     private void saveToDatabase(NewsArticle newsArticle) {
