@@ -1,7 +1,6 @@
 services:
   api-gateway:
     container_name: api-gateway
-    restart: always
     build:
       context: .
       dockerfile: ./api-gateway/Dockerfile
@@ -13,6 +12,11 @@ services:
       - SPRING_CLOUD_GATEWAY_ROUTES_1_ID=finance-service
       - SPRING_CLOUD_GATEWAY_ROUTES_1_URI=http://finance-service:8081
       - SPRING_CLOUD_GATEWAY_ROUTES_1_PREDICATES_0=Path=/api/market/**,/api/trade/**,/api/portfolio/**
+    labels:
+      - "co.elastic.logs/enabled=true"
+      - "co.elastic.logs/json.keys_under_root=true"
+      - "co.elastic.logs/json.overwrite_keys=true"
+      - "co.elastic.logs/json.add_error_key=true"
     ports:
       - "8080:8080"
     depends_on:
@@ -21,9 +25,9 @@ services:
       - keycloak
     networks:
       - finance-network
+
   finance-service:
     container_name: finance-service
-    restart: always
     build:
       context: .
       dockerfile: ./finance-service/Dockerfile
@@ -36,6 +40,11 @@ services:
       - SPRING_FLYWAY_URL=jdbc:postgresql://postgres:5432/finance_db
       - SPRING_FLYWAY_USER=${DB_USER:-postgres}
       - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD:-253421}
+    labels:
+      - "co.elastic.logs/enabled=true"
+      - "co.elastic.logs/json.keys_under_root=true"
+      - "co.elastic.logs/json.overwrite_keys=true"
+      - "co.elastic.logs/json.add_error_key=true"
     ports:
       - "8081:8081"
     depends_on:
@@ -46,7 +55,6 @@ services:
 
   news-service:
     container_name: news-service
-    restart: always
     build:
       context: .
       dockerfile: ./news-service/Dockerfile
@@ -58,6 +66,11 @@ services:
       - SPRING_FLYWAY_USER=${DB_USER:-postgres}
       - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD:-253421}
       - SPRING_FLYWAY_ENABLED=true
+    labels:
+      - "co.elastic.logs/enabled=true"
+      - "co.elastic.logs/json.keys_under_root=true"
+      - "co.elastic.logs/json.overwrite_keys=true"
+      - "co.elastic.logs/json.add_error_key=true"
     ports:
       - "8082:8082"
     depends_on:
@@ -91,16 +104,42 @@ services:
     networks:
       - finance-network
 
-  redis-commander:
-    image: rediscommander/redis-commander:latest
-    container_name: redis-gui
-    restart: always
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
+    container_name: finance_elasticsearch
     environment:
-      - REDIS_HOSTS=local:redis:6379
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ports:
-      - "8085:8081"
+      - "9200:9200"
+    networks:
+      - finance-network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.1
+    container_name: finance_kibana
+    ports:
+      - "5601:5601"
     depends_on:
-      - redis
+      - elasticsearch
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    networks:
+      - finance-network
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.11.1
+    container_name: finance_filebeat
+    user: root
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
     networks:
       - finance-network
 
