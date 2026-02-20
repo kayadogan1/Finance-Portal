@@ -4,9 +4,13 @@ import com.finance.config.InstrumentPropertiesConfig;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finance.shared.Currency;
+import io.micrometer.observation.annotation.Observed;
+import io.micrometer.tracing.Tracer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -21,6 +25,10 @@ public class FetchMarketDataService {
     private final MarketDataPersistenceService persistenceService;
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
+    private final Tracer tracer;
+    @Autowired
+    @Lazy
+    private  FetchMarketDataService self;
     private static final Logger logger = LogManager.getLogger(FetchMarketDataService.class);
 
     @Value("${finance.YAHOO_API_URL}")
@@ -28,26 +36,26 @@ public class FetchMarketDataService {
 
     public FetchMarketDataService(InstrumentPropertiesConfig instrumentProperties,
                                   MarketDataPersistenceService persistenceService,
-                                  RestClient restClient) {
+                                  RestClient restClient,Tracer tracer) {
         this.instrumentProperties = instrumentProperties;
         this.persistenceService = persistenceService;
         this.restClient = restClient;
+        this.tracer = tracer;
         this.objectMapper = new ObjectMapper();
     }
-
+    @Observed()
     public void updateAllMarketData() {
         logger.info("Starting GLOBAL market data update from YAHOO FINANCE...");
         if (!instrumentProperties.getStock().isEmpty()) {
             try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
 
-                if (instrumentProperties.getStock() != null) {
-                    instrumentProperties.getStock().forEach((exchange, symbolsMap) -> {
+                instrumentProperties.getStock().forEach((exchange, symbolsMap) -> {
                         Currency currency = "BIST".equalsIgnoreCase(exchange) ? Currency.TRY : Currency.USD;
                         symbolsMap.keySet().forEach(dbSymbol ->
-                                executor.submit(() -> fetchAndSave(dbSymbol, "STOCK", currency))
+                                executor.submit(tracer.currentTraceContext().wrap(() ->self.fetchAndSave(dbSymbol, "STOCK", currency)))
                         );
-                    });
-                }
+                });
+
 
                 Map.of(
                         "FOREX",     instrumentProperties.getForex(),
@@ -58,7 +66,7 @@ public class FetchMarketDataService {
                 ).forEach((category, instruments) -> {
                     if (instruments != null) {
                         instruments.keySet().forEach(dbSymbol ->
-                                executor.submit(() -> fetchAndSave(dbSymbol, category, null))
+                                executor.submit(tracer.currentTraceContext().wrap(() -> self.fetchAndSave(dbSymbol, category, null)))
                         );
                     }
                 });
@@ -72,9 +80,8 @@ public class FetchMarketDataService {
 
 
 
-
-
-    private void fetchAndSave(String dbSymbol, String category, Currency  baseCurrency) {
+    @Observed
+    public void fetchAndSave(String dbSymbol, String category, Currency  baseCurrency) {
         try {
             String yahooSymbol = convertToYahooFormat(dbSymbol, category, baseCurrency);
             String finalUrl = YAHOO_API_URL.replace("{symbol}", yahooSymbol);

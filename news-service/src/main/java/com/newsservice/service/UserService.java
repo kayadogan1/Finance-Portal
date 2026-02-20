@@ -2,6 +2,7 @@ package com.newsservice.service;
 
 import com.newsservice.model.User;
 import com.newsservice.repository.UserRepository;
+import io.micrometer.observation.annotation.Observed;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -12,6 +13,7 @@ import java.util.Objects;
 
 @Service
 @Transactional
+@Observed
 public class UserService {
 
     private final UserRepository userRepository;

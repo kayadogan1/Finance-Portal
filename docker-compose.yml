@@ -143,6 +143,14 @@ services:
     networks:
       - finance-network
 
+  grafana-lgtm:
+    image: grafana/otel-lgtm:latest
+    ports:
+      - '3000:3000'
+      - '4317:4317'
+      - '4318:4318'
+    networks:
+      - finance-network
   keycloak:
     image: quay.io/keycloak/keycloak:23.0.0
     container_name: finance_keycloak

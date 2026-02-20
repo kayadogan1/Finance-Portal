@@ -3,10 +3,13 @@ package com.newsservice.service;
 import com.newsservice.dto.*;
 import com.newsservice.model.NewsArticle;
 import com.newsservice.repository.NewsArticleRepository;
-import jakarta.annotation.PostConstruct;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -24,86 +27,66 @@ public class NewsService {
     private final Logger logger = LogManager.getLogger(NewsService.class);
     private final RestClient restClient;
     private final NewsArticleRepository newsArticleRepository;
+    private final Tracer tracer;
+
     @Value("${news.api.key}")
     private String API_KEY;
     @Value("${news.api.url}")
     private String API_URL;
 
-    public NewsService(RestClient restClient, NewsArticleRepository newsArticleRepository) {
+    public NewsService(RestClient restClient, NewsArticleRepository newsArticleRepository, Tracer tracer) {
         this.restClient = restClient;
         this.newsArticleRepository = newsArticleRepository;
+        this.tracer = tracer;
     }
 
-    @PostConstruct
-    private void getAllArticles(){
-        try(var executor = Executors.newVirtualThreadPerTaskExecutor()){
-            List<Future<List<FilteredArticleDto>>> futures = new ArrayList<>();
-            for (NewsTopic topic : NewsTopic.values()) {
-                for (NewsCountry country : NewsCountry.values()) {
-                    futures.add(
-                            executor.submit(() -> fetchArticlesFromAPI(topic, country))
-                    );
-                }
-            }
-            for (Future<List<FilteredArticleDto>> future : futures) {
-                try {
-                    List<FilteredArticleDto> articles = future.get();
-                    for (FilteredArticleDto article : articles) {
-                        if(!newsArticleRepository.existsByUrl(article.url())){
-                            saveToDatabase(toEntity(article));
-                        }
-                    }
-                }catch (Exception e) {
-                    logger.error("Fetch task failed: {}", e.getMessage());
-                }
-            }
-        }
-
-        logger.info("all articles fetched.");
-    }
-
-    public List<FilteredArticleDto>  getAllArticlesList(){
-        return newsArticleRepository.findAll()
-                .stream()
-                .map(this::toDto)
-                .toList();
-    }
-    public List<FilteredArticleDto> getArticlesByTopicAndCountry(NewsTopic topic, NewsCountry country) {
-        return newsArticleRepository.findByTopicAndCountry(topic, country).stream()
-                .map(this::toDto)
-                .toList();
-    }
-
-    public List<FilteredArticleDto> getArticlesByTopic(NewsTopic topic) {
-        return newsArticleRepository.findByTopic(topic).stream()
-                .map(this::toDto)
-                .toList();
-    }
-
-    public List<FilteredArticleDto> getArticlesByCountry(NewsCountry country) {
-        return newsArticleRepository.findByCountry(country).stream()
-                .map(this::toDto)
-                .toList();
-    }
-    private FilteredArticleDto toDto(NewsArticle entity) {
-        return new FilteredArticleDto(
-                new Source(null, entity.getSourceName()),
-                entity.getAuthorName(),
-                entity.getTitle(),
-                entity.getCountry().name(),
-                entity.getTopic().name(),
-                "",
-                entity.getContent(),
-                entity.getUrl(),
-                "",
-                entity.getPublishedDate().toString()
-        );
-    }
-    public void refresh() {
+    @EventListener(ApplicationReadyEvent.class)
+    public void init() {
+        logger.info("Application is fully ready. Starting initial fetch...");
         getAllArticles();
     }
+
+    public void getAllArticles(){
+
+        Span parentSpan = tracer.nextSpan().name("fetch-all-articles").start();
+
+        try (Tracer.SpanInScope ws = tracer.withSpan(parentSpan)) {
+
+            try(var executor = Executors.newVirtualThreadPerTaskExecutor()){
+                List<Future<List<FilteredArticleDto>>> futures = new ArrayList<>();
+                for (NewsTopic topic : NewsTopic.values()) {
+                    for (NewsCountry country : NewsCountry.values()) {
+                        futures.add(
+                                executor.submit(tracer.currentTraceContext().wrap(() -> fetchArticlesFromAPI(topic, country)))
+                        );
+                    }
+                }
+                for (Future<List<FilteredArticleDto>> future : futures) {
+                    try {
+                        List<FilteredArticleDto> articles = future.get();
+                        for (FilteredArticleDto article : articles) {
+                            if(!newsArticleRepository.existsByUrl(article.url())){
+                                saveToDatabase(toEntity(article));
+                            }
+                        }
+                    } catch (Exception e) {
+                        logger.error("Fetch task failed: {}", e.getMessage());
+                        parentSpan.error(e);
+                    }
+                }
+            }
+            logger.info("all articles fetched.");
+
+        } finally {
+            parentSpan.end();
+        }
+    }
+
     private List<FilteredArticleDto> fetchArticlesFromAPI(NewsTopic topic, NewsCountry country) {
-        try {
+
+        Span childSpan = tracer.nextSpan().name("api-fetch-" + country.name() + "-" + topic.name()).start();
+
+        try (Tracer.SpanInScope ws = tracer.withSpan(childSpan)) {
             logger.info("Fetching: {} - {}", topic, country);
 
             NewsResponseDto response = restClient.get()
@@ -147,10 +130,38 @@ public class NewsService {
             return new ArrayList<>();
 
         } catch (Exception e) {
+            childSpan.error(e);
             logger.error("Error fetching {}-{}: {}", topic, country, e.getMessage());
             return new ArrayList<>();
+        } finally {
+            childSpan.end();
         }
     }
+
+    public List<FilteredArticleDto> getAllArticlesList(){
+        return newsArticleRepository.findAll().stream().map(this::toDto).toList();
+    }
+    public List<FilteredArticleDto> getArticlesByTopicAndCountry(NewsTopic topic, NewsCountry country) {
+        return newsArticleRepository.findByTopicAndCountry(topic, country).stream().map(this::toDto).toList();
+    }
+    public List<FilteredArticleDto> getArticlesByTopic(NewsTopic topic) {
+        return newsArticleRepository.findByTopic(topic).stream().map(this::toDto).toList();
+    }
+    public List<FilteredArticleDto> getArticlesByCountry(NewsCountry country) {
+        return newsArticleRepository.findByCountry(country).stream().map(this::toDto).toList();
+    }
+    public void refresh() {
+        getAllArticles();
+    }
+
+    private FilteredArticleDto toDto(NewsArticle entity) {
+        return new FilteredArticleDto(
+                new Source(null, entity.getSourceName()),
+                entity.getAuthorName(), entity.getTitle(), entity.getCountry().name(), entity.getTopic().name(),
+                "", entity.getContent(), entity.getUrl(), "", entity.getPublishedDate().toString()
+        );
+    }
+
     private NewsArticle toEntity(FilteredArticleDto dto) {
         return NewsArticle.builder()
                 .sourceName(dto.source() != null ? dto.source().name() : "Unknown")
@@ -160,11 +171,10 @@ public class NewsService {
                 .topic(NewsTopic.valueOf(dto.category()))
                 .content(dto.content())
                 .url(dto.url())
-                .publishedDate(dto.publishedAt() != null
-                        ? ZonedDateTime.parse(dto.publishedAt()).toLocalDateTime()
-                        : LocalDateTime.now())
+                .publishedDate(dto.publishedAt() != null ? ZonedDateTime.parse(dto.publishedAt()).toLocalDateTime() : LocalDateTime.now())
                 .build();
     }
+
     private void saveToDatabase(NewsArticle newsArticle) {
         newsArticleRepository.save(newsArticle);
     }

@@ -1,6 +1,7 @@
 package com.finance.services;
 
 import com.finance.shared.BinanceResponseDto;
+import io.micrometer.observation.annotation.Observed;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
@@ -24,7 +25,7 @@ public class CryptoService {
         this.restClient = restClient;
         this.persistenceService = persistenceService;
     }
-
+    @Observed
     public void fetchAndStoreCryptoData(String symbol) {
         String binanceSymbol = symbol.toUpperCase();
         if (!binanceSymbol.endsWith("USDT")) {
