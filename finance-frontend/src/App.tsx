@@ -1,68 +1,21 @@
-import { useState } from 'react';
-import { Activity, Wallet, TrendingUp } from 'lucide-react';
-import PortfolioView from './components/PortfolioView';
-import ExchangeRatesView from './components/ExchangeRatesView';
-import type { TabType } from './types';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import MainLayout from './layouts/MainLayout';
+import DashboardPage from './pages/DashboardPage';
+import PortfolioPage from './pages/PortfolioPage';
+import MarketPage from './pages/MarketPage';
+import NewsPage from './pages/NewsPage';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<TabType>('market');
-
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-200 font-sans">
-      {/* HEADER */}
-      <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-lg border-b border-slate-800">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 py-4">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            {/* Logo */}
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-xl shadow-lg shadow-emerald-500/20">
-                <Activity className="text-white" size={28} />
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold text-white">Finans Portalı</h1>
-                <p className="text-xs text-slate-400">Canlı Piyasa Verileri ve Portföy Takibi</p>
-              </div>
-            </div>
-
-            {/* Navigation Tabs */}
-            <nav className="flex bg-slate-800 rounded-xl p-1 border border-slate-700 shadow-lg">
-              <button
-                onClick={() => setActiveTab('portfolio')}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all duration-200 ${activeTab === 'portfolio'
-                    ? 'bg-emerald-500 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                  }`}
-              >
-                <Wallet size={18} />
-                <span>Portföyüm</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('market')}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all duration-200 ${activeTab === 'market'
-                    ? 'bg-emerald-500 text-white shadow-md'
-                    : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                  }`}
-              >
-                <TrendingUp size={18} />
-                <span>Piyasalar</span>
-              </button>
-            </nav>
-          </div>
-        </div>
-      </header>
-
-      {/* MAIN CONTENT */}
-      <main className="max-w-7xl mx-auto px-4 md:px-8 py-6">
-        {activeTab === 'portfolio' ? <PortfolioView /> : <ExchangeRatesView />}
-      </main>
-
-      {/* FOOTER */}
-      <footer className="mt-auto py-6 text-center text-slate-600 text-xs border-t border-slate-800">
-        <div className="max-w-7xl mx-auto px-4">
-          Data provided by Yahoo Finance & Binance APIs via Spring Boot
-        </div>
-      </footer>
-    </div>
+    <Routes>
+      <Route element={<MainLayout />}>
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/portfolio" element={<PortfolioPage />} />
+        <Route path="/market" element={<MarketPage />} />
+        <Route path="/news" element={<NewsPage />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      </Route>
+    </Routes>
   );
 }
 
