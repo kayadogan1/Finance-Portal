@@ -1,21 +1,15 @@
-import { useState } from 'react';
-import { Plus, Tags, Trash2, Edit3, FolderOpen } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import api from '../services/api';
+import toast from 'react-hot-toast';
+import { Plus, Tags, Trash2, Edit3, FolderOpen, RefreshCw } from 'lucide-react';
 
-/* ─── Mock data ─── */
+/* ─── Types ─── */
 interface NewsCategory {
     id: number;
     name: string;
     slug: string;
     articleCount: number;
 }
-
-const initialCategories: NewsCategory[] = [
-    { id: 1, name: 'Ekonomi', slug: 'economy', articleCount: 42 },
-    { id: 2, name: 'Kripto', slug: 'crypto', articleCount: 38 },
-    { id: 3, name: 'Global Piyasalar', slug: 'global', articleCount: 27 },
-    { id: 4, name: 'Hisse Senetleri', slug: 'stocks', articleCount: 55 },
-    { id: 5, name: 'Emtialar', slug: 'commodities', articleCount: 18 },
-];
 
 /* ─── Card ─── */
 const Card = ({
@@ -34,24 +28,61 @@ const Card = ({
 
 /* ─── Page ─── */
 const AdminPage = () => {
-    const [categories, setCategories] = useState<NewsCategory[]>(initialCategories);
+    const [categories, setCategories] = useState<NewsCategory[]>([]);
+    const [loading, setLoading] = useState(true);
     const [newCatName, setNewCatName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
 
-    const handleCreate = () => {
-        if (!newCatName.trim()) return;
-        const slug = newCatName.toLowerCase().replace(/\s+/g, '-');
-        setCategories((prev) => [
-            ...prev,
-            { id: Date.now(), name: newCatName.trim(), slug, articleCount: 0 },
-        ]);
-        setNewCatName('');
-        setIsCreating(false);
+    useEffect(() => {
+        fetchCategories();
+    }, []);
+
+    const fetchCategories = async () => {
+        try {
+            const { data } = await api.get<NewsCategory[]>('/api/admin/news-categories');
+            setCategories(data);
+        } catch (err) {
+            console.error('Kategori yükleme hatası:', err);
+            toast.error('Kategoriler yüklenemedi.');
+        } finally {
+            setLoading(false);
+        }
     };
 
-    const handleDelete = (id: number) => {
-        setCategories((prev) => prev.filter((c) => c.id !== id));
+    const handleCreate = async () => {
+        if (!newCatName.trim()) return;
+        try {
+            const { data } = await api.post<NewsCategory>('/api/admin/news-categories', {
+                name: newCatName.trim(),
+            });
+            setCategories((prev) => [...prev, data]);
+            toast.success('Kategori oluşturuldu!');
+            setNewCatName('');
+            setIsCreating(false);
+        } catch (err) {
+            console.error('Kategori oluşturma hatası:', err);
+            toast.error('Kategori oluşturulamadı.');
+        }
     };
+
+    const handleDelete = async (id: number) => {
+        try {
+            await api.delete(`/api/admin/news-categories/${id}`);
+            setCategories((prev) => prev.filter((c) => c.id !== id));
+            toast.success('Kategori silindi.');
+        } catch (err) {
+            console.error('Kategori silme hatası:', err);
+            toast.error('Kategori silinemedi.');
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <RefreshCw className="animate-spin text-emerald-400" size={32} />
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-8">

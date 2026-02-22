@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
+import toast from 'react-hot-toast';
 import { Bitcoin, DollarSign, TrendingUp, Globe, RefreshCw, Filter } from 'lucide-react';
 import type { Instrument, MarketTabType } from '../types';
-
-const API_BASE = 'http://localhost:8080';
 
 const TABS: { id: MarketTabType; label: string; icon: React.ReactNode; color: string }[] = [
     { id: 'ALL', label: 'Tümü', icon: <Globe size={14} />, color: 'slate' },
@@ -26,12 +25,13 @@ export default function ExchangeRatesView() {
 
     const fetchInstruments = async () => {
         try {
-            const response = await axios.get<Instrument[]>(`${API_BASE}/api/market`);
+            const response = await api.get<Instrument[]>('/api/market');
             setInstruments(response.data);
             setLastUpdate(new Date());
             setLoading(false);
         } catch (err) {
             console.error('Veri çekme hatası:', err);
+            toast.error('Piyasa verileri yüklenemedi.');
             setLoading(false);
         }
     };

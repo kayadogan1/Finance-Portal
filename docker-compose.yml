@@ -163,6 +163,7 @@ services:
       - "9090:8080"
     volumes:
       - ./keycloak/realms:/opt/keycloak/data/import
+      - ./keycloak/themes:/opt/keycloak/themes
     networks:
       - finance-network
 
