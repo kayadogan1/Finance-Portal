@@ -4,7 +4,6 @@ import { getDistribution, getHistory } from '../services/portfolioService';
 import PortfolioDistributionChart from '../components/portfolio/PortfolioDistributionChart';
 import PortfolioHistoryChart from '../components/portfolio/PortfolioHistoryChart';
 
-/* ─── Skeleton placeholder ─── */
 const ChartSkeleton = ({ className = '' }: { className?: string }) => (
     <div className={`animate-pulse ${className}`}>
         <div className="h-5 w-40 bg-slate-700 rounded mb-6" />
@@ -18,7 +17,6 @@ const ChartSkeleton = ({ className = '' }: { className?: string }) => (
     </div>
 );
 
-/* ─── Card wrapper ─── */
 const Card = ({
     children,
     className = '',
@@ -33,7 +31,6 @@ const Card = ({
     </div>
 );
 
-/* ─── Page ─── */
 const PortfolioPage = () => {
     const {
         data: distribution,
