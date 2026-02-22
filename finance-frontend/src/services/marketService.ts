@@ -45,3 +45,22 @@ export const getAIInsight = async (symbol: string): Promise<AIInsight> => {
     const { data } = await api.get<AIInsight>(`/api/market/ai-insight/${symbol}`);
     return data;
 };
+
+/* ─────────────────────────────── Instruments ─────────────────────────────── */
+
+export interface MarketInstrument {
+    symbol: string;
+    name: string;
+    type: 'CRYPTO' | 'FIAT' | 'COMMODITY' | 'INDEX';
+    currentPrice: number;
+    change24h: number;
+}
+
+/**
+ * Fetch all available market instruments.
+ * Route: GET /api/market/instruments
+ */
+export const getMarketInstruments = async (): Promise<MarketInstrument[]> => {
+    const { data } = await api.get<MarketInstrument[]>('/api/market/instruments');
+    return data;
+};

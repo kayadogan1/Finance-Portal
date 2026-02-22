@@ -17,12 +17,6 @@ export default function ExchangeRatesView() {
     const [activeTab, setActiveTab] = useState<MarketTabType>('ALL');
     const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
 
-    useEffect(() => {
-        fetchInstruments();
-        const interval = setInterval(fetchInstruments, 3000);
-        return () => clearInterval(interval);
-    }, []);
-
     const fetchInstruments = async () => {
         try {
             const response = await api.get<Instrument[]>('/api/market');
@@ -35,6 +29,13 @@ export default function ExchangeRatesView() {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchInstruments();
+        const interval = setInterval(fetchInstruments, 3000);
+        return () => clearInterval(interval);
+    }, []);
 
     const filteredInstruments = activeTab === 'ALL'
         ? instruments

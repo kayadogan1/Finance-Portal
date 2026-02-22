@@ -11,12 +11,9 @@ function App() {
   return (
     <Routes>
       <Route element={<MainLayout />}>
-        {/* Public routes */}
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/market" element={<MarketPage />} />
         <Route path="/news" element={<NewsPage />} />
-
-        {/* Protected: requires authentication */}
         <Route
           path="/portfolio"
           element={
@@ -26,7 +23,6 @@ function App() {
           }
         />
 
-        {/* Protected: requires admin role */}
         <Route
           path="/admin"
           element={
