@@ -1,5 +1,5 @@
 import api from './api';
-import type { OHLCData, AIInsight, Sentiment } from '../types';
+import type { OHLCData, AIInsight } from '../types';
 
 /* ─────────────────────────────── Backend DTO shapes ─────────────────────────────── */
 
@@ -35,53 +35,13 @@ export const getMarketHistory = async (symbol: string): Promise<OHLCData[]> => {
     }));
 };
 
-/* ─────────────────────────────── AI Insight (mock) ─────────────────────────────── */
+/* ─────────────────────────────── AI Insight ─────────────────────────────── */
 
 /**
- * ⚠️ The AI Insight endpoint does NOT exist in the backend yet.
- * This function provides a temporary mock so the UI doesn't break with a 404.
- * Replace with a real API call once the backend implements the endpoint.
+ * Fetch AI-powered market insight for a symbol.
+ * Route: GET /api/market/ai-insight/{symbol}
  */
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const insightMap: Record<string, { summary: string; sentiment: Sentiment }> = {
-    BTCUSDT: {
-        summary:
-            'Strong uptrend detected. The MACD shows a golden cross and RSI is at 72, indicating strong buying pressure but approaching overbought territory.',
-        sentiment: 'BULLISH',
-    },
-    ETHUSDT: {
-        summary:
-            'Consolidation phase with bullish divergence on the RSI. Volume is declining, suggesting a breakout is imminent. Support at $3,200 holds firm.',
-        sentiment: 'BULLISH',
-    },
-    THYAO: {
-        summary:
-            'Bearish head-and-shoulders pattern forming on the daily chart. RSI dropped below 40 and MACD is trending negative. Watch for a break below ₺82 support.',
-        sentiment: 'BEARISH',
-    },
-    ASELS: {
-        summary:
-            'Sideways movement with neutral momentum. Bollinger Bands are contracting, indicating low volatility. A directional move is expected within the next 5 sessions.',
-        sentiment: 'NEUTRAL',
-    },
-};
-
 export const getAIInsight = async (symbol: string): Promise<AIInsight> => {
-    // TODO: Replace with api.get<AIInsight>(`/api/market/ai-insight/${symbol}`) when backend is ready
-    await delay(1500);
-
-    const entry = insightMap[symbol] ?? {
-        summary: `Technical analysis is unavailable for ${symbol} at this time.`,
-        sentiment: 'NEUTRAL' as Sentiment,
-    };
-
-    return {
-        symbol,
-        ai_summary: entry.summary,
-        sentiment: entry.sentiment,
-        disclaimer:
-            'This analysis is AI-generated based on technical indicators and is not financial advice.',
-    };
+    const { data } = await api.get<AIInsight>(`/api/market/ai-insight/${symbol}`);
+    return data;
 };

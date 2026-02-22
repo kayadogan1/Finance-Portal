@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../services/api';
+import toast from 'react-hot-toast';
 import { Wallet, TrendingUp, TrendingDown, Plus, ArrowDownToLine, ShoppingCart, RefreshCw, X } from 'lucide-react';
-import type { Portfolio, Instrument, BuyOrSellRequest, DepositRequest } from '../types';
-
-const API_BASE = 'http://localhost:8080';
-const DEFAULT_USER_ID = 'user123';
+import type { Portfolio, Instrument } from '../types';
 
 interface ModalProps {
     isOpen: boolean;
@@ -53,14 +51,15 @@ export default function PortfolioView() {
     const fetchData = async () => {
         try {
             const [portfolioRes, instrumentsRes] = await Promise.all([
-                axios.get<Portfolio>(`${API_BASE}/api/portfolio`, { params: { userId: DEFAULT_USER_ID } }),
-                axios.get<Instrument[]>(`${API_BASE}/api/market`)
+                api.get<Portfolio>('/api/portfolio'),
+                api.get<Instrument[]>('/api/market'),
             ]);
             setPortfolio(portfolioRes.data);
             setInstruments(instrumentsRes.data);
             setLoading(false);
         } catch (err) {
             console.error('Veri çekme hatası:', err);
+            toast.error('Portföy verileri yüklenemedi.');
             setLoading(false);
         }
     };
@@ -69,13 +68,14 @@ export default function PortfolioView() {
         if (!depositAmount || parseFloat(depositAmount) <= 0) return;
         setActionLoading(true);
         try {
-            const req: DepositRequest = { userId: DEFAULT_USER_ID, amount: parseFloat(depositAmount) };
-            await axios.post(`${API_BASE}/api/portfolio/deposit`, req);
+            await api.post('/api/portfolio/deposit', { amount: parseFloat(depositAmount) });
+            toast.success('Para yatırma işlemi başarılı!');
             await fetchData();
             setDepositModal(false);
             setDepositAmount('');
         } catch (err) {
             console.error('Para yatırma hatası:', err);
+            toast.error('Para yatırma işlemi başarısız.');
         }
         setActionLoading(false);
     };
@@ -84,18 +84,18 @@ export default function PortfolioView() {
         if (!buySymbol || !buyQuantity || parseFloat(buyQuantity) <= 0) return;
         setActionLoading(true);
         try {
-            const req: BuyOrSellRequest = {
-                userId: DEFAULT_USER_ID,
+            await api.post('/api/portfolio/buy', {
                 instrumentSymbol: buySymbol,
-                quantity: parseFloat(buyQuantity)
-            };
-            await axios.post(`${API_BASE}/api/portfolio/buy`, req);
+                quantity: parseFloat(buyQuantity),
+            });
+            toast.success('Alım işlemi başarılı!');
             await fetchData();
             setBuyModal(false);
             setBuySymbol('');
             setBuyQuantity('');
         } catch (err) {
             console.error('Alım hatası:', err);
+            toast.error('Alım işlemi başarısız.');
         }
         setActionLoading(false);
     };
@@ -104,17 +104,17 @@ export default function PortfolioView() {
         if (!sellModal || !sellQuantity || parseFloat(sellQuantity) <= 0) return;
         setActionLoading(true);
         try {
-            const req: BuyOrSellRequest = {
-                userId: DEFAULT_USER_ID,
+            await api.post('/api/portfolio/sell', {
                 instrumentSymbol: sellModal,
-                quantity: parseFloat(sellQuantity)
-            };
-            await axios.post(`${API_BASE}/api/portfolio/sell`, req);
+                quantity: parseFloat(sellQuantity),
+            });
+            toast.success('Satış işlemi başarılı!');
             await fetchData();
             setSellModal(null);
             setSellQuantity('');
         } catch (err) {
             console.error('Satım hatası:', err);
+            toast.error('Satış işlemi başarısız.');
         }
         setActionLoading(false);
     };
