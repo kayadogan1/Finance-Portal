@@ -37,3 +37,20 @@ export interface BuyOrSellRequest {
 
 export type TabType = 'portfolio' | 'market';
 export type MarketTabType = 'ALL' | 'FOREX' | 'CRYPTO' | 'STOCK';
+
+export interface OHLCData {
+    time: string;
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+}
+
+export type Sentiment = 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+
+export interface AIInsight {
+    symbol: string;
+    ai_summary: string;
+    sentiment: Sentiment;
+    disclaimer: string;
+}
