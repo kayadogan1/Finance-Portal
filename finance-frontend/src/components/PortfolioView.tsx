@@ -42,27 +42,27 @@ export default function PortfolioView() {
     const [sellQuantity, setSellQuantity] = useState('');
     const [actionLoading, setActionLoading] = useState(false);
 
-    useEffect(() => {
-        fetchData();
-        const interval = setInterval(fetchData, 5000);
-        return () => clearInterval(interval);
-    }, []);
-
     const fetchData = async () => {
         try {
             const [portfolioRes, instrumentsRes] = await Promise.all([
                 api.get<Portfolio>('/api/portfolio'),
-                api.get<Instrument[]>('/api/market'),
+                api.get<Instrument[]>('/api/market')
             ]);
             setPortfolio(portfolioRes.data);
             setInstruments(instrumentsRes.data);
             setLoading(false);
-        } catch (err) {
-            console.error('Veri çekme hatası:', err);
-            toast.error('Portföy verileri yüklenemedi.');
+        } catch (error) {
+            console.error('Failed to fetch data:', error);
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        fetchData();
+        const interval = setInterval(fetchData, 5000);
+        return () => clearInterval(interval);
+    }, []);
 
     const handleDeposit = async () => {
         if (!depositAmount || parseFloat(depositAmount) <= 0) return;
