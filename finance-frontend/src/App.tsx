@@ -11,10 +11,22 @@ function App() {
   return (
     <Routes>
       <Route element={<MainLayout />}>
+        {/* Public routes */}
         <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/portfolio" element={<PortfolioPage />} />
         <Route path="/market" element={<MarketPage />} />
         <Route path="/news" element={<NewsPage />} />
+
+        {/* Protected: requires authentication */}
+        <Route
+          path="/portfolio"
+          element={
+            <ProtectedRoute>
+              <PortfolioPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Protected: requires admin role */}
         <Route
           path="/admin"
           element={
@@ -23,6 +35,7 @@ function App() {
             </ProtectedRoute>
           }
         />
+
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
     </Routes>
