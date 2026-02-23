@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import api from '../services/api';
+import { privateApi } from '../services/api';
 import toast from 'react-hot-toast';
 import { Plus, Tags, Trash2, Edit3, FolderOpen, RefreshCw } from 'lucide-react';
 
@@ -39,7 +39,7 @@ const AdminPage = () => {
 
     const fetchCategories = async () => {
         try {
-            const { data } = await api.get<NewsCategory[]>('/api/admin/news-categories');
+            const { data } = await privateApi.get<NewsCategory[]>('/api/admin/news-categories');
             setCategories(data);
         } catch (err) {
             console.error('Kategori yükleme hatası:', err);
@@ -52,7 +52,7 @@ const AdminPage = () => {
     const handleCreate = async () => {
         if (!newCatName.trim()) return;
         try {
-            const { data } = await api.post<NewsCategory>('/api/admin/news-categories', {
+            const { data } = await privateApi.post<NewsCategory>('/api/admin/news-categories', {
                 name: newCatName.trim(),
             });
             setCategories((prev) => [...prev, data]);
@@ -67,7 +67,7 @@ const AdminPage = () => {
 
     const handleDelete = async (id: number) => {
         try {
-            await api.delete(`/api/admin/news-categories/${id}`);
+            await privateApi.delete(`/api/admin/news-categories/${id}`);
             setCategories((prev) => prev.filter((c) => c.id !== id));
             toast.success('Kategori silindi.');
         } catch (err) {

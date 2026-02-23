@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import api from '../services/api';
+import { publicApi } from '../services/api';
 import toast from 'react-hot-toast';
 import { Bitcoin, DollarSign, TrendingUp, Globe, RefreshCw, Filter } from 'lucide-react';
 import type { Instrument, MarketTabType } from '../types';
@@ -19,8 +19,8 @@ export default function ExchangeRatesView() {
 
     const fetchInstruments = async () => {
         try {
-            const response = await api.get<Instrument[]>('/api/market');
-            setInstruments(response.data);
+            const { data } = await publicApi.get('/api/public/exchange-rates');
+            setInstruments(data);
             setLastUpdate(new Date());
             setLoading(false);
         } catch (err) {

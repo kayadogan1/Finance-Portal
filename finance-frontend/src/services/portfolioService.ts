@@ -1,9 +1,10 @@
-import api from './api';
+import { privateApi } from './api';
 
 /* ─────────────────────────────── Backend DTO shapes ─────────────────────────────── */
 
 /** Matches `com.finance.shared.PortfolioDto` */
 export interface PortfolioDto {
+    id?: string;
     portfolioName: string;
     riskTolerance: string;
     purpose: string;
@@ -41,7 +42,7 @@ export interface HistoryData {
  * Route: GET /api/portfolio
  */
 export const getPortfolios = async (): Promise<PortfolioDto[]> => {
-    const { data } = await api.get<PortfolioDto[]>('/api/portfolio');
+    const { data } = await privateApi.get<PortfolioDto[]>('/api/portfolio');
     return data;
 };
 
@@ -84,7 +85,7 @@ export const getHistory = async (): Promise<HistoryData> => {
     // Until the backend DTO is extended, we fetch history from the
     // generic portfolio endpoint. For now, use the first portfolio.
     // TODO: Backend should expose portfolio ID in PortfolioDto.
-    const { data } = await api.get<PerformanceLineChartDto[]>(
+    const { data } = await privateApi.get<PerformanceLineChartDto[]>(
         '/api/portfolio/history',
         { params: { days: 30 } },
     );
@@ -93,4 +94,47 @@ export const getHistory = async (): Promise<HistoryData> => {
         timeline: data.map((d) => d.time),
         totalValues: data.map((d) => Number(d.totalPrice)),
     };
+};
+
+/**
+ * Create a new portfolio.
+ * Route: POST /api/portfolio/create
+ */
+export const createPortfolio = async (portfolio: PortfolioDto): Promise<void> => {
+    await privateApi.post('/api/portfolio/create', portfolio);
+};
+
+/**
+ * Fetch portfolio history by ID.
+ * Route: GET /api/portfolio/{portfolioId}/history
+ */
+export const getPortfolioHistory = async (portfolioId: string, days: number = 30): Promise<PerformanceLineChartDto[]> => {
+    const { data } = await privateApi.get<PerformanceLineChartDto[]>(`/api/portfolio/${portfolioId}/history`, {
+        params: { days }
+    });
+    return data;
+};
+
+/**
+ * Deposit funds into portfolio.
+ * Route: POST /api/portfolio/deposit
+ */
+export const depositFunds = async (amount: number, portfolioId: string): Promise<void> => {
+    await privateApi.post('/api/portfolio/deposit', { amount, portfolioId });
+};
+
+/**
+ * Buy an instrument for the portfolio.
+ * Route: POST /api/portfolio/buy
+ */
+export const buyInstrument = async (instrumentSymbol: string, quantity: number, portfolioId: string): Promise<void> => {
+    await privateApi.post('/api/portfolio/buy', { instrumentSymbol, quantity, portfolioId });
+};
+
+/**
+ * Sell an instrument from the portfolio.
+ * Route: POST /api/portfolio/sell
+ */
+export const sellInstrument = async (instrumentSymbol: string, quantity: number, portfolioId: string): Promise<void> => {
+    await privateApi.post('/api/portfolio/sell', { instrumentSymbol, quantity, portfolioId });
 };

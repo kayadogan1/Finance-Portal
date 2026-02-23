@@ -45,7 +45,7 @@ export function InstrumentsTable({
                 </TableHeader>
                 <TableBody>
                     {instruments.map((instrument) => {
-                        const isPositive = instrument.change24h >= 0;
+                        const isPositive = (instrument.change24h || 0) >= 0;
                         const isSelected = selectedSymbol === instrument.symbol;
                         return (
                             <TableRow
@@ -59,7 +59,7 @@ export function InstrumentsTable({
                                 </TableCell>
                                 <TableCell className="text-slate-400">{instrument.name}</TableCell>
                                 <TableCell className="text-right font-medium text-slate-200">
-                                    ${instrument.currentPrice.toLocaleString(undefined, {
+                                    ${(instrument.currentPrice || 0).toLocaleString(undefined, {
                                         minimumFractionDigits: 2,
                                         maximumFractionDigits: 6,
                                     })}
@@ -73,7 +73,7 @@ export function InstrumentsTable({
                                             }`}
                                     >
                                         {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                                        {Math.abs(instrument.change24h).toFixed(2)}%
+                                        {Math.abs(instrument.change24h || 0).toFixed(2)}%
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="text-right">

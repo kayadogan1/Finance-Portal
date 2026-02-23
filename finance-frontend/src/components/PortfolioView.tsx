@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import api from '../services/api';
+import { publicApi, privateApi } from '../services/api';
 import toast from 'react-hot-toast';
 import { Wallet, TrendingUp, TrendingDown, Plus, ArrowDownToLine, ShoppingCart, RefreshCw, X } from 'lucide-react';
 import type { Portfolio, Instrument } from '../types';
@@ -45,8 +45,8 @@ export default function PortfolioView() {
     const fetchData = async () => {
         try {
             const [portfolioRes, instrumentsRes] = await Promise.all([
-                api.get<Portfolio>('/api/portfolio'),
-                api.get<Instrument[]>('/api/market')
+                privateApi.get<Portfolio>('/api/portfolio'),
+                publicApi.get<Instrument[]>('/api/market')
             ]);
             setPortfolio(portfolioRes.data);
             setInstruments(instrumentsRes.data);
@@ -68,7 +68,7 @@ export default function PortfolioView() {
         if (!depositAmount || parseFloat(depositAmount) <= 0) return;
         setActionLoading(true);
         try {
-            await api.post('/api/portfolio/deposit', { amount: parseFloat(depositAmount) });
+            await privateApi.post('/api/portfolio/deposit', { amount: parseFloat(depositAmount) });
             toast.success('Para yatırma işlemi başarılı!');
             await fetchData();
             setDepositModal(false);
@@ -84,7 +84,7 @@ export default function PortfolioView() {
         if (!buySymbol || !buyQuantity || parseFloat(buyQuantity) <= 0) return;
         setActionLoading(true);
         try {
-            await api.post('/api/portfolio/buy', {
+            await privateApi.post('/api/portfolio/buy', {
                 instrumentSymbol: buySymbol,
                 quantity: parseFloat(buyQuantity),
             });
@@ -104,7 +104,7 @@ export default function PortfolioView() {
         if (!sellModal || !sellQuantity || parseFloat(sellQuantity) <= 0) return;
         setActionLoading(true);
         try {
-            await api.post('/api/portfolio/sell', {
+            await privateApi.post('/api/portfolio/sell', {
                 instrumentSymbol: sellModal,
                 quantity: parseFloat(sellQuantity),
             });

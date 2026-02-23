@@ -92,9 +92,14 @@ const AIAnalysisCard = ({ symbol }: AIAnalysisCardProps) => {
             {isLoading && <InsightSkeleton />}
 
             {isError && (
-                <p className="text-red-400 text-sm">
-                    AI analizi yüklenemedi. Lütfen tekrar deneyin.
-                </p>
+                <div className="flex flex-col flex-1 items-center justify-center p-4 text-center">
+                    <p className="text-slate-400 text-sm">
+                        Yapay zeka analiz servisi şu anda kullanılamıyor.
+                    </p>
+                    <p className="text-slate-500 text-xs mt-2">
+                        (Backend'de bu servis henüz aktif değil)
+                    </p>
+                </div>
             )}
 
             {insight && (

@@ -8,34 +8,34 @@ import AdminPage from './pages/AdminPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
 function App() {
-  return (
-    <Routes>
-      <Route element={<MainLayout />}>
-        <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/market" element={<MarketPage />} />
-        <Route path="/news" element={<NewsPage />} />
-        <Route
-          path="/portfolio"
-          element={
-            <ProtectedRoute>
-              <PortfolioPage />
-            </ProtectedRoute>
-          }
-        />
+    return (
+        <Routes>
+            <Route element={<MainLayout />}>
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/market" element={<MarketPage />} />
+                <Route path="/news" element={<NewsPage />} />
+                <Route
+                    path="/portfolio"
+                    element={
+                        <ProtectedRoute>
+                            <PortfolioPage />
+                        </ProtectedRoute>
+                    }
+                />
 
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute requireAdmin={true}>
-              <AdminPage />
-            </ProtectedRoute>
-          }
-        />
+                <Route
+                    path="/admin"
+                    element={
+                        <ProtectedRoute requireAdmin={true}>
+                            <AdminPage />
+                        </ProtectedRoute>
+                    }
+                />
 
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
-      </Route>
-    </Routes>
-  );
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Route>
+        </Routes>
+    );
 }
 
 export default App;
