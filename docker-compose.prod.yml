@@ -1,0 +1,154 @@
+version: '3.8'
+
+services:
+  api-gateway:
+    container_name: api-gateway
+    image: ghcr.io/kayadogan1/api-gateway:latest
+    environment:
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://keycloak:8080/realms/FinancePortal
+      - SPRING_CLOUD_GATEWAY_ROUTES_0_ID=news-service
+      - SPRING_CLOUD_GATEWAY_ROUTES_0_URI=http://news-service:8082
+      - SPRING_CLOUD_GATEWAY_ROUTES_0_PREDICATES_0=Path=/api/news/**
+      - SPRING_CLOUD_GATEWAY_ROUTES_1_ID=finance-service
+      - SPRING_CLOUD_GATEWAY_ROUTES_1_URI=http://finance-service:8081
+      - SPRING_CLOUD_GATEWAY_ROUTES_1_PREDICATES_0=Path=/api/market/**,/api/trade/**,/api/portfolio/**
+    ports:
+      - "8080:8080"
+    depends_on:
+      - news-service
+      - finance-service
+      - keycloak
+    networks:
+      - finance-network
+    restart: always
+
+  finance-service:
+    container_name: finance-service
+    image: ghcr.io/kayadogan1/finance-service:latest
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/finance_db
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-253421}
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+      - postgres
+    networks:
+      - finance-network
+    restart: always
+
+  news-service:
+    container_name: news-service
+    image: ghcr.io/kayadogan1/news-service:latest
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/news_db
+      - SPRING_DATASOURCE_USERNAME=${DB_USER:-postgres}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-253421}
+    ports:
+      - "8082:8082"
+    depends_on:
+      - postgres
+    networks:
+      - finance-network
+    restart: always
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: finance_db
+    restart: always
+    environment:
+      POSTGRES_DB: finance_db
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-253421}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - finance-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: finance-redis
+    restart: always
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - finance-network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
+    container_name: finance_elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    networks:
+      - finance-network
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.1
+    container_name: finance_kibana
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    networks:
+      - finance-network
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:8.11.1
+    container_name: finance_filebeat
+    user: root
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    depends_on:
+      - elasticsearch
+    networks:
+      - finance-network
+
+  grafana-lgtm:
+    image: grafana/otel-lgtm:latest
+    ports:
+      - '3000:3000'
+      - '4317:4317'
+      - '4318:4318'
+    networks:
+      - finance-network
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0.0
+    container_name: finance_keycloak
+    restart: always
+    command: start-dev --import-realm
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "9090:8080"
+    volumes:
+      - ./keycloak/realms:/opt/keycloak/data/import
+      - ./keycloak/themes:/opt/keycloak/themes
+    networks:
+      - finance-network
+
+networks:
+  finance-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:
