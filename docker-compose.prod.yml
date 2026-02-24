@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   api-gateway:
     container_name: api-gateway
@@ -12,6 +10,13 @@ services:
       - SPRING_CLOUD_GATEWAY_ROUTES_1_ID=finance-service
       - SPRING_CLOUD_GATEWAY_ROUTES_1_URI=http://finance-service:8081
       - SPRING_CLOUD_GATEWAY_ROUTES_1_PREDICATES_0=Path=/api/market/**,/api/trade/**,/api/portfolio/**
+      - MANAGEMENT_OTLP_METRICS_EXPORT_URL=http://grafana-lgtm:4318/v1/metrics
+      - MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://grafana-lgtm:4318/v1/traces
+    labels:
+      - "co.elastic.logs/enabled=true"
+      - "co.elastic.logs/json.keys_under_root=true"
+      - "co.elastic.logs/json.overwrite_keys=true"
+      - "co.elastic.logs/json.add_error_key=true"
     ports:
       - "8080:8080"
     depends_on:
@@ -31,6 +36,18 @@ services:
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-253421}
       - SPRING_DATA_REDIS_HOST=redis
       - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_FLYWAY_URL=jdbc:postgresql://postgres:5432/finance_db
+      - SPRING_FLYWAY_USER=${DB_USER:-postgres}
+      - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD:-253421}
+      - SPRING_FLYWAY_ENABLED=true
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://keycloak:8080/realms/FinancePortal
+      - MANAGEMENT_OTLP_METRICS_EXPORT_URL=http://grafana-lgtm:4318/v1/metrics
+      - MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://grafana-lgtm:4318/v1/traces
+    labels:
+      - "co.elastic.logs/enabled=true"
+      - "co.elastic.logs/json.keys_under_root=true"
+      - "co.elastic.logs/json.overwrite_keys=true"
+      - "co.elastic.logs/json.add_error_key=true"
     ports:
       - "8081:8081"
     depends_on:
@@ -47,6 +64,20 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/news_db
       - SPRING_DATASOURCE_USERNAME=${DB_USER:-postgres}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-253421}
+      - SPRING_FLYWAY_URL=jdbc:postgresql://postgres:5432/news_db
+      - SPRING_FLYWAY_USER=${DB_USER:-postgres}
+      - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD:-253421}
+      - SPRING_FLYWAY_ENABLED=true
+      - NEWS_API_KEY=${NEWS_API_KEY}
+      - NEWS_API_URL=${NEWS_API_URL}
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://keycloak:8080/realms/FinancePortal
+      - MANAGEMENT_OTLP_METRICS_EXPORT_URL=http://grafana-lgtm:4318/v1/metrics
+      - MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://grafana-lgtm:4318/v1/traces
+    labels:
+      - "co.elastic.logs/enabled=true"
+      - "co.elastic.logs/json.keys_under_root=true"
+      - "co.elastic.logs/json.overwrite_keys=true"
+      - "co.elastic.logs/json.add_error_key=true"
     ports:
       - "8082:8082"
     depends_on:
