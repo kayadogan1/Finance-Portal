@@ -11,6 +11,7 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 import { privateApi } from "../../services/api";
+import { DUMMY_PORTFOLIO_ID } from "../../pages/PortfolioPage";
 
 const tradeSchema = z.object({
     quantity: z.number().positive("Miktar 0'dan büyük olmalıdır"),
@@ -43,14 +44,16 @@ export function TradeModal({ isOpen, onClose, symbol, side }: TradeModalProps) {
         mutationFn: async (data: TradeFormValues) => {
             const endpoint = side === "BUY" ? "/api/portfolio/buy" : "/api/portfolio/sell";
             const response = await privateApi.post(endpoint, {
-                symbol,
+                instrumentSymbol: symbol,
                 quantity: data.quantity,
+                portfolioId: DUMMY_PORTFOLIO_ID
             });
             return response.data;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["portfolio"] });
             queryClient.invalidateQueries({ queryKey: ["portfolio-history"] });
+            queryClient.invalidateQueries({ queryKey: ["market"] });
             onClose();
             reset();
         },

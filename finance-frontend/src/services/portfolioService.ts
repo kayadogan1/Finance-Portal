@@ -2,13 +2,35 @@ import { privateApi } from './api';
 
 /* ─────────────────────────────── Backend DTO shapes ─────────────────────────────── */
 
+export const RiskTolerance = {
+    UNDEFINED: "UNDEFINED",
+    CONSERVATIVE: "CONSERVATIVE",
+    MODERATE: "MODERATE",
+    AGGRESSIVE: "AGGRESSIVE"
+} as const;
+export type RiskTolerance = typeof RiskTolerance[keyof typeof RiskTolerance];
+
+export const PortfolioPurposeType = {
+    LONG_TERM_SAVINGS: "LONG_TERM_SAVINGS",
+    RETIREMENT: "RETIREMENT",
+    SHORT_TERM_TRADING: "SHORT_TERM_TRADING",
+    INCOME_GENERATION: "INCOME_GENERATION",
+    CAPITAL_PRESERVATION: "CAPITAL_PRESERVATION",
+    SPECULATION: "SPECULATION",
+    EDUCATION_FUND: "EDUCATION_FUND",
+    HOUSE_FUND: "HOUSE_FUND",
+    EMERGENCY_FUND: "EMERGENCY_FUND",
+    GENERAL: "GENERAL"
+} as const;
+export type PortfolioPurposeType = typeof PortfolioPurposeType[keyof typeof PortfolioPurposeType];
+
 /** Matches `com.finance.shared.PortfolioDto` */
 export interface PortfolioDto {
     id?: string;
     portfolioName: string;
-    riskTolerance: string;
-    purpose: string;
-    portfolioItems: PortfolioItemDto[];
+    riskTolerance: RiskTolerance;
+    purpose: PortfolioPurposeType;
+    portfolioItems?: PortfolioItemDto[];
 }
 
 export interface PortfolioItemDto {
