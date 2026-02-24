@@ -12,6 +12,8 @@ import java.util.Map;
 @PropertySource(value = "classpath:instruments.properties", encoding = "UTF-8")
 public class InstrumentPropertiesConfig {
 
+
+
     private Map<String,Map<String,String>> stock;
     private Map<String, String> forex;
     private Map<String, String> crypto;
