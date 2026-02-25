@@ -1,5 +1,3 @@
-CREATE DATABASE
-
 CREATE TABLE news_articles(
     id UUID PRIMARY KEY,
     title VARCHAR(255) NOT NULL,
