@@ -4,8 +4,6 @@
 .vscode/
 *.iws
 *.ipr
-Finance-Service/src/main/resources/application*.properties
-Finance-Service/src/main/resources/application*.yml
 
 
 # --- İşletim Sistemi Çöpleri ---
