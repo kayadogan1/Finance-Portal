@@ -3,97 +3,117 @@ package com.finance.services;
 import com.finance.mapper.ChartResponseToModel;
 import com.finance.models.Instrument;
 import com.finance.models.MarketData;
-import com.finance.repositories.InstrumentRepository;
 import com.finance.repositories.MarketDataRepository;
 import com.finance.shared.YahooChartResponse;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 public class FetchFilteredInstrumentService {
 
+    private static final Logger logger =
+            LogManager.getLogger(FetchFilteredInstrumentService.class);
+
     private final MarketDataRepository marketDataRepository;
-    private final InstrumentRepository instrumentRepository;
     private final FetchMarketDataService fetchMarketDataService;
     private final RestClient restClient;
 
-    private final Logger logger = LogManager.getLogger(this.getClass());
-
     @Value("${finance.YAHOO_API_URL}")
-    private String YAHOO_API_URL;
+    private String yahooApiUrl;
 
-    @PostConstruct
-    public void init() {
-        logger.info("Fetching ten years of instrument data...");
+    @Transactional
+    @Scheduled(cron = "0 0 9 * * MON-FRI")
+    public void fetchInstrumentClosePricesSinceLastDate(Instrument instrument) {
 
-        instrumentRepository.findAll().forEach(instrument -> {
-            try {
-                if (instrument.isHistoricalDataLoaded()) {
-                    logger.info("Historical data already loaded for {}, skipping.", instrument.getSymbol());
-                    return;
-                }
-                List<MarketData> marketDataList = getTenYearsData(instrument);
-                saveToDatabase(marketDataList);
-                instrument.setHistoricalDataLoaded(true);
-                instrumentRepository.save(instrument);
-                logger.info("Saved {} records for {}", marketDataList.size(), instrument.getSymbol());
-            } catch (Exception e) {
-                logger.error("Skipping instrument {}: {}", instrument.getSymbol(), e.getMessage());
-            }
-        });
+        LocalDateTime lastTimestamp = marketDataRepository
+                .findFirstByInstrumentOrderByTimestampDesc(instrument)
+                .map(MarketData::getTimestamp)
+                .orElse(null);
+
+        List<MarketData> fetchedData = fetchFromYahoo(instrument, lastTimestamp);
+
+        if (fetchedData.isEmpty()) {
+            logger.info("No new data found for {}", instrument.getSymbol());
+            return;
+        }
+
+        marketDataRepository.saveAll(fetchedData);
+        logger.info("Saved {} new records for {}", fetchedData.size(), instrument.getSymbol());
     }
-    private void saveToDatabase(List<MarketData> marketDataList) {
-        logger.info("saving market data to database...");
-        marketDataRepository.saveAll(marketDataList);
-    }
-    public List<MarketData> getTenYearsData(Instrument instrument) {
 
-        String symbolName = fetchMarketDataService.convertToYahooFormat(
+    private List<MarketData> fetchFromYahoo(Instrument instrument,
+                                            LocalDateTime lastTimestamp) {
+
+        String symbol = fetchMarketDataService.convertToYahooFormat(
                 instrument.getSymbol(),
                 instrument.getType().name(),
                 instrument.getBaseCurrency()
         );
 
-        String finalUrl = YAHOO_API_URL
-                .replace("{symbol}", symbolName)
-                .replace("range=1d", "range=10y");
+        long period1 = lastTimestamp != null
+                ? lastTimestamp.toEpochSecond(ZoneOffset.UTC)
+                : LocalDate.now().minusYears(10).atStartOfDay().toEpochSecond(ZoneOffset.UTC);
 
+        long period2 = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC);
+
+        String url = yahooApiUrl
+                .replace("{symbol}", symbol)
+                .replace("{period1}", String.valueOf(period1))
+                .replace("{period2}", String.valueOf(period2));
+
+        return executeYahooRequest(url, instrument, lastTimestamp);
+    }
+
+    private List<MarketData> executeYahooRequest(String url,
+                                                 Instrument instrument,
+                                                 LocalDateTime lastTimestamp) {
         try {
 
             YahooChartResponse response = restClient.get()
-                    .uri(finalUrl)
+                    .uri(url)
                     .header("User-Agent", "Mozilla/5.0")
                     .retrieve()
                     .body(YahooChartResponse.class);
 
-            if (response == null ||
-                    response.chart() == null ||
-                    response.chart().result() == null ||
-                    response.chart().result().isEmpty()) {
+            validateResponse(response);
 
-                throw new IllegalStateException("Invalid Yahoo response");
+            List<MarketData> marketData =
+                    ChartResponseToModel.toMarketDataList(response, instrument);
+
+            if (lastTimestamp != null) {
+                return marketData.stream()
+                        .filter(data -> data.getTimestamp().isAfter(lastTimestamp))
+                        .toList();
             }
 
-            return ChartResponseToModel
-                    .toMarketDataList(response, instrument);
+            return marketData;
 
-        } catch (Exception e) {
+        } catch (Exception ex) {
+            logger.error("Yahoo fetch failed for {}",
+                    instrument.getSymbol(), ex);
+            throw new RestClientException("Yahoo fetch failed", ex);
+        }
+    }
 
-            logger.error("Error fetching instrument data from Yahoo for {} : {}",
-                    instrument.getSymbol(),
-                    e.getMessage());
+    private void validateResponse(YahooChartResponse response) {
+        if (response == null ||
+                response.chart() == null ||
+                response.chart().result() == null ||
+                response.chart().result().isEmpty()) {
 
-            throw new RestClientException(
-                    "Error fetching instrument data from Yahoo", e);
+            throw new IllegalStateException("Invalid Yahoo API response");
         }
     }
 }
