@@ -71,6 +71,7 @@ public class PortfolioController {
         List<PerformanceLineChartDto> history = portfolioService.getPerformanceLineChartValues(user.getId(), portfolioId, days);
 
         if (history.isEmpty()) {
+            logger.info("no portfolio data history for user: {}", user.getId());
             return ResponseEntity.noContent().build();
         }
 

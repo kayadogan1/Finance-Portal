@@ -52,6 +52,7 @@ services:
       - postgres
     networks:
       - finance-network
+      - grafana-lgtm
 
   news-service:
     container_name: news-service
@@ -77,6 +78,7 @@ services:
       - "8082:8082"
     depends_on:
       - postgres
+      - grafana-lgtm
     networks:
       - finance-network
 
