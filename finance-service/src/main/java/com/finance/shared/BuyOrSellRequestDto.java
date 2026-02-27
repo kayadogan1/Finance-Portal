@@ -7,12 +7,8 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.util.UUID;
 
-public class BuyOrSellRequestDto {
-
-    @NotNull
-    public UUID portfolioId;
-    @NotBlank
-    public String instrumentSymbol;
-    @Positive(message = "Miktar 0'dan büyük olmalı")
-    public BigDecimal quantity;
-}
+public record BuyOrSellRequestDto(
+        @NotNull UUID portfolioId,
+        @NotBlank String instrumentSymbol,
+        @Positive(message = "Miktar 0'dan büyük olmalı") BigDecimal quantity
+) {}

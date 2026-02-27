@@ -21,12 +21,12 @@ public class PortfolioService {
     private static final BigDecimal COMMISSION_RATE = new BigDecimal("0.0025");
     private static final Logger logger = LogManager.getLogger(PortfolioService.class);
     private final PortfolioRepository portfolioRepository;
+    private final MarketDataRepository marketDataRepository;
     private final TransactionRepository transactionRepository;
     private final InstrumentRepository instrumentRepository;
     private final UserRepository userRepository;
-    private final PortfolioSnapshotRepository portfolioSnapshotRepository;
-    public PortfolioService(InstrumentRepository instrumentRepository,PortfolioRepository portfolioRepository, TransactionRepository transactionRepository, PortfolioSnapshotRepository portfolioSnapshotRepository, UserRepository userRepository) {
-        this.portfolioSnapshotRepository = portfolioSnapshotRepository;
+    public PortfolioService(InstrumentRepository instrumentRepository, PortfolioRepository portfolioRepository, MarketDataRepository marketDataRepository, TransactionRepository transactionRepository, UserRepository userRepository) {
+        this.marketDataRepository = marketDataRepository;
         this.userRepository = userRepository;
         this.instrumentRepository= instrumentRepository;
         this.portfolioRepository = portfolioRepository;
@@ -78,6 +78,9 @@ public class PortfolioService {
                 item.getAverageCost()
         );
     }
+
+
+
     public List<PieChartDto> getPortfolioChartValues(String userId, UUID portfolioId) {
 
         Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
@@ -120,31 +123,35 @@ public class PortfolioService {
         return true;
 
     }
+    public List<PerformanceLineChartDto> calculatePerformanceLineChart(int backDays, Portfolio portfolio) {
+        LocalDate today = LocalDate.now();
+        LocalDate startDate = today.minusDays(backDays);
+        List<PerformanceLineChartDto> performanceLineChartList = new ArrayList<>();
 
-    public List<PerformanceLineChartDto> getPerformanceLineChartValues(String userId, UUID portfolioId, int backDays) {
-        logger.info("getPerformanceLineChartValues for user, portfolio and back days: {} : {} : {}", userId, portfolioId,backDays);
-        LocalDate endDate = LocalDate.now();
-        LocalDate startTime = endDate.minusDays(backDays);
-        List<PerformanceLineChartDto> performanceLineChartDtos = new ArrayList<>();
-        List<DailyPortfolioSnapshot> dbSnapshots = portfolioSnapshotRepository.findByPortfolioIdAndDateAfterOrderByDateAsc(portfolioId,startTime);
-        if(dbSnapshots.isEmpty()){
-            return performanceLineChartDtos;
-        }
-        BigDecimal lastKnownValue = dbSnapshots.getFirst().getTotalValue();
+        for (LocalDate date = startDate; !date.isAfter(today); date = date.plusDays(1)) {
 
-        for(LocalDate date = startTime; !date.isAfter(endDate); date = date.plusDays(1)) {
-            LocalDate currentDate = date;
-            Optional<DailyPortfolioSnapshot> foundSnapshot = dbSnapshots.stream()
-                    .filter(s -> s.getDate().equals(currentDate))
-                    .findFirst();
-            if(foundSnapshot.isPresent()){
-                lastKnownValue = lastKnownValue.add(foundSnapshot.get().getTotalValue());
+            BigDecimal dailyTotalValue = BigDecimal.ZERO;
+
+            for (PortfolioItem item : portfolio.getItems()) {
+
+                BigDecimal quantity = item.getQuantity() != null ? item.getQuantity() : BigDecimal.ZERO;
+
+                Optional<MarketData> marketData = marketDataRepository.findLastDataOfDay(item.getInstrument().getId(), date);
+
+                BigDecimal itemValue = quantity.multiply(marketData.map(MarketData::getPrice).orElse(BigDecimal.ZERO));
+                dailyTotalValue = dailyTotalValue.add(itemValue);
             }
-            performanceLineChartDtos.add(new PerformanceLineChartDto(date,lastKnownValue));
 
+            performanceLineChartList.add(new PerformanceLineChartDto(date, dailyTotalValue));
         }
-        return performanceLineChartDtos;
 
+        return performanceLineChartList;
+    }
+
+    public List<PerformanceLineChartDto> getCalculatedPerformanceChartValues(String userId, UUID portfolioId, int backDays) {
+        Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
+        logger.info("calculating {} days performance line chart for :{}",backDays,userId);
+        return calculatePerformanceLineChart(backDays, portfolio);
     }
     public List<PortfolioDto> getAllPortfolios() {
 

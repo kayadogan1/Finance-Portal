@@ -11,7 +11,6 @@ import java.util.UUID;
 @Getter
 @Builder
 @Setter
-@ToString
 @RequiredArgsConstructor
 @Table(name = "market_data")
 @AllArgsConstructor
