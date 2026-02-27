@@ -3,10 +3,7 @@ package com.finance.controllers;
 import com.finance.models.User;
 import com.finance.services.PortfolioService;
 import com.finance.services.UserService;
-import com.finance.shared.BuyOrSellRequestDto;
-import com.finance.shared.DepositRequest;
-import com.finance.shared.PerformanceLineChartDto;
-import com.finance.shared.PortfolioDto;
+import com.finance.shared.*;
 import jakarta.validation.Valid;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -68,7 +65,7 @@ public class PortfolioController {
             @RequestParam(defaultValue = "30") int days
     ) {
         User user = userService.getOrCreateUser(jwt);
-        List<PerformanceLineChartDto> history = portfolioService.getPerformanceLineChartValues(user.getId(), portfolioId, days);
+        List<PerformanceLineChartDto> history = portfolioService.getCalculatedPerformanceChartValues(user.getId(), portfolioId, days);
 
         if (history.isEmpty()) {
             logger.info("no portfolio data history for user: {}", user.getId());
@@ -89,9 +86,20 @@ public class PortfolioController {
     @PreAuthorize("hasAnyRole('USER','ADMIN')")
     public ResponseEntity<Void> sellInstrument(@RequestBody @Valid BuyOrSellRequestDto sellRequest, @AuthenticationPrincipal Jwt jwt) {
         User user = userService.getOrCreateUser(jwt);
-        portfolioService.sellInstrument(user.getId(), sellRequest.instrumentSymbol, sellRequest.quantity,sellRequest.portfolioId);
-        logger.info("User {} sold {} of {}", user.getId(), sellRequest.quantity, sellRequest.instrumentSymbol);
+        portfolioService.sellInstrument(user.getId(), sellRequest.instrumentSymbol(), sellRequest.quantity(),sellRequest.portfolioId());
+        logger.info("User {} sold {} of {}", user.getId(), sellRequest.quantity(), sellRequest.instrumentSymbol());
         return ResponseEntity.ok().build();
+
+    }
+    @GetMapping("value/{portfolioId}")
+    public ResponseEntity<List<PieChartDto>> getCurrentPortfolioValue(@AuthenticationPrincipal Jwt jwt,@PathVariable UUID portfolioId) {
+        User user = userService.getOrCreateUser(jwt);
+         List<PieChartDto> pieChartList =  portfolioService.getPortfolioChartValues(user.getId(), portfolioId);
+         if(pieChartList.isEmpty()){
+             logger.info("No portfolio data history for user: {}", user.getId());
+             return ResponseEntity.noContent().build();
+         }
+         return ResponseEntity.ok(pieChartList);
 
     }
 
@@ -100,8 +108,8 @@ public class PortfolioController {
     public ResponseEntity<Void> buyInstrument(@RequestBody @Valid BuyOrSellRequestDto buyRequest, @AuthenticationPrincipal Jwt jwt) {
         User user = userService.getOrCreateUser(jwt);
 
-        portfolioService.buyInstrument(user.getId(), buyRequest.instrumentSymbol, buyRequest.quantity,buyRequest.portfolioId);
-        logger.info("User {} bought {} of {}", user.getId(), buyRequest.quantity, buyRequest.instrumentSymbol);
+        portfolioService.buyInstrument(user.getId(), buyRequest.instrumentSymbol(), buyRequest.quantity(),buyRequest.portfolioId());
+        logger.info("User {} bought {} of {}", user.getId(), buyRequest.quantity(), buyRequest.instrumentSymbol());
         return ResponseEntity.ok().build();
     }
 }

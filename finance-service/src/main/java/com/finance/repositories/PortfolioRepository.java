@@ -15,5 +15,7 @@ public interface PortfolioRepository extends JpaRepository<Portfolio, UUID> {
 
     Optional<Portfolio> findByIdAndUserId(UUID portfolioId,String userId);
 
+
+
     Boolean existsByIdAndUserId(UUID portfolioId,String userId);
 }
