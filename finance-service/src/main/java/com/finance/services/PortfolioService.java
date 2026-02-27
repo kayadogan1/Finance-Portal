@@ -14,7 +14,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 
 @Service
@@ -79,6 +78,28 @@ public class PortfolioService {
                 item.getAverageCost()
         );
     }
+    public List<PieChartDto> getPortfolioChartValues(String userId, UUID portfolioId) {
+
+        Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
+
+        return portfolio.getItems().stream()
+                .map(item -> {
+                    BigDecimal price = Optional.ofNullable(item.getInstrument())
+                            .map(Instrument::getCurrentPrice)
+                            .orElse(BigDecimal.ZERO);
+
+                    BigDecimal quantity = Optional.ofNullable(item.getQuantity())
+                            .orElse(BigDecimal.ZERO);
+                   String instrumentName= Optional.ofNullable(item.getInstrument())
+                            .map(Instrument::getName)
+                            .orElse(" ");
+                    return new PieChartDto(
+                            instrumentName,
+                            price.multiply(quantity)
+                    );
+                })
+                .toList();
+    }
 
     public boolean createPortfolio(String userId,PortfolioDto portfolio){
         logger.info("creating Portfolio {}", portfolio.portfolioName());
@@ -98,11 +119,6 @@ public class PortfolioService {
         logger.info("{} with name portfolio created", portfolio.portfolioName());
         return true;
 
-    }
-    public List<PieChartDto> getPieChartValues(String userId, UUID portfolioId){
-        logger.info("getPieChartValues  for user and portfolio {} : {}", userId, portfolioId);
-        Portfolio portfolio = getPortfolioEntity(userId,portfolioId);
-        return portfolio.getItems().stream().map(item -> new PieChartDto(item.getInstrument().getName(), item.getInstrument().getCurrentPrice())).collect(Collectors.toList());
     }
 
     public List<PerformanceLineChartDto> getPerformanceLineChartValues(String userId, UUID portfolioId, int backDays) {
