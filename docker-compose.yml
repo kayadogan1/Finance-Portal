@@ -6,12 +6,12 @@ services:
       dockerfile: ./api-gateway/Dockerfile
     environment:
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://keycloak:8080/realms/FinancePortal
-      - SPRING_CLOUD_GATEWAY_ROUTES_0_ID=news-service
-      - SPRING_CLOUD_GATEWAY_ROUTES_0_URI=http://news-service:8082
-      - SPRING_CLOUD_GATEWAY_ROUTES_0_PREDICATES_0=Path=/api/news/**
-      - SPRING_CLOUD_GATEWAY_ROUTES_1_ID=finance-service
-      - SPRING_CLOUD_GATEWAY_ROUTES_1_URI=http://finance-service:8081
-      - SPRING_CLOUD_GATEWAY_ROUTES_1_PREDICATES_0=Path=/api/market/**,/api/trade/**,/api/portfolio/**
+      - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_0_ID=news-service
+      - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_0_URI=http://news-service:8082
+      - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_0_PREDICATES_0=Path=/api/news/**
+      - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_1_ID=finance-service
+      - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_1_URI=http://finance-service:8081
+      - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_1_PREDICATES_0=Path=/api/market/**,/api/trade/**,/api/portfolio/**
     labels:
       - "co.elastic.logs/enabled=true"
       - "co.elastic.logs/json.keys_under_root=true"
@@ -52,7 +52,6 @@ services:
       - postgres
     networks:
       - finance-network
-      - grafana-lgtm
 
   news-service:
     container_name: news-service

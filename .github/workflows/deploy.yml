@@ -44,6 +44,12 @@ jobs:
       - name: Build with Maven
         run: mvn -B clean package -DskipTests
 
+      - name: Decode SSL Secrets into Files
+        run: |
+            mkdir -p keycloak/conf
+            echo "${{ secrets.CRT_BASE64 }}" | base64 -d > keycloak/conf/keycloak.crt
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > keycloak/conf/server.keystore  
+
       # ARM mimarisi (aarch64) için QEMU ve Buildx ayarları
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -75,6 +81,15 @@ jobs:
         run: |
           IMAGE=ghcr.io/${{ github.repository_owner }}/api-gateway
           docker buildx build --platform linux/arm64 -t $IMAGE:${{ github.sha }} -t $IMAGE:latest -f api-gateway/Dockerfile --push .
+
+      - name: Copy SSL Files to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+            host: ${{ secrets.EC2_HOST }}
+            username: ${{ secrets.EC2_USERNAME }}
+            key: ${{ secrets.EC2_SSH_KEY }}
+            source: "keycloak/conf/keycloak.crt,keycloak/conf/server.keystore"
+            target: "~/myapp/"
 
       - name: Deploy to EC2
         if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'

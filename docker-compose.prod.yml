@@ -3,13 +3,13 @@ services:
     container_name: api-gateway
     image: ghcr.io/kayadogan1/api-gateway:latest
     environment:
-      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://keycloak:8080/realms/FinancePortal
-      - SPRING_CLOUD_GATEWAY_ROUTES_0_ID=news-service
-      - SPRING_CLOUD_GATEWAY_ROUTES_0_URI=http://news-service:8082
-      - SPRING_CLOUD_GATEWAY_ROUTES_0_PREDICATES_0=Path=/api/news/**
-      - SPRING_CLOUD_GATEWAY_ROUTES_1_ID=finance-service
-      - SPRING_CLOUD_GATEWAY_ROUTES_1_URI=http://finance-service:8081
-      - SPRING_CLOUD_GATEWAY_ROUTES_1_PREDICATES_0=Path=/api/market/**,/api/trade/**,/api/portfolio/**
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=https://keycloak:9090/realms/FinancePortal
+      - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_0_ID=news-service
+      - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_0_URI=http://news-service:8082
+      - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_0_PREDICATES_0=Path=/api/news/**
+      - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_1_ID=finance-service
+      - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_1_URI=http://finance-service:8081
+      - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_1_PREDICATES_0=Path=/api/market/**,/api/trade/**,/api/portfolio/**
       - MANAGEMENT_OTLP_METRICS_EXPORT_URL=http://grafana-lgtm:4318/v1/metrics
       - MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://grafana-lgtm:4318/v1/traces
     labels:
@@ -26,6 +26,8 @@ services:
     networks:
       - finance-network
     restart: always
+    volumes:
+      - ./keycloak/conf/keycloak.crt:/tmp/keycloak.crt:ro
 
   finance-service:
     container_name: finance-service
@@ -40,7 +42,7 @@ services:
       - SPRING_FLYWAY_USER=${DB_USER:-postgres}
       - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD:-253421}
       - SPRING_FLYWAY_ENABLED=true
-      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://keycloak:8080/realms/FinancePortal
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=https://keycloak:9090/realms/FinancePortal
       - MANAGEMENT_OTLP_METRICS_EXPORT_URL=http://grafana-lgtm:4318/v1/metrics
       - MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://grafana-lgtm:4318/v1/traces
     labels:
@@ -56,6 +58,8 @@ services:
     networks:
       - finance-network
     restart: always
+    volumes:
+      - ./keycloak/conf/keycloak.crt:/tmp/keycloak.crt:ro
 
   news-service:
     container_name: news-service
@@ -70,7 +74,7 @@ services:
       - SPRING_FLYWAY_ENABLED=true
       - NEWS_API_KEY=${NEWS_API_KEY}
       - NEWS_API_URL=${NEWS_API_URL}
-      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://keycloak:8080/realms/FinancePortal
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=https://keycloak:9090/realms/FinancePortal
       - MANAGEMENT_OTLP_METRICS_EXPORT_URL=http://grafana-lgtm:4318/v1/metrics
       - MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://grafana-lgtm:4318/v1/traces
     labels:
@@ -85,6 +89,8 @@ services:
     networks:
       - finance-network
     restart: always
+    volumes:
+      - ./keycloak/conf/keycloak.crt:/tmp/keycloak.crt:ro
 
   postgres:
     image: postgres:16-alpine
@@ -96,6 +102,7 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-253421}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
     ports:
       - "5432:5432"
     networks:
@@ -137,7 +144,7 @@ services:
       - finance-network
 
   filebeat:
-    image: docker.elastic.co/beats/filebeat:8.11.1
+    image: docker.elastic.co/beats/filebeat:8.19.11
     container_name: finance_filebeat
     user: root
     volumes:
@@ -164,13 +171,20 @@ services:
     image: quay.io/keycloak/keycloak:23.0.0
     container_name: finance_keycloak
     restart: always
-    command: start-dev --import-realm
+    command: >
+      start --import-realm
+      --optimized
+      --https-port=9090
+      --http-enabled=false
+      --https-key-store-file=/opt/keycloak/conf/server.keystore
+      --https-key-store-password=password
     environment:
-      KEYCLOAK_ADMIN: admin
-      KEYCLOAK_ADMIN_PASSWORD: admin
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
     ports:
-      - "9090:8080"
+      - "9090:9090"
     volumes:
+      - ./keycloak/conf:/opt/keycloak/conf
       - ./keycloak/realms:/opt/keycloak/data/import
       - ./keycloak/themes:/opt/keycloak/themes
     networks:
