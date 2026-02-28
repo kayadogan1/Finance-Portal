@@ -1,0 +1,45 @@
+name: SSH and SCP Connection Test
+
+on:
+  workflow_dispatch: 
+
+jobs:
+  test-connection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Dummy File
+        run: |
+          mkdir -p test-folder
+          echo "Connection successful at $(date)" > test-folder/hello-ec2.txt
+
+      - name: Step 1 - Test SSH Connectivity
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "--- SSH BAGLANTISI BASARILI ---"
+            uname -a
+            pwd
+            ls -la
+
+      - name: Step 2 - Test SCP File Transfer
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "test-folder/hello-ec2.txt"
+          target: "~/"
+
+      - name: Step 3 - Verify Transfer on EC2
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USERNAME }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "--- DOSYA KONTROL EDILIYOR ---"
+            cat ~/test-folder/hello-ec2.txt
+            rm -rf ~/test-folder # Temizlik
