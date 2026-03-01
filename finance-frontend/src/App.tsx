@@ -5,6 +5,10 @@ import PortfolioPage from './pages/PortfolioPage';
 import MarketPage from './pages/MarketPage';
 import NewsPage from './pages/NewsPage';
 import AdminPage from './pages/AdminPage';
+import BitcoinPage from './pages/BitcoinPage';
+import ForexPage from './pages/ForexPage';
+import BondsPage from './pages/BondsPage';
+import IndicesPage from './pages/IndicesPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
 function App() {
@@ -14,6 +18,10 @@ function App() {
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/market" element={<MarketPage />} />
                 <Route path="/news" element={<NewsPage />} />
+                <Route path="/bitcoin" element={<BitcoinPage />} />
+                <Route path="/forex" element={<ForexPage />} />
+                <Route path="/bonds" element={<BondsPage />} />
+                <Route path="/indices" element={<IndicesPage />} />
                 <Route
                     path="/portfolio"
                     element={
