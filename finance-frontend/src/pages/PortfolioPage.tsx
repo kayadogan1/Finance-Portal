@@ -1,23 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
-import { PieChart, TrendingUp, Wallet, ArrowDownToLine, ShoppingCart, RefreshCw } from 'lucide-react';
-import { getDistribution, getHistory, getPortfolios } from '../services/portfolioService';
-import PortfolioDistributionChart from '../components/portfolio/PortfolioDistributionChart';
-import PortfolioHistoryChart from '../components/portfolio/PortfolioHistoryChart';
+import {
+    PieChart as PieChartIcon, TrendingUp, Wallet,
+    ArrowDownToLine, ShoppingCart, RefreshCw,
+} from 'lucide-react';
+import {
+    getPortfolios,
+    getPortfolioPieChart,
+} from '../services/portfolioService';
+import PortfolioPieChart from '../components/portfolio/PortfolioPieChart';
+import PerformanceAreaChart from '../components/portfolio/PerformanceAreaChart';
 import { CreatePortfolioModal } from '../components/portfolio/CreatePortfolioModal';
 import { DepositModal } from '../components/portfolio/DepositModal';
 import { TradeModal } from '../components/trade/TradeModal';
-
-const ChartSkeleton = ({ className = '' }: { className?: string }) => (
-    <div className={`animate-pulse ${className}`}>
-        <div className="h-5 w-40 bg-slate-700 rounded mb-6" />
-        <div className="space-y-3">
-            <div className="h-4 bg-slate-700/60 rounded w-full" />
-            <div className="h-4 bg-slate-700/40 rounded w-5/6" />
-            <div className="h-48 bg-slate-700/30 rounded-xl mt-4" />
-        </div>
-    </div>
-);
 
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
     <div className={`bg-slate-800/50 backdrop-blur border border-slate-700/60 rounded-2xl p-6 shadow-lg ${className}`}>
@@ -25,29 +20,37 @@ const Card = ({ children, className = '' }: { children: React.ReactNode; classNa
     </div>
 );
 
-// Dummy fallback since backend PortfolioDto does not provide ID
+const ChartSkeleton = () => (
+    <div className="animate-pulse">
+        <div className="h-[280px] bg-slate-700/20 rounded-xl" />
+    </div>
+);
+
+// TODO: Backend PortfolioDto does not expose the portfolio `id` field.
+// Once the backend team adds it, replace this constant with the real portfolio ID.
 export const DUMMY_PORTFOLIO_ID = "123e4567-e89b-12d3-a456-426614174000";
 
 const PortfolioPage = () => {
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [depositModalOpen, setDepositModalOpen] = useState(false);
-
-    // Trade Modal state
     const [sellSymbol, setSellSymbol] = useState<string | null>(null);
 
+    // Fetch portfolios (needed to check if user has one)
     const { data: portfolios, isLoading: portsLoading } = useQuery({
         queryKey: ['portfolio'],
         queryFn: getPortfolios,
     });
 
-    const { data: distribution, isLoading: distLoading, isError: distError } = useQuery({
-        queryKey: ['portfolio-distribution'],
-        queryFn: getDistribution,
-    });
+    const hasPortfolio = portfolios && portfolios.length > 0;
+    const activePortfolio = hasPortfolio ? portfolios[0] : null;
 
-    const { data: history, isLoading: histLoading, isError: histError } = useQuery({
-        queryKey: ['portfolio-history'],
-        queryFn: getHistory,
+    // Pie chart data — aggressively cached (5 min staleTime)
+    const { data: pieData, isLoading: pieLoading, isError: pieError } = useQuery({
+        queryKey: ['portfolio-pie', DUMMY_PORTFOLIO_ID],
+        queryFn: () => getPortfolioPieChart(DUMMY_PORTFOLIO_ID),
+        staleTime: 1000 * 60 * 5,
+        refetchOnWindowFocus: false,
+        enabled: hasPortfolio ?? false,
     });
 
     if (portsLoading) {
@@ -57,9 +60,6 @@ const PortfolioPage = () => {
             </div>
         );
     }
-
-    const hasPortfolio = portfolios && portfolios.length > 0;
-    const activePortfolio = hasPortfolio ? portfolios[0] : null;
 
     return (
         <div className="space-y-8">
@@ -104,7 +104,7 @@ const PortfolioPage = () => {
                                 <Wallet className="text-emerald-400" size={20} />
                             </div>
                             <p className="text-2xl font-bold text-white">
-                                {/* Backend doesn't return cashBalance; showing placeholder */}
+                                {/* TODO: Backend doesn't return cashBalance in PortfolioDto */}
                                 0.00 ₺
                             </p>
                         </div>
@@ -127,24 +127,24 @@ const PortfolioPage = () => {
 
                     {/* Charts grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Pie Chart — Backend: GET /api/portfolio/value/{portfolioId} */}
                         <Card>
                             <div className="flex items-center gap-2 mb-4">
-                                <PieChart size={20} className="text-emerald-400" />
+                                <PieChartIcon size={20} className="text-emerald-400" />
                                 <h3 className="text-lg font-semibold text-white">Varlık Dağılımı</h3>
                             </div>
-                            {distLoading && <ChartSkeleton />}
-                            {distError && <p className="text-red-400 text-sm">Dağılım verileri yüklenemedi.</p>}
-                            {distribution && <PortfolioDistributionChart data={distribution} />}
+                            {pieLoading && <ChartSkeleton />}
+                            {pieError && <p className="text-red-400 text-sm">Dağılım verileri yüklenemedi.</p>}
+                            {pieData && <PortfolioPieChart data={pieData} />}
                         </Card>
 
+                        {/* Performance Area Chart — Backend: GET /api/portfolio/{portfolioId}/history?days=N */}
                         <Card>
                             <div className="flex items-center gap-2 mb-4">
                                 <TrendingUp size={20} className="text-emerald-400" />
-                                <h3 className="text-lg font-semibold text-white">Portföy Değer Geçmişi</h3>
+                                <h3 className="text-lg font-semibold text-white">Portföy Performansı</h3>
                             </div>
-                            {histLoading && <ChartSkeleton />}
-                            {histError && <p className="text-red-400 text-sm">Geçmiş verileri yüklenemedi.</p>}
-                            {history && <PortfolioHistoryChart data={history} />}
+                            <PerformanceAreaChart portfolioId={DUMMY_PORTFOLIO_ID} />
                         </Card>
                     </div>
 
@@ -170,11 +170,11 @@ const PortfolioPage = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-700">
-                                        {activePortfolio?.portfolioItems?.map((item, idx) => (
+                                        {activePortfolio.portfolioItems.map((item, idx) => (
                                             <tr key={idx} className="hover:bg-slate-700/50 transition-colors">
                                                 <td className="p-4 font-bold text-white">{item.instrumentSymbol}</td>
                                                 <td className="p-4 text-slate-300 font-mono">{item.quantity}</td>
-                                                <td className="p-4 text-right text-slate-300 font-mono">{item.averageCost.toFixed(2)} ₺</td>
+                                                <td className="p-4 text-right text-slate-300 font-mono">{Number(item.averageCost).toFixed(2)} ₺</td>
                                                 <td className="p-4 text-center">
                                                     <button
                                                         onClick={() => setSellSymbol(item.instrumentSymbol)}
@@ -191,13 +191,13 @@ const PortfolioPage = () => {
                         )}
                     </div>
 
-                    {/* Recent Transactions Section Placeholder */}
-                    <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden mt-8">
+                    {/* Recent Transactions Placeholder */}
+                    <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
                         <div className="p-4 border-b border-slate-700">
                             <h2 className="text-lg font-semibold text-white">Son İşlemler</h2>
                         </div>
                         <div className="p-12 text-center text-slate-400">
-                            {/* TODO: Add DataTable here when the backend provides a GET /api/portfolio/transactions endpoint */}
+                            {/* TODO: Backend needs GET /api/portfolio/transactions endpoint */}
                             <RefreshCw className="mx-auto mb-3 opacity-50" size={40} />
                             <p>Transaction history endpoint pending.</p>
                         </div>
