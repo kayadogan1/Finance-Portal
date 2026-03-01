@@ -45,6 +45,12 @@ export interface PerformanceLineChartDto {
     totalPrice: number;
 }
 
+/** Matches `com.finance.shared.PieChartDto` */
+export interface PieChartDto {
+    instrumentName: string;
+    totalValue: number;
+}
+
 /* ─────────────────── Derived shapes used by existing UI ─────────────────── */
 
 export interface DistributionData {
@@ -124,6 +130,16 @@ export const getHistory = async (): Promise<HistoryData> => {
  */
 export const createPortfolio = async (portfolio: PortfolioDto): Promise<void> => {
     await privateApi.post('/api/portfolio/create', portfolio);
+};
+
+/**
+ * Fetch pie chart data for a portfolio.
+ * Route: GET /api/portfolio/value/{portfolioId}
+ * Returns: PieChartDto[] = [{ instrumentName, totalValue }]
+ */
+export const getPortfolioPieChart = async (portfolioId: string): Promise<PieChartDto[]> => {
+    const { data } = await privateApi.get<PieChartDto[]>(`/api/portfolio/value/${portfolioId}`);
+    return data;
 };
 
 /**
