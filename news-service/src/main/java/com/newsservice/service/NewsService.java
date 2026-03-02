@@ -156,9 +156,9 @@ public class NewsService {
 
     private FilteredArticleDto toDto(NewsArticle entity) {
         return new FilteredArticleDto(
-                new Source(null, entity.getSourceName()),
+                new Source(entity.getId().toString(), entity.getSourceName()),
                 entity.getAuthorName(), entity.getTitle(), entity.getCountry().name(), entity.getTopic().name(),
-                "", entity.getContent(), entity.getUrl(), "", entity.getPublishedDate().toString()
+                entity.getDescription(), entity.getContent(), entity.getUrl(), entity.getUrlToImage(), entity.getPublishedDate().toString()
         );
     }
 
@@ -171,6 +171,7 @@ public class NewsService {
                 .topic(NewsTopic.valueOf(dto.category()))
                 .content(dto.content())
                 .url(dto.url())
+                .urlToImage(dto.urlToImage())
                 .publishedDate(dto.publishedAt() != null ? ZonedDateTime.parse(dto.publishedAt()).toLocalDateTime() : LocalDateTime.now())
                 .build();
     }

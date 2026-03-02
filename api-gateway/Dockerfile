@@ -15,6 +15,9 @@ RUN mvn -f api-gateway/pom.xml clean package -DskipTests -B
 
 FROM eclipse-temurin:21-jre-alpine
 
+COPY keycloak/conf/keycloak.crt /tmp/keycloak.crt
+RUN keytool -importcert -file /tmp/keycloak.crt -alias keycloak-final -cacerts -storepass changeit -noprompt
+
 RUN adduser -S appuser
 
 WORKDIR /app

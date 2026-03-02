@@ -29,7 +29,7 @@ public class PortfolioController {
     }
     @GetMapping
     @PreAuthorize("hasAnyRole('USER','ADMIN')")
-    public ResponseEntity<List<PortfolioDto>> getAllPortfolios(@AuthenticationPrincipal Jwt jwt){
+    public ResponseEntity<List<PortfolioReadDto>> getAllPortfolios(@AuthenticationPrincipal Jwt jwt){
         User user = userService.getOrCreateUser(jwt);
         logger.info("Fetching all portfolios for user: {}", user.getId());
         return ResponseEntity.ok(portfolioService.getAllPortfolios()) ;
@@ -38,7 +38,7 @@ public class PortfolioController {
 
     @GetMapping("/{portfolioId}")
     @PreAuthorize("hasAnyRole('USER','ADMIN')")
-    public ResponseEntity<PortfolioDto> getPortfolio(
+    public ResponseEntity<PortfolioReadDto> getPortfolio(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID portfolioId) {
         User user = userService.getOrCreateUser(jwt);

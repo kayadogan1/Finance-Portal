@@ -31,7 +31,7 @@ public class FetchMarketDataService {
     private  FetchMarketDataService self;
     private static final Logger logger = LogManager.getLogger(FetchMarketDataService.class);
 
-    @Value("${finance.YAHOO_API_URL}")
+    @Value("${finance.YAHOO_API_BASE_URL}")
     private String YAHOO_API_URL;
 
     public FetchMarketDataService(InstrumentPropertiesConfig instrumentProperties,

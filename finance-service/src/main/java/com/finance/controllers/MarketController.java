@@ -56,7 +56,7 @@ public class MarketController {
     ){
         logger.info("fetching candles for symbol {} with slot time: {}", symbol, slot);
         LocalDateTime startTime = from != null ? from : LocalDateTime.now().minusHours(24);
-        List<CandleDto> candleDtoList = marketDataService.getMarketDataHistory(symbol,from,slot);
+        List<CandleDto> candleDtoList = marketDataService.getMarketDataHistory(symbol,startTime,slot);
         if (startTime.isAfter(LocalDateTime.now())) {
             logger.warn("Invalid 'from' timestamp: {}. Cannot be in future.", startTime);
             return ResponseEntity.badRequest().build();
@@ -88,17 +88,22 @@ public class MarketController {
 
 
     @GetMapping("/history/{symbol}")
-    public ResponseEntity<List<MarketData>> getMarketDataHistory(@PathVariable String symbol, @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from){
-        if(from.isAfter(LocalDateTime.now())){
+    public ResponseEntity<List<MarketData>> getMarketDataHistory(
+            @PathVariable String symbol,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from) {
+
+        if (from != null && from.isAfter(LocalDateTime.now())) {
             logger.warn("Invalid 'from' timestamp: {}. It cannot be in the future.", from);
             return ResponseEntity.badRequest().build();
         }
-        List<MarketData> marketDataList = marketDataRepository.findByInstrumentSymbolAndTimestampAfterOrderByTimestampAsc(symbol, from);
-        if(marketDataList.isEmpty()){
-            logger.warn("No market data found for symbol {} after {}", symbol, from);
+
+        LocalDateTime startTime = from != null ? from : LocalDateTime.now().minusHours(24);
+        List<MarketData> marketDataList = marketDataRepository.findByInstrumentSymbolAndTimestampAfterOrderByTimestampAsc(symbol, startTime);
+
+        if (marketDataList.isEmpty()) {
+            logger.warn("No market data found for symbol {} after {}", symbol, startTime);
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.ok(marketDataList);
-
     }
 }
