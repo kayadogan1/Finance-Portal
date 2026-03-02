@@ -64,38 +64,54 @@ export interface BackendInstrument {
     historicalDataLoaded: boolean;
 }
 
-/** Frontend-enriched instrument with mock change24h */
+/** Frontend-enriched instrument with computed change24h */
 export interface MarketInstrument extends BackendInstrument {
-    change24h: number; // TODO: Remove mock when backend adds this field
+    change24h: number;
 }
 
 /**
- * Simple hash to generate a deterministic mock change value per symbol.
- * This ensures the same symbol always shows the same mock % on each render.
- */
-function mockChange(symbol: string): number {
-    let hash = 0;
-    for (let i = 0; i < symbol.length; i++) {
-        hash = ((hash << 5) - hash) + symbol.charCodeAt(i);
-        hash |= 0;
-    }
-    // Range: -8.0% to +8.0%, rounded to 2 decimals
-    return Number(((hash % 1600) / 100 - 8).toFixed(2));
-}
-
-/**
- * Fetch all available market instruments.
- * Route: GET /api/market
- * Returns: Instrument[] (JPA entity, not DTO)
+ * Fetch all available market instruments, then compute real change24h
+ * by fetching each instrument's 24h history from GET /api/market/history/{symbol}?from=...
+ *
+ * Route: GET /api/market  →  Instrument[]
+ * Route: GET /api/market/history/{symbol}?from=  →  MarketData[] (price, timestamp)
  */
 export const getMarketInstruments = async (): Promise<MarketInstrument[]> => {
-    const { data } = await publicApi.get<BackendInstrument[]>('/api/market');
-    // Enrich with mock change24h until backend supports it
-    return data.map((inst) => ({
-        ...inst,
-        currentPrice: Number(inst.currentPrice) || 0,
-        change24h: mockChange(inst.symbol),
-    }));
+    const { data: instruments } = await publicApi.get<BackendInstrument[]>('/api/market');
+
+    // 24 hours ago in ISO format for the history query
+    const from24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+
+    // Fire all history requests in parallel
+    const historyResults = await Promise.allSettled(
+        instruments.map((inst) =>
+            publicApi
+                .get<{ price: number; timestamp: string }[]>(
+                    `/api/market/history/${inst.symbol}`,
+                    { params: { from: from24h } },
+                )
+                .then((res) => ({ symbol: inst.symbol, data: res.data }))
+        ),
+    );
+
+    // Build a map: symbol → oldest price from 24h history
+    const oldPriceMap = new Map<string, number>();
+    for (const result of historyResults) {
+        if (result.status === 'fulfilled' && result.value.data.length > 0) {
+            // Backend returns ordered by timestamp ASC → first entry is oldest
+            oldPriceMap.set(result.value.symbol, Number(result.value.data[0].price));
+        }
+    }
+
+    return instruments.map((inst) => {
+        const current = Number(inst.currentPrice) || 0;
+        const old = oldPriceMap.get(inst.symbol);
+        const change24h = old && old !== 0
+            ? Number((((current - old) / old) * 100).toFixed(2))
+            : 0;
+
+        return { ...inst, currentPrice: current, change24h };
+    });
 };
 
 /**
