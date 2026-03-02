@@ -15,17 +15,19 @@ const CandlestickChart = ({ data }: CandlestickChartProps) => {
         const container = containerRef.current;
         if (!container) return;
 
-        // Create chart
+        // RULE 3: Do NOT render chart if data is empty
+        if (!data || data.length === 0) return;
+
         const chart = createChart(container, {
             width: container.clientWidth,
             height: 420,
             layout: {
                 background: { color: 'transparent' },
-                textColor: '#94a3b8', // slate-400
+                textColor: '#94a3b8',
                 fontFamily: 'Inter, system-ui, sans-serif',
             },
             grid: {
-                vertLines: { color: '#1e293b' }, // slate-800
+                vertLines: { color: '#1e293b' },
                 horzLines: { color: '#1e293b' },
             },
             crosshair: {
@@ -33,17 +35,18 @@ const CandlestickChart = ({ data }: CandlestickChartProps) => {
                 horzLine: { color: '#475569', labelBackgroundColor: '#334155' },
             },
             rightPriceScale: {
-                borderColor: '#334155', // slate-700
+                borderColor: '#334155',
             },
             timeScale: {
                 borderColor: '#334155',
-                timeVisible: false,
+                timeVisible: true,
+                secondsVisible: false,
             },
         });
 
         const series = chart.addSeries(CandlestickSeries, {
-            upColor: '#10b981',        // emerald-500
-            downColor: '#ef4444',      // red-500
+            upColor: '#10b981',
+            downColor: '#ef4444',
             borderDownColor: '#ef4444',
             borderUpColor: '#10b981',
             wickDownColor: '#ef4444',
@@ -53,20 +56,18 @@ const CandlestickChart = ({ data }: CandlestickChartProps) => {
         chartRef.current = chart;
         seriesRef.current = series;
 
-        // Set data and fit
+        // Data is already parsed to { time: UNIX_SECONDS, open, high, low, close }
+        // by the service layer (getCandleData). No raw ISO strings reach here.
         series.setData(data);
         chart.timeScale().fitContent();
 
-        // ResizeObserver for responsive resizing
         const resizeObserver = new ResizeObserver((entries) => {
             for (const entry of entries) {
-                const { width } = entry.contentRect;
-                chart.applyOptions({ width });
+                chart.applyOptions({ width: entry.contentRect.width });
             }
         });
         resizeObserver.observe(container);
 
-        // Cleanup: disconnect observer and remove chart to prevent memory leaks
         return () => {
             resizeObserver.disconnect();
             chart.remove();
@@ -74,6 +75,23 @@ const CandlestickChart = ({ data }: CandlestickChartProps) => {
             seriesRef.current = null;
         };
     }, [data]);
+
+    // RULE 3: Empty data fallback
+    if (!data || data.length === 0) {
+        return (
+            <div
+                className="w-full rounded-xl flex items-center justify-center bg-slate-900/30 border border-slate-700/40"
+                style={{ minHeight: 420 }}
+            >
+                <div className="text-center">
+                    <p className="text-slate-400 text-sm">Grafik verisi bulunamadı.</p>
+                    <p className="text-slate-500 text-xs mt-1">
+                        Bu enstrüman için henüz mum verisi yok.
+                    </p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div

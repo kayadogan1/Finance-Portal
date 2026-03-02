@@ -39,7 +39,7 @@ export type TabType = 'portfolio' | 'market';
 export type MarketTabType = 'ALL' | 'FOREX' | 'CRYPTO' | 'STOCK';
 
 export interface OHLCData {
-    time: string;
+    time: number; // UNIX timestamp in SECONDS — Lightweight Charts requirement
     open: number;
     high: number;
     low: number;

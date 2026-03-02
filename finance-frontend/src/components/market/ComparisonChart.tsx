@@ -85,9 +85,9 @@ export default function ComparisonChart() {
     });
 
     /*
-     * FIX: ComparisonChart is a LINE chart.
-     * It MUST use getLineData (→ /api/market/line/{symbol})
-     * NOT getCandleData (→ /api/market/candles/{symbol})
+     * RULE 1: ComparisonChart is a LINE chart.
+     * Uses getLineData → GET /api/market/line/{symbol}?dateTime=
+     * Returns ParsedLinePoint[] = { timestamp (UNIX ms), label, close }
      */
     const { data: dataA, isLoading: loadingA } = useQuery({
         queryKey: ['market-line', symbolA],
@@ -102,27 +102,30 @@ export default function ComparisonChart() {
     });
 
     const chartSeries = useMemo(() => {
-        if (!dataA || !dataA.length || !dataB || !dataB.length) return [];
+        // RULE 3: Validate data before building series
+        if (!dataA || dataA.length === 0 || !dataB || dataB.length === 0) return [];
 
         const initialA = dataA[0].close;
         const initialB = dataB[0].close;
+
+        if (initialA === 0 || initialB === 0) return [];
 
         return [
             {
                 name: symbolA,
                 data: dataA.map(d => ({
-                    x: d.dateTime,
+                    x: d.timestamp,  // UNIX ms — parsed by service layer
                     y: ((d.close - initialA) / initialA) * 100,
                 })),
-                color: '#10b981', // emerald-500
+                color: '#10b981',
             },
             {
                 name: symbolB,
                 data: dataB.map(d => ({
-                    x: d.dateTime,
+                    x: d.timestamp,  // UNIX ms — parsed by service layer
                     y: ((d.close - initialB) / initialB) * 100,
                 })),
-                color: '#3b82f6', // blue-500
+                color: '#3b82f6',
             }
         ];
     }, [dataA, dataB, symbolA, symbolB]);
@@ -160,8 +163,12 @@ export default function ComparisonChart() {
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
                     </div>
                 ) : chartSeries.length === 0 ? (
-                    <div className="w-full h-full flex items-center justify-center text-slate-500">
-                        Kıyaslanacak veri bulunamadı. Lütfen iki sembol seçin.
+                    /* RULE 3: Empty data fallback */
+                    <div className="w-full h-full flex flex-col items-center justify-center text-center">
+                        <p className="text-slate-400 text-sm">Kıyaslanacak veri bulunamadı.</p>
+                        <p className="text-slate-500 text-xs mt-1">
+                            Seçilen semboller için henüz fiyat geçmişi yok.
+                        </p>
                     </div>
                 ) : (
                     <Chart
@@ -182,6 +189,9 @@ export default function ComparisonChart() {
                                 tooltip: { enabled: false },
                                 axisBorder: { show: false },
                                 axisTicks: { show: false },
+                                labels: {
+                                    datetimeUTC: false,
+                                },
                             },
                             yaxis: {
                                 labels: {
@@ -199,7 +209,7 @@ export default function ComparisonChart() {
                                     formatter: (val) => `${val > 0 ? '+' : ''}${val.toFixed(2)}%`,
                                 },
                                 x: {
-                                    format: 'dd MMM yyyy',
+                                    format: 'dd MMM yyyy HH:mm',
                                 },
                             },
                             legend: {
@@ -208,7 +218,7 @@ export default function ComparisonChart() {
                             },
                             dataLabels: {
                                 enabled: false,
-                            }
+                            },
                         }}
                         series={chartSeries}
                         type="line"
