@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     Dialog,
     DialogContent,
@@ -11,7 +11,7 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 import { privateApi } from "../../services/api";
-import { DUMMY_PORTFOLIO_ID } from "../../pages/PortfolioPage";
+import { getPortfolios } from "../../services/portfolioService";
 
 const tradeSchema = z.object({
     quantity: z.number().positive("Miktar 0'dan büyük olmalıdır"),
@@ -24,11 +24,22 @@ interface TradeModalProps {
     onClose: () => void;
     symbol: string | null;
     side: "BUY" | "SELL" | null;
+    /** If not provided, auto-fetches user's first portfolio */
+    portfolioId?: string;
 }
 
-export function TradeModal({ isOpen, onClose, symbol, side }: TradeModalProps) {
+export function TradeModal({ isOpen, onClose, symbol, side, portfolioId }: TradeModalProps) {
     const queryClient = useQueryClient();
     const [errorText, setErrorText] = useState<string | null>(null);
+
+    // Auto-fetch first portfolio if portfolioId not provided (market pages)
+    const { data: portfolios } = useQuery({
+        queryKey: ['portfolio'],
+        queryFn: getPortfolios,
+        enabled: isOpen && !portfolioId,
+    });
+
+    const resolvedPortfolioId = portfolioId ?? portfolios?.[0]?.id;
 
     const {
         register,
@@ -42,30 +53,36 @@ export function TradeModal({ isOpen, onClose, symbol, side }: TradeModalProps) {
 
     const mutation = useMutation({
         mutationFn: async (data: TradeFormValues) => {
+            if (!resolvedPortfolioId) throw new Error("Portföy bulunamadı");
             const endpoint = side === "BUY" ? "/api/portfolio/buy" : "/api/portfolio/sell";
             const response = await privateApi.post(endpoint, {
                 instrumentSymbol: symbol,
                 quantity: data.quantity,
-                portfolioId: DUMMY_PORTFOLIO_ID
+                portfolioId: resolvedPortfolioId,
             });
             return response.data;
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["portfolio"] });
             queryClient.invalidateQueries({ queryKey: ["portfolio-history"] });
+            queryClient.invalidateQueries({ queryKey: ["portfolio-pie"] });
             queryClient.invalidateQueries({ queryKey: ["market"] });
             onClose();
             reset();
         },
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         onError: (error: any) => {
-            setErrorText(error.response?.data?.message || "İşlem başarısız oldu.");
+            setErrorText(error.response?.data?.message || error.message || "İşlem başarısız oldu.");
         },
     });
 
     const onSubmit = (data: TradeFormValues) => {
         setErrorText(null);
         if (!symbol || !side) return;
+        if (!resolvedPortfolioId) {
+            setErrorText("Önce bir portföy oluşturmalısınız.");
+            return;
+        }
         mutation.mutate(data);
     };
 
@@ -113,7 +130,7 @@ export function TradeModal({ isOpen, onClose, symbol, side }: TradeModalProps) {
                         </button>
                         <button
                             type="submit"
-                            disabled={mutation.isPending}
+                            disabled={mutation.isPending || !resolvedPortfolioId}
                             className={`px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors ${isBuy
                                 ? "bg-emerald-600 hover:bg-emerald-700"
                                 : "bg-red-600 hover:bg-red-700"
