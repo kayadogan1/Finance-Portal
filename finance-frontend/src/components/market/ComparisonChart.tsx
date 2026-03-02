@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Chart from 'react-apexcharts';
-import { getMarketHistory, getMarketInstruments } from '../../services/marketService';
+import { getLineData, getMarketInstruments } from '../../services/marketService';
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -84,15 +84,20 @@ export default function ComparisonChart() {
         queryFn: getMarketInstruments,
     });
 
+    /*
+     * FIX: ComparisonChart is a LINE chart.
+     * It MUST use getLineData (→ /api/market/line/{symbol})
+     * NOT getCandleData (→ /api/market/candles/{symbol})
+     */
     const { data: dataA, isLoading: loadingA } = useQuery({
-        queryKey: ['market-history', symbolA],
-        queryFn: () => getMarketHistory(symbolA),
+        queryKey: ['market-line', symbolA],
+        queryFn: () => getLineData(symbolA),
         enabled: !!symbolA,
     });
 
     const { data: dataB, isLoading: loadingB } = useQuery({
-        queryKey: ['market-history', symbolB],
-        queryFn: () => getMarketHistory(symbolB),
+        queryKey: ['market-line', symbolB],
+        queryFn: () => getLineData(symbolB),
         enabled: !!symbolB,
     });
 
@@ -106,7 +111,7 @@ export default function ComparisonChart() {
             {
                 name: symbolA,
                 data: dataA.map(d => ({
-                    x: d.time,
+                    x: d.dateTime,
                     y: ((d.close - initialA) / initialA) * 100,
                 })),
                 color: '#10b981', // emerald-500
@@ -114,7 +119,7 @@ export default function ComparisonChart() {
             {
                 name: symbolB,
                 data: dataB.map(d => ({
-                    x: d.time,
+                    x: d.dateTime,
                     y: ((d.close - initialB) / initialB) * 100,
                 })),
                 color: '#3b82f6', // blue-500
@@ -166,7 +171,7 @@ export default function ComparisonChart() {
                                 foreColor: '#94a3b8',
                                 toolbar: { show: false },
                                 background: 'transparent',
-                                animations: { enabled: false }, // Faster render
+                                animations: { enabled: false },
                             },
                             stroke: {
                                 curve: 'smooth',
