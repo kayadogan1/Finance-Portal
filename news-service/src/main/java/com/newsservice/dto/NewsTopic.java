@@ -13,5 +13,9 @@ public enum NewsTopic {
     ENERGY,
     DEFENSE,
     AI,
-    CRYPTO
+    CRYPTO,
+    STOCK,
+    BOND,
+    COMMODITY,
+    FOREX
 }

@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.List;
 
 
@@ -57,4 +58,12 @@ public class NewsController {
         return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/topics")
+    public ResponseEntity<List<String>> getTopics() {
+        List<String> topics= Arrays.stream(NewsTopic.values())
+                .map(Enum::toString)
+                .toList();
+        return ResponseEntity.ok(topics);
+
+    }
 }
