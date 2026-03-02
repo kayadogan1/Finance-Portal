@@ -33,24 +33,25 @@ public class PortfolioService {
         this.transactionRepository = transactionRepository;
     }
 
-    public PortfolioDto getPortfolio(String userId,UUID portfolioId){
+    public PortfolioReadDto getPortfolio(String userId,UUID portfolioId){
         logger.info("fetching Portfolio for {}", userId);
 
 
         return portfolioRepository.findByIdAndUserId(portfolioId,userId)
-                .map(this::toPortfolioDto)
+                .map(this::toPortfolioReadDto)
                 .orElseThrow(() -> new RuntimeException(
                         "Portfolio not found. userId=" + userId + ", portfolioId=" + portfolioId
                 ));
-    }
-    private PortfolioDto toPortfolioDto(Portfolio portfolio) {
 
+    }
+    private PortfolioReadDto toPortfolioReadDto(Portfolio portfolio){
         List<PortfolioItemDto> itemDtos = portfolio.getItems()
                 .stream()
                 .map(this::toPortfolioItemDto)
                 .toList();
 
-        return PortfolioDto.builder()
+        return PortfolioReadDto.builder()
+                .id(portfolio.getId())
                 .portfolioName(portfolio.getName())
                 .riskTolerance(portfolio.getRiskTolerance())
                 .purpose(portfolio.getPurpose())
@@ -153,35 +154,13 @@ public class PortfolioService {
         logger.info("calculating {} days performance line chart for :{}",backDays,userId);
         return calculatePerformanceLineChart(backDays, portfolio);
     }
-    public List<PortfolioDto> getAllPortfolios() {
+    public List<PortfolioReadDto> getAllPortfolios() {
 
         logger.info("fetching all portfolios");
 
         return portfolioRepository.findAll()
                 .stream()
-                .map(portfolio -> {
-
-                    List<PortfolioItemDto> itemDtoList = portfolio.getItems()
-                            .stream()
-                            .map(item -> new PortfolioItemDto(
-                                    new InstrumentDto(
-                                            item.getInstrument().getSymbol(),
-                                            item.getInstrument().getName(),
-                                            item.getInstrument().getType(),
-                                            item.getInstrument().getCurrentPrice()
-                                    ),
-                                    item.getQuantity(),
-                                    item.getAverageCost()
-                            ))
-                            .toList();
-
-                    return PortfolioDto.builder()
-                            .portfolioName(portfolio.getName())
-                            .riskTolerance(portfolio.getRiskTolerance())
-                            .purpose(portfolio.getPurpose())
-                            .portfolioItems(itemDtoList)
-                            .build();
-                })
+                .map(this::toPortfolioReadDto)
                 .toList();
     }
 
