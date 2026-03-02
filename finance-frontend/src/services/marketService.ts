@@ -19,6 +19,17 @@ import type { OHLCData, AIInsight } from '../types';
  */
 export type TimeSlot = 'M1' | 'M5' | 'M15' | 'M30' | 'H1' | 'H4' | 'D1' | 'W1';
 
+/**
+ * Convert a JS Date to Spring-compatible LocalDateTime string.
+ * Spring `@DateTimeFormat(iso = ISO.DATE_TIME)` with `LocalDateTime`
+ * expects "2026-03-02T10:30:43", NOT "2026-03-02T10:30:43.000Z".
+ * JavaScript's `toISOString()` appends 'Z' and milliseconds which
+ * Spring rejects when binding to LocalDateTime.
+ */
+function toLocalDateTime(date: Date): string {
+    return date.toISOString().replace('Z', '').split('.')[0];
+}
+
 /* ────────────────────── Backend DTO Shapes ──────────────────────────── */
 
 /**
@@ -96,8 +107,9 @@ export const getCandleData = async (
         params: { slot, ...(from && { from }) },
     });
 
-    return data.map((c) => ({
-        time: c.time.slice(0, 10), // "2026-01-20T00:00:00" → "2026-01-20"
+    // Guard: backend returns 204 No Content → data is null
+    return (data ?? []).map((c) => ({
+        time: c.time.slice(0, 10),
         open: Number(c.open),
         high: Number(c.high),
         low: Number(c.low),
@@ -127,11 +139,16 @@ export const getLineData = async (
     symbol: string,
     dateTime?: string,
 ): Promise<LineChartDto[]> => {
+    // Backend NPEs if dateTime is null (accesses dateTime.isAfter() without null check)
+    // Always send a value — default to 30 days ago
+    const dt = dateTime ?? toLocalDateTime(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
+
     const { data } = await publicApi.get<LineChartDto[]>(`/api/market/line/${symbol}`, {
-        params: { ...(dateTime && { dateTime }) },
+        params: { dateTime: dt },
     });
 
-    return data.map((d) => ({
+    // Guard: backend returns 204 No Content → data is null
+    return (data ?? []).map((d) => ({
         dateTime: d.dateTime,
         close: Number(d.close),
     }));
@@ -159,7 +176,8 @@ export const getMarketDataHistory = async (
     const { data } = await publicApi.get<MarketDataEntry[]>(`/api/market/history/${symbol}`, {
         params: { from },
     });
-    return data;
+    // Guard: backend returns 204 No Content → data is null
+    return data ?? [];
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -175,7 +193,7 @@ export const getMarketDataHistory = async (
 export const getMarketInstruments = async (): Promise<MarketInstrument[]> => {
     const { data: instruments } = await publicApi.get<BackendInstrument[]>('/api/market');
 
-    const from24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const from24h = toLocalDateTime(new Date(Date.now() - 24 * 60 * 60 * 1000));
 
     const historyResults = await Promise.allSettled(
         instruments.map((inst) =>
@@ -184,13 +202,13 @@ export const getMarketInstruments = async (): Promise<MarketInstrument[]> => {
                     `/api/market/history/${inst.symbol}`,
                     { params: { from: from24h } },
                 )
-                .then((res) => ({ symbol: inst.symbol, data: res.data }))
+                .then((res) => ({ symbol: inst.symbol, data: res.data ?? [] }))
         ),
     );
 
     const oldPriceMap = new Map<string, number>();
     for (const result of historyResults) {
-        if (result.status === 'fulfilled' && result.value.data.length > 0) {
+        if (result.status === 'fulfilled' && result.value.data?.length > 0) {
             oldPriceMap.set(result.value.symbol, Number(result.value.data[0].price));
         }
     }
