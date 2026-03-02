@@ -2,11 +2,12 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
     PieChart as PieChartIcon, TrendingUp, Wallet,
-    ArrowDownToLine, ShoppingCart, RefreshCw,
+    ArrowDownToLine, ShoppingCart, RefreshCw, Plus, ChevronDown,
 } from 'lucide-react';
 import {
     getPortfolios,
     getPortfolioPieChart,
+    type PortfolioDto,
 } from '../services/portfolioService';
 import PortfolioPieChart from '../components/portfolio/PortfolioPieChart';
 import PerformanceAreaChart from '../components/portfolio/PerformanceAreaChart';
@@ -26,31 +27,33 @@ const ChartSkeleton = () => (
     </div>
 );
 
-// TODO: Backend PortfolioDto does not expose the portfolio `id` field.
-// Once the backend team adds it, replace this constant with the real portfolio ID.
+// TODO: Backend PortfolioDto does not expose portfolio `id`.
+// When ReadPortfolioDto is added, replace this with real IDs.
 export const DUMMY_PORTFOLIO_ID = "123e4567-e89b-12d3-a456-426614174000";
 
 const PortfolioPage = () => {
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [depositModalOpen, setDepositModalOpen] = useState(false);
     const [sellSymbol, setSellSymbol] = useState<string | null>(null);
+    const [selectedIndex, setSelectedIndex] = useState(0);
+    const [selectorOpen, setSelectorOpen] = useState(false);
 
-    // Fetch portfolios (needed to check if user has one)
+    // Fetch all portfolios for the user
     const { data: portfolios, isLoading: portsLoading } = useQuery({
         queryKey: ['portfolio'],
         queryFn: getPortfolios,
     });
 
     const hasPortfolio = portfolios && portfolios.length > 0;
-    const activePortfolio = hasPortfolio ? portfolios[0] : null;
+    const activePortfolio: PortfolioDto | null = hasPortfolio ? portfolios[selectedIndex] ?? portfolios[0] : null;
 
-    // Pie chart data — aggressively cached (5 min staleTime)
+    // Pie chart — aggressively cached (5 min staleTime)
     const { data: pieData, isLoading: pieLoading, isError: pieError } = useQuery({
         queryKey: ['portfolio-pie', DUMMY_PORTFOLIO_ID],
         queryFn: () => getPortfolioPieChart(DUMMY_PORTFOLIO_ID),
         staleTime: 1000 * 60 * 5,
         refetchOnWindowFocus: false,
-        enabled: hasPortfolio ?? false,
+        enabled: !!hasPortfolio,
     });
 
     if (portsLoading) {
@@ -63,21 +66,21 @@ const PortfolioPage = () => {
 
     return (
         <div className="space-y-8">
-            <div className="flex items-center justify-between">
+            {/* Header — always shows create button */}
+            <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                     <h2 className="text-2xl font-bold text-white">Portföy Yönetimi</h2>
                     <p className="text-slate-400 mt-1">
                         Yatırımlarınızı ve varlık dağılımınızı takip edin.
                     </p>
                 </div>
-                {!hasPortfolio && (
-                    <button
-                        onClick={() => setCreateModalOpen(true)}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-lg font-medium transition-colors"
-                    >
-                        Portföy Oluştur
-                    </button>
-                )}
+                <button
+                    onClick={() => setCreateModalOpen(true)}
+                    className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-lg shadow-emerald-500/20"
+                >
+                    <Plus size={16} />
+                    Yeni Portföy
+                </button>
             </div>
 
             {!hasPortfolio ? (
@@ -96,6 +99,38 @@ const PortfolioPage = () => {
                 </div>
             ) : (
                 <>
+                    {/* Portfolio Selector (visible when multiple portfolios exist) */}
+                    {portfolios.length > 1 && (
+                        <div className="relative w-fit">
+                            <button
+                                onClick={() => setSelectorOpen((p) => !p)}
+                                className="flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-xl px-5 py-3 text-white font-medium hover:bg-slate-700 transition-colors"
+                            >
+                                <Wallet size={16} className="text-emerald-400" />
+                                {activePortfolio?.portfolioName}
+                                <ChevronDown size={14} className={`text-slate-400 transition-transform ${selectorOpen ? 'rotate-180' : ''}`} />
+                            </button>
+                            {selectorOpen && (
+                                <div className="absolute top-full mt-2 left-0 w-64 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl shadow-black/40 overflow-hidden z-30">
+                                    {portfolios.map((p, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={() => { setSelectedIndex(idx); setSelectorOpen(false); }}
+                                            className={`w-full text-left px-4 py-3 text-sm transition-colors
+                                                ${idx === selectedIndex
+                                                    ? 'bg-emerald-500/10 text-emerald-400'
+                                                    : 'text-slate-300 hover:text-white hover:bg-slate-700/50'
+                                                }`}
+                                        >
+                                            <p className="font-medium">{p.portfolioName}</p>
+                                            <p className="text-[11px] text-slate-500 mt-0.5">{p.riskTolerance} · {p.purpose}</p>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {/* Summary Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-gradient-to-br from-emerald-600/20 to-emerald-800/20 rounded-xl p-5 border border-emerald-500/30 backdrop-blur-sm">
@@ -104,7 +139,7 @@ const PortfolioPage = () => {
                                 <Wallet className="text-emerald-400" size={20} />
                             </div>
                             <p className="text-2xl font-bold text-white">
-                                {/* TODO: Backend doesn't return cashBalance in PortfolioDto */}
+                                {/* TODO: Backend PortfolioDto does not expose cashBalance */}
                                 0.00 ₺
                             </p>
                         </div>
@@ -127,7 +162,6 @@ const PortfolioPage = () => {
 
                     {/* Charts grid */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {/* Pie Chart — Backend: GET /api/portfolio/value/{portfolioId} */}
                         <Card>
                             <div className="flex items-center gap-2 mb-4">
                                 <PieChartIcon size={20} className="text-emerald-400" />
@@ -138,7 +172,6 @@ const PortfolioPage = () => {
                             {pieData && <PortfolioPieChart data={pieData} />}
                         </Card>
 
-                        {/* Performance Area Chart — Backend: GET /api/portfolio/{portfolioId}/history?days=N */}
                         <Card>
                             <div className="flex items-center gap-2 mb-4">
                                 <TrendingUp size={20} className="text-emerald-400" />
@@ -151,7 +184,9 @@ const PortfolioPage = () => {
                     {/* Portfolio Items Table */}
                     <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
                         <div className="p-4 border-b border-slate-700">
-                            <h2 className="text-lg font-semibold text-white">Pozisyonlarım ({activePortfolio?.portfolioName})</h2>
+                            <h2 className="text-lg font-semibold text-white">
+                                Pozisyonlarım ({activePortfolio?.portfolioName})
+                            </h2>
                         </div>
                         {!activePortfolio?.portfolioItems?.length ? (
                             <div className="p-12 text-center text-slate-400">
@@ -197,7 +232,6 @@ const PortfolioPage = () => {
                             <h2 className="text-lg font-semibold text-white">Son İşlemler</h2>
                         </div>
                         <div className="p-12 text-center text-slate-400">
-                            {/* TODO: Backend needs GET /api/portfolio/transactions endpoint */}
                             <RefreshCw className="mx-auto mb-3 opacity-50" size={40} />
                             <p>Transaction history endpoint pending.</p>
                         </div>

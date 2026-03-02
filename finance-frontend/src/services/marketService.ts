@@ -48,21 +48,54 @@ export const getAIInsight = async (symbol: string): Promise<AIInsight> => {
 
 /* ─────────────────────────────── Instruments ─────────────────────────────── */
 
-export interface MarketInstrument {
+/**
+ * Matches the backend `com.finance.models.Instrument` entity
+ * returned by `GET /api/market`
+ */
+export interface BackendInstrument {
+    id: string;
     symbol: string;
     name: string;
     type: 'CRYPTO' | 'FIAT' | 'COMMODITY' | 'INDEX';
     currentPrice: number;
-    change24h: number;
+    baseCurrency: string;
+    lastUpdateTime: string;
+    active: boolean;           // Jackson serializes `isActive` as `active`
+    historicalDataLoaded: boolean;
+}
+
+/** Frontend-enriched instrument with mock change24h */
+export interface MarketInstrument extends BackendInstrument {
+    change24h: number; // TODO: Remove mock when backend adds this field
+}
+
+/**
+ * Simple hash to generate a deterministic mock change value per symbol.
+ * This ensures the same symbol always shows the same mock % on each render.
+ */
+function mockChange(symbol: string): number {
+    let hash = 0;
+    for (let i = 0; i < symbol.length; i++) {
+        hash = ((hash << 5) - hash) + symbol.charCodeAt(i);
+        hash |= 0;
+    }
+    // Range: -8.0% to +8.0%, rounded to 2 decimals
+    return Number(((hash % 1600) / 100 - 8).toFixed(2));
 }
 
 /**
  * Fetch all available market instruments.
- * Route: GET /api/market/instruments
+ * Route: GET /api/market
+ * Returns: Instrument[] (JPA entity, not DTO)
  */
 export const getMarketInstruments = async (): Promise<MarketInstrument[]> => {
-    const { data } = await publicApi.get<MarketInstrument[]>('/api/market');
-    return data;
+    const { data } = await publicApi.get<BackendInstrument[]>('/api/market');
+    // Enrich with mock change24h until backend supports it
+    return data.map((inst) => ({
+        ...inst,
+        currentPrice: Number(inst.currentPrice) || 0,
+        change24h: mockChange(inst.symbol),
+    }));
 };
 
 /**
@@ -74,9 +107,13 @@ export const getInstrumentBySymbol = async (symbol: string): Promise<MarketInstr
     return data;
 };
 
+/**
+ * Matches `com.finance.shared.LineChartDto`
+ * record LineChartDto(LocalDateTime dateTime, BigDecimal close)
+ */
 export interface LineChartDto {
-    time: string; // ISO LocalDateTime
-    price: number;
+    dateTime: string; // ISO LocalDateTime
+    close: number;
 }
 
 /**
@@ -90,24 +127,27 @@ export const getLineChartData = async (symbol: string, dateTime: string): Promis
     return data;
 };
 
-export interface MarketData {
-    id?: string;
+/**
+ * Matches `com.finance.models.MarketData` entity
+ * Fields: id(UUID), instrument(Instrument), price(BigDecimal), timestamp(LocalDateTime)
+ * Note: Jackson serializes the nested `instrument` object.
+ */
+export interface MarketDataEntry {
+    id: string;
+    instrument: BackendInstrument;
+    price: number;
     timestamp: string;
-    open: number;
-    high: number;
-    low: number;
-    close: number;
-    volume?: number;
-    instrumentSymbol?: string;
 }
 
 /**
  * Fetch market data history after a specific time.
  * Route: GET /api/market/history/{symbol}?from={from}
+ * Returns: MarketData[] ordered by timestamp ASC
  */
-export const getMarketDataHistoryList = async (symbol: string, from: string): Promise<MarketData[]> => {
-    const { data } = await publicApi.get<MarketData[]>(`/api/market/history/${symbol}`, {
+export const getMarketDataHistory = async (symbol: string, from: string): Promise<MarketDataEntry[]> => {
+    const { data } = await publicApi.get<MarketDataEntry[]>(`/api/market/history/${symbol}`, {
         params: { from }
     });
     return data;
 };
+
