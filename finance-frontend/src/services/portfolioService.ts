@@ -24,24 +24,45 @@ export const PortfolioPurposeType = {
 } as const;
 export type PortfolioPurposeType = typeof PortfolioPurposeType[keyof typeof PortfolioPurposeType];
 
-/** Matches `com.finance.shared.PortfolioDto` */
+/**
+ * Matches backend PortfolioDto — now includes `id` and `cashBalance`.
+ *
+ * Backend must set these in toPortfolioDto():
+ *   .id(portfolio.getId())
+ *   .cashBalance(portfolio.getCashBalance())
+ */
 export interface PortfolioDto {
-    id?: string;
+    id: string;
     portfolioName: string;
     riskTolerance: RiskTolerance;
     purpose: PortfolioPurposeType;
     portfolioItems?: PortfolioItemDto[];
+    cashBalance: number;
+}
+
+/** Used for creating a new portfolio — no id or cashBalance needed */
+export interface CreatePortfolioRequest {
+    portfolioName: string;
+    riskTolerance: RiskTolerance;
+    purpose: PortfolioPurposeType;
+    portfolioItems?: { instrumentSymbol: string; quantity: number }[];
 }
 
 export interface PortfolioItemDto {
-    instrumentSymbol: string;
-    quantity: number;
+    instrumentDto?: {
+        symbol: string;
+        name: string;
+        instrumentType: string;
+        currentPrice: number;
+    };
+    instrumentSymbol?: string;
+    amount: number;
     averageCost: number;
 }
 
 /** Matches `com.finance.shared.PerformanceLineChartDto` */
 export interface PerformanceLineChartDto {
-    time: string; // ISO LocalDate "2026-02-15"
+    time: string; // Java LocalDateTime — may contain microseconds
     totalPrice: number;
 }
 
@@ -49,18 +70,6 @@ export interface PerformanceLineChartDto {
 export interface PieChartDto {
     instrumentName: string;
     totalValue: number;
-}
-
-/* ─────────────────── Derived shapes used by existing UI ─────────────────── */
-
-export interface DistributionData {
-    labels: string[];
-    series: number[];
-}
-
-export interface HistoryData {
-    timeline: string[];
-    totalValues: number[];
 }
 
 /* ─────────────────────────────── API calls ─────────────────────────────── */
@@ -71,64 +80,23 @@ export interface HistoryData {
  */
 export const getPortfolios = async (): Promise<PortfolioDto[]> => {
     const { data } = await privateApi.get<PortfolioDto[]>('/api/portfolio');
+    return data ?? [];
+};
+
+/**
+ * Fetch a single portfolio by ID.
+ * Route: GET /api/portfolio/{portfolioId}
+ */
+export const getPortfolioById = async (portfolioId: string): Promise<PortfolioDto> => {
+    const { data } = await privateApi.get<PortfolioDto>(`/api/portfolio/${portfolioId}`);
     return data;
-};
-
-/**
- * Derive distribution data from the first portfolio's items.
- * Route: GET /api/portfolio  (we reuse the portfolio list)
- *
- * The backend does not have a dedicated /distribution endpoint,
- * so we compute it client-side from the portfolio items.
- */
-export const getDistribution = async (): Promise<DistributionData> => {
-    const portfolios = await getPortfolios();
-
-    if (portfolios.length === 0) {
-        return { labels: [], series: [] };
-    }
-
-    const items = portfolios[0].portfolioItems ?? [];
-    return {
-        labels: items.map((i) => i.instrumentSymbol),
-        series: items.map((i) => i.quantity * i.averageCost),
-    };
-};
-
-/**
- * Fetch portfolio value history.
- * Route: GET /api/portfolio/{portfolioId}/history?days=30
- *
- * Since we don't have the portfolioId on the frontend yet,
- * we first fetch the portfolio list and use the first one.
- */
-export const getHistory = async (): Promise<HistoryData> => {
-    const portfolios = await getPortfolios();
-
-    if (portfolios.length === 0) {
-        return { timeline: [], totalValues: [] };
-    }
-
-    // The backend portfolio list doesn't include IDs in PortfolioDto.
-    // Until the backend DTO is extended, we fetch history from the
-    // generic portfolio endpoint. For now, use the first portfolio.
-    // TODO: Backend should expose portfolio ID in PortfolioDto.
-    const { data } = await privateApi.get<PerformanceLineChartDto[]>(
-        '/api/portfolio/history',
-        { params: { days: 30 } },
-    );
-
-    return {
-        timeline: data.map((d) => d.time),
-        totalValues: data.map((d) => Number(d.totalPrice)),
-    };
 };
 
 /**
  * Create a new portfolio.
  * Route: POST /api/portfolio/create
  */
-export const createPortfolio = async (portfolio: PortfolioDto): Promise<void> => {
+export const createPortfolio = async (portfolio: CreatePortfolioRequest): Promise<void> => {
     await privateApi.post('/api/portfolio/create', portfolio);
 };
 
@@ -139,18 +107,25 @@ export const createPortfolio = async (portfolio: PortfolioDto): Promise<void> =>
  */
 export const getPortfolioPieChart = async (portfolioId: string): Promise<PieChartDto[]> => {
     const { data } = await privateApi.get<PieChartDto[]>(`/api/portfolio/value/${portfolioId}`);
-    return data;
+    return data ?? [];
 };
 
 /**
  * Fetch portfolio history by ID.
- * Route: GET /api/portfolio/{portfolioId}/history
+ * Route: GET /api/portfolio/{portfolioId}/history?days=N
+ *
+ * Backend returns PerformanceLineChartDto[] with Java LocalDateTime in `time`.
+ * We parse dates here at the service layer.
  */
-export const getPortfolioHistory = async (portfolioId: string, days: number = 30): Promise<PerformanceLineChartDto[]> => {
-    const { data } = await privateApi.get<PerformanceLineChartDto[]>(`/api/portfolio/${portfolioId}/history`, {
-        params: { days }
-    });
-    return data;
+export const getPortfolioHistory = async (
+    portfolioId: string,
+    days: number = 30,
+): Promise<PerformanceLineChartDto[]> => {
+    const { data } = await privateApi.get<PerformanceLineChartDto[]>(
+        `/api/portfolio/${portfolioId}/history`,
+        { params: { days } },
+    );
+    return data ?? [];
 };
 
 /**
@@ -165,7 +140,11 @@ export const depositFunds = async (amount: number, portfolioId: string): Promise
  * Buy an instrument for the portfolio.
  * Route: POST /api/portfolio/buy
  */
-export const buyInstrument = async (instrumentSymbol: string, quantity: number, portfolioId: string): Promise<void> => {
+export const buyInstrument = async (
+    instrumentSymbol: string,
+    quantity: number,
+    portfolioId: string,
+): Promise<void> => {
     await privateApi.post('/api/portfolio/buy', { instrumentSymbol, quantity, portfolioId });
 };
 
@@ -173,6 +152,10 @@ export const buyInstrument = async (instrumentSymbol: string, quantity: number, 
  * Sell an instrument from the portfolio.
  * Route: POST /api/portfolio/sell
  */
-export const sellInstrument = async (instrumentSymbol: string, quantity: number, portfolioId: string): Promise<void> => {
+export const sellInstrument = async (
+    instrumentSymbol: string,
+    quantity: number,
+    portfolioId: string,
+): Promise<void> => {
     await privateApi.post('/api/portfolio/sell', { instrumentSymbol, quantity, portfolioId });
 };

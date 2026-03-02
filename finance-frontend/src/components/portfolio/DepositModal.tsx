@@ -11,7 +11,6 @@ import {
     DialogDescription,
 } from "@/components/ui/dialog";
 import { depositFunds } from "../../services/portfolioService";
-import { DUMMY_PORTFOLIO_ID } from "../../pages/PortfolioPage";
 
 const depositSchema = z.object({
     amount: z.number().positive("Yatırılacak miktar 0'dan büyük olmalıdır"),
@@ -22,9 +21,10 @@ type DepositFormValues = z.infer<typeof depositSchema>;
 interface DepositModalProps {
     isOpen: boolean;
     onClose: () => void;
+    portfolioId: string;
 }
 
-export function DepositModal({ isOpen, onClose }: DepositModalProps) {
+export function DepositModal({ isOpen, onClose, portfolioId }: DepositModalProps) {
     const queryClient = useQueryClient();
     const [errorText, setErrorText] = useState<string | null>(null);
 
@@ -35,9 +35,7 @@ export function DepositModal({ isOpen, onClose }: DepositModalProps) {
 
     const mutation = useMutation({
         mutationFn: async (data: DepositFormValues) => {
-            // Using a fallback portfolio ID since backend does not expose it
-            // TODO: Replace with the real Portfolio ID when it's added to PortfolioDto.
-            return depositFunds(data.amount, DUMMY_PORTFOLIO_ID);
+            return depositFunds(data.amount, portfolioId);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["portfolio"] });

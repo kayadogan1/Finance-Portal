@@ -14,6 +14,7 @@ import PerformanceAreaChart from '../components/portfolio/PerformanceAreaChart';
 import { CreatePortfolioModal } from '../components/portfolio/CreatePortfolioModal';
 import { DepositModal } from '../components/portfolio/DepositModal';
 import { TradeModal } from '../components/trade/TradeModal';
+import useAuth from '../hooks/useAuth';
 
 const Card = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
     <div className={`bg-slate-800/50 backdrop-blur border border-slate-700/60 rounded-2xl p-6 shadow-lg ${className}`}>
@@ -27,11 +28,9 @@ const ChartSkeleton = () => (
     </div>
 );
 
-// TODO: Backend PortfolioDto does not expose portfolio `id`.
-// When ReadPortfolioDto is added, replace this with real IDs.
-export const DUMMY_PORTFOLIO_ID = "123e4567-e89b-12d3-a456-426614174000";
-
 const PortfolioPage = () => {
+    const { isAdmin } = useAuth();
+
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [depositModalOpen, setDepositModalOpen] = useState(false);
     const [sellSymbol, setSellSymbol] = useState<string | null>(null);
@@ -45,15 +44,16 @@ const PortfolioPage = () => {
     });
 
     const hasPortfolio = portfolios && portfolios.length > 0;
-    const activePortfolio: PortfolioDto | null = hasPortfolio ? portfolios[selectedIndex] ?? portfolios[0] : null;
+    const activePortfolio: PortfolioDto | null =
+        hasPortfolio ? portfolios[selectedIndex] ?? portfolios[0] : null;
 
-    // Pie chart — aggressively cached (5 min staleTime)
+    // Pie chart — uses REAL activePortfolio.id, only runs when id exists
     const { data: pieData, isLoading: pieLoading, isError: pieError } = useQuery({
-        queryKey: ['portfolio-pie', DUMMY_PORTFOLIO_ID],
-        queryFn: () => getPortfolioPieChart(DUMMY_PORTFOLIO_ID),
+        queryKey: ['portfolio-pie', activePortfolio?.id],
+        queryFn: () => getPortfolioPieChart(activePortfolio!.id),
         staleTime: 1000 * 60 * 5,
         refetchOnWindowFocus: false,
-        enabled: !!hasPortfolio,
+        enabled: !!activePortfolio?.id,
     });
 
     if (portsLoading) {
@@ -66,7 +66,7 @@ const PortfolioPage = () => {
 
     return (
         <div className="space-y-8">
-            {/* Header — always shows create button */}
+            {/* Header — create button hidden for admins */}
             <div className="flex items-center justify-between flex-wrap gap-4">
                 <div>
                     <h2 className="text-2xl font-bold text-white">Portföy Yönetimi</h2>
@@ -74,28 +74,36 @@ const PortfolioPage = () => {
                         Yatırımlarınızı ve varlık dağılımınızı takip edin.
                     </p>
                 </div>
-                <button
-                    onClick={() => setCreateModalOpen(true)}
-                    className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-lg shadow-emerald-500/20"
-                >
-                    <Plus size={16} />
-                    Yeni Portföy
-                </button>
+                {!isAdmin && (
+                    <button
+                        onClick={() => setCreateModalOpen(true)}
+                        className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2.5 rounded-lg font-medium transition-colors shadow-lg shadow-emerald-500/20"
+                    >
+                        <Plus size={16} />
+                        Yeni Portföy
+                    </button>
+                )}
             </div>
 
             {!hasPortfolio ? (
                 <div className="bg-slate-800/50 backdrop-blur border border-slate-700/60 rounded-2xl p-12 text-center">
                     <Wallet className="mx-auto mb-4 text-slate-500" size={48} />
-                    <h3 className="text-xl font-semibold text-white mb-2">Henüz Bir Portföyünüz Yok</h3>
+                    <h3 className="text-xl font-semibold text-white mb-2">
+                        {isAdmin ? 'Yönetici Paneli' : 'Henüz Bir Portföyünüz Yok'}
+                    </h3>
                     <p className="text-slate-400 mb-6 max-w-md mx-auto">
-                        Portföy oluşturarak yatırımlarınızı takip etmeye başlayabilir ve piyasa analizlerinden faydalanabilirsiniz.
+                        {isAdmin
+                            ? 'Yöneticiler portföy oluşturamaz. Kullanıcı portföylerini görüntüleyebilirsiniz.'
+                            : 'Portföy oluşturarak yatırımlarınızı takip etmeye başlayabilir ve piyasa analizlerinden faydalanabilirsiniz.'}
                     </p>
-                    <button
-                        onClick={() => setCreateModalOpen(true)}
-                        className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
-                    >
-                        Hemen Oluştur
-                    </button>
+                    {!isAdmin && (
+                        <button
+                            onClick={() => setCreateModalOpen(true)}
+                            className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                        >
+                            Hemen Oluştur
+                        </button>
+                    )}
                 </div>
             ) : (
                 <>
@@ -114,7 +122,7 @@ const PortfolioPage = () => {
                                 <div className="absolute top-full mt-2 left-0 w-64 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl shadow-black/40 overflow-hidden z-30">
                                     {portfolios.map((p, idx) => (
                                         <button
-                                            key={idx}
+                                            key={p.id}
                                             onClick={() => { setSelectedIndex(idx); setSelectorOpen(false); }}
                                             className={`w-full text-left px-4 py-3 text-sm transition-colors
                                                 ${idx === selectedIndex
@@ -139,25 +147,30 @@ const PortfolioPage = () => {
                                 <Wallet className="text-emerald-400" size={20} />
                             </div>
                             <p className="text-2xl font-bold text-white">
-                                {/* TODO: Backend PortfolioDto does not expose cashBalance */}
-                                0.00 ₺
+                                {Number(activePortfolio?.cashBalance ?? 0).toLocaleString('tr-TR', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                })} ₺
                             </p>
                         </div>
 
-                        <div className="bg-gradient-to-br from-purple-600/20 to-purple-800/20 rounded-xl p-5 border border-purple-500/30 backdrop-blur-sm">
-                            <div className="flex items-center justify-between mb-3">
-                                <span className="text-purple-300 text-sm font-medium">Hızlı İşlemler</span>
-                                <ShoppingCart className="text-purple-400" size={20} />
+                        {!isAdmin && (
+                            <div className="bg-gradient-to-br from-purple-600/20 to-purple-800/20 rounded-xl p-5 border border-purple-500/30 backdrop-blur-sm">
+                                <div className="flex items-center justify-between mb-3">
+                                    <span className="text-purple-300 text-sm font-medium">Hızlı İşlemler</span>
+                                    <ShoppingCart className="text-purple-400" size={20} />
+                                </div>
+                                <div className="flex gap-2">
+                                    <button
+                                        onClick={() => setDepositModalOpen(true)}
+                                        className="flex-1 flex items-center justify-center gap-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-lg py-2 text-sm font-medium transition-colors"
+                                    >
+                                        <ArrowDownToLine size={14} />
+                                        Para Yatır
+                                    </button>
+                                </div>
                             </div>
-                            <div className="flex gap-2">
-                                <button
-                                    onClick={() => setDepositModalOpen(true)}
-                                    className="flex-1 flex items-center justify-center gap-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-lg py-2 text-sm font-medium transition-colors"
-                                >
-                                    <ArrowDownToLine size={14} /> Para Yatır
-                                </button>
-                            </div>
-                        </div>
+                        )}
                     </div>
 
                     {/* Charts grid */}
@@ -170,6 +183,11 @@ const PortfolioPage = () => {
                             {pieLoading && <ChartSkeleton />}
                             {pieError && <p className="text-red-400 text-sm">Dağılım verileri yüklenemedi.</p>}
                             {pieData && <PortfolioPieChart data={pieData} />}
+                            {!pieLoading && !pieError && !pieData && (
+                                <div className="flex items-center justify-center h-[280px] text-slate-500 text-sm">
+                                    Varlık dağılımı verisi bulunamadı.
+                                </div>
+                            )}
                         </Card>
 
                         <Card>
@@ -177,7 +195,13 @@ const PortfolioPage = () => {
                                 <TrendingUp size={20} className="text-emerald-400" />
                                 <h3 className="text-lg font-semibold text-white">Portföy Performansı</h3>
                             </div>
-                            <PerformanceAreaChart portfolioId={DUMMY_PORTFOLIO_ID} />
+                            {activePortfolio?.id ? (
+                                <PerformanceAreaChart portfolioId={activePortfolio.id} />
+                            ) : (
+                                <div className="flex items-center justify-center h-[280px] text-slate-500 text-sm">
+                                    Portföy ID bulunamadı.
+                                </div>
+                            )}
                         </Card>
                     </div>
 
@@ -201,23 +225,31 @@ const PortfolioPage = () => {
                                             <th className="p-4 text-left font-semibold">Sembol</th>
                                             <th className="p-4 text-left font-semibold">Miktar</th>
                                             <th className="p-4 text-right font-semibold">Ort. Maliyet</th>
-                                            <th className="p-4 text-center font-semibold">İşlem</th>
+                                            {!isAdmin && <th className="p-4 text-center font-semibold">İşlem</th>}
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-700">
                                         {activePortfolio.portfolioItems.map((item, idx) => (
                                             <tr key={idx} className="hover:bg-slate-700/50 transition-colors">
-                                                <td className="p-4 font-bold text-white">{item.instrumentSymbol}</td>
-                                                <td className="p-4 text-slate-300 font-mono">{item.quantity}</td>
-                                                <td className="p-4 text-right text-slate-300 font-mono">{Number(item.averageCost).toFixed(2)} ₺</td>
-                                                <td className="p-4 text-center">
-                                                    <button
-                                                        onClick={() => setSellSymbol(item.instrumentSymbol)}
-                                                        className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg text-xs font-medium transition-colors"
-                                                    >
-                                                        Sat
-                                                    </button>
+                                                <td className="p-4 font-bold text-white">
+                                                    {item.instrumentDto?.symbol ?? item.instrumentSymbol ?? '—'}
                                                 </td>
+                                                <td className="p-4 text-slate-300 font-mono">{item.amount}</td>
+                                                <td className="p-4 text-right text-slate-300 font-mono">
+                                                    {Number(item.averageCost).toFixed(2)} ₺
+                                                </td>
+                                                {!isAdmin && (
+                                                    <td className="p-4 text-center">
+                                                        <button
+                                                            onClick={() => setSellSymbol(
+                                                                item.instrumentDto?.symbol ?? item.instrumentSymbol ?? ''
+                                                            )}
+                                                            className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg text-xs font-medium transition-colors"
+                                                        >
+                                                            Sat
+                                                        </button>
+                                                    </td>
+                                                )}
                                             </tr>
                                         ))}
                                     </tbody>
@@ -226,29 +258,40 @@ const PortfolioPage = () => {
                         )}
                     </div>
 
-                    {/* Recent Transactions Placeholder */}
+                    {/* Recent Transactions */}
                     <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
                         <div className="p-4 border-b border-slate-700">
                             <h2 className="text-lg font-semibold text-white">Son İşlemler</h2>
                         </div>
                         <div className="p-12 text-center text-slate-400">
                             <RefreshCw className="mx-auto mb-3 opacity-50" size={40} />
-                            <p>Transaction history endpoint pending.</p>
+                            <p>İşlem geçmişi yakında aktif olacak.</p>
                         </div>
                     </div>
                 </>
             )}
 
-            {/* Modals */}
-            <CreatePortfolioModal isOpen={createModalOpen} onClose={() => setCreateModalOpen(false)} />
-            <DepositModal isOpen={depositModalOpen} onClose={() => setDepositModalOpen(false)} />
-            {sellSymbol && (
-                <TradeModal
-                    isOpen={Boolean(sellSymbol)}
-                    onClose={() => setSellSymbol(null)}
-                    symbol={sellSymbol}
-                    side="SELL"
-                />
+            {/* Modals — only for non-admin users */}
+            {!isAdmin && (
+                <>
+                    <CreatePortfolioModal isOpen={createModalOpen} onClose={() => setCreateModalOpen(false)} />
+                    {activePortfolio?.id && (
+                        <DepositModal
+                            isOpen={depositModalOpen}
+                            onClose={() => setDepositModalOpen(false)}
+                            portfolioId={activePortfolio.id}
+                        />
+                    )}
+                    {sellSymbol && activePortfolio?.id && (
+                        <TradeModal
+                            isOpen={Boolean(sellSymbol)}
+                            onClose={() => setSellSymbol(null)}
+                            symbol={sellSymbol}
+                            side="SELL"
+                            portfolioId={activePortfolio.id}
+                        />
+                    )}
+                </>
             )}
         </div>
     );
