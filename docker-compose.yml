@@ -157,18 +157,25 @@ services:
     networks:
       - finance-network
   keycloak:
-    image: quay.io/keycloak/keycloak:23.0.0
+    image: quay.io/keycloak/keycloak:23.0.7
     container_name: finance_keycloak
-    restart: always
     command: start-dev --import-realm
     environment:
+      KC_HOSTNAME: localhost
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: ${DB_USER:-postgres}
+      KC_DB_PASSWORD: ${DB_PASSWORD:-253421}
     ports:
       - "9090:8080"
     volumes:
       - ./keycloak/realms:/opt/keycloak/data/import
       - ./keycloak/themes:/opt/keycloak/themes
+    restart: always
+    depends_on:
+      - postgres
     networks:
       - finance-network
 

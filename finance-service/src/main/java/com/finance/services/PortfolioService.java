@@ -10,10 +10,7 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 
 @Service
@@ -86,7 +83,10 @@ public class PortfolioService {
     public List<PieChartDto> getPortfolioChartValues(String userId, UUID portfolioId) {
 
         Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
-
+        if(portfolio == null || portfolio.getItems().isEmpty()) {
+            logger.warn("portfolio not found");
+            return Collections.emptyList();
+        }
         return portfolio.getItems().stream()
                 .map(item -> {
                     BigDecimal price = Optional.ofNullable(item.getInstrument())
@@ -97,12 +97,13 @@ public class PortfolioService {
                             .orElse(BigDecimal.ZERO);
                    String instrumentName= Optional.ofNullable(item.getInstrument())
                             .map(Instrument::getName)
-                            .orElse(" ");
+                            .orElse("Bilinmeyen Varlik");
                     return new PieChartDto(
                             instrumentName,
                             price.multiply(quantity)
                     );
                 })
+                .filter(pieChartDto ->pieChartDto.totalValue().compareTo(BigDecimal.ZERO) > 0)
                 .toList();
     }
 
