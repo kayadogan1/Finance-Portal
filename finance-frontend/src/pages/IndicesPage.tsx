@@ -4,7 +4,6 @@ import { BarChart2, TrendingUp, TrendingDown, CandlestickChart as CandlestickIco
 import { getMarketInstruments, getMarketHistory } from '../services/marketService';
 import CandlestickChart from '../components/market/CandlestickChart';
 import NewsGrid from '../components/news/NewsGrid';
-import { TradeModal } from '../components/trade/TradeModal';
 
 const PriceSkeleton = () => (
     <div className="animate-pulse bg-slate-800/60 border border-slate-700/50 rounded-xl p-5">
@@ -23,8 +22,6 @@ const ChartSkeleton = () => (
 
 const IndicesPage = () => {
     const [selectedSymbol, setSelectedSymbol] = useState('');
-    const [tradeOpen, setTradeOpen] = useState(false);
-    const [tradeSide, setTradeSide] = useState<'BUY' | 'SELL'>('BUY');
 
     const { data: instruments = [], isLoading: instsLoading } = useQuery({
         queryKey: ['market-instruments'],
@@ -40,11 +37,6 @@ const IndicesPage = () => {
         queryFn: () => getMarketHistory(activeSymbol),
         enabled: !!activeSymbol,
     });
-
-    const openTrade = (side: 'BUY' | 'SELL') => {
-        setTradeSide(side);
-        setTradeOpen(true);
-    };
 
     return (
         <div className="space-y-8">
@@ -75,10 +67,10 @@ const IndicesPage = () => {
                                     }`}
                             >
                                 <p className="text-xs text-slate-400 font-medium mb-1">{inst.name || inst.symbol}</p>
-                                <p className="text-lg font-bold text-white">
+                                <p className="text-lg font-bold text-white font-mono">
                                     {inst.currentPrice?.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) ?? '—'}
                                 </p>
-                                <span className={`flex items-center gap-1 text-xs font-medium mt-1 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                                <span className={`flex items-center gap-1 text-xs font-medium font-mono mt-1 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
                                     {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                                     {isPositive ? '+' : ''}{(inst.change24h ?? 0).toFixed(2)}%
                                 </span>
@@ -87,22 +79,12 @@ const IndicesPage = () => {
                     })}
             </div>
 
-            {/* Chart */}
+            {/* Chart — no trade buttons */}
             {activeSymbol && (
                 <div className="bg-slate-800/50 backdrop-blur border border-slate-700/60 rounded-2xl p-6 shadow-lg">
-                    <div className="flex items-center justify-between mb-5">
-                        <div className="flex items-center gap-2">
-                            <CandlestickIcon size={20} className="text-violet-400" />
-                            <h3 className="text-lg font-semibold text-white">{activeSymbol} — Mum Grafik</h3>
-                        </div>
-                        <div className="flex gap-2">
-                            <button onClick={() => openTrade('BUY')} className="text-xs px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors">
-                                Al
-                            </button>
-                            <button onClick={() => openTrade('SELL')} className="text-xs px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors">
-                                Sat
-                            </button>
-                        </div>
+                    <div className="flex items-center gap-2 mb-5">
+                        <CandlestickIcon size={20} className="text-violet-400" />
+                        <h3 className="text-lg font-semibold text-white">{activeSymbol} — Mum Grafik</h3>
                     </div>
                     {chartLoading && <ChartSkeleton />}
                     {ohlcData && <CandlestickChart data={ohlcData} />}
@@ -111,10 +93,8 @@ const IndicesPage = () => {
 
             {/* Business news for indices */}
             <div className="bg-slate-800/50 backdrop-blur border border-slate-700/60 rounded-2xl p-6 shadow-lg">
-                <NewsGrid topic="BUSINESS" title="İş Dünyası Haberleri" columns={3} maxItems={9} />
+                <NewsGrid topic="STOCK" title="Borsa Haberleri" columns={3} maxItems={9} />
             </div>
-
-            <TradeModal isOpen={tradeOpen} onClose={() => setTradeOpen(false)} symbol={activeSymbol} side={tradeSide} />
         </div>
     );
 };

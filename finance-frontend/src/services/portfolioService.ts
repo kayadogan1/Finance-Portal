@@ -25,11 +25,8 @@ export const PortfolioPurposeType = {
 export type PortfolioPurposeType = typeof PortfolioPurposeType[keyof typeof PortfolioPurposeType];
 
 /**
- * Matches backend PortfolioDto — now includes `id` and `cashBalance`.
- *
- * Backend must set these in toPortfolioDto():
- *   .id(portfolio.getId())
- *   .cashBalance(portfolio.getCashBalance())
+ * Matches backend `PortfolioReadDto`.
+ * GET /api/portfolio returns List<PortfolioReadDto>
  */
 export interface PortfolioDto {
     id: string;
@@ -37,7 +34,7 @@ export interface PortfolioDto {
     riskTolerance: RiskTolerance;
     purpose: PortfolioPurposeType;
     portfolioItems?: PortfolioItemDto[];
-    cashBalance: number;
+    portfolioBalance: number;
 }
 
 /** Used for creating a new portfolio — no id or cashBalance needed */

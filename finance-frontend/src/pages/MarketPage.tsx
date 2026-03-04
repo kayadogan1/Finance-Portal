@@ -6,7 +6,6 @@ import CandlestickChart from '../components/market/CandlestickChart';
 import AIAnalysisCard from '../components/market/AIAnalysisCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InstrumentsTable } from '../components/market/InstrumentsTable';
-import { TradeModal } from '../components/trade/TradeModal';
 import ComparisonChart from '../components/market/ComparisonChart';
 
 /* ─── Skeleton ─── */
@@ -40,9 +39,6 @@ const Card = ({
 /* ─── Page ─── */
 const MarketPage = () => {
     const [selectedSymbol, setSelectedSymbol] = useState<string>('BTCUSDT');
-    const [tradeModalOpen, setTradeModalOpen] = useState(false);
-    const [tradeSymbol, setTradeSymbol] = useState<string | null>(null);
-    const [tradeSide, setTradeSide] = useState<"BUY" | "SELL" | null>(null);
 
     // Fetch market instruments
     const { data: instruments = [], isLoading: instrumentsLoading } = useQuery({
@@ -53,7 +49,6 @@ const MarketPage = () => {
     // Auto-select first symbol if instruments exist and nothing is selected
     useEffect(() => {
         if (instruments.length > 0 && selectedSymbol === 'BTCUSDT' && !instruments.some(i => i.symbol === 'BTCUSDT')) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setSelectedSymbol(instruments[0].symbol);
         }
     }, [instruments, selectedSymbol]);
@@ -78,24 +73,15 @@ const MarketPage = () => {
         queryFn: () => getMarketHistory(selectedSymbol),
     });
 
-    const openTradeModal = (symbol: string, side: "BUY" | "SELL") => {
-        setTradeSymbol(symbol);
-        setTradeSide(side);
-        setTradeModalOpen(true);
-    };
-
     return (
         <div className="space-y-8">
             {/* Page header */}
             <div>
                 <h2 className="text-2xl font-bold text-white">Piyasalar</h2>
                 <p className="text-slate-400 mt-1">
-                    Küresel piyasaları takip edin, işlem yapın ve AI ile analiz edin.
+                    Küresel piyasaları takip edin ve AI ile analiz edin.
                 </p>
             </div>
-
-            {/* Main Content Grid: Dashboard on left, Analysis on right */}
-            {/* Split layout: Top part is for the tabs & list, Bottom part for chart. Or side-by-side depending on requirements. */}
 
             <Card className="p-1 sm:p-6 overflow-hidden">
                 <div className="flex items-center gap-2 mb-6 px-4 sm:px-0">
@@ -125,19 +111,19 @@ const MarketPage = () => {
                     ) : (
                         <>
                             <TabsContent value="all" className="mt-0 outline-none">
-                                <InstrumentsTable instruments={grouped.all} selectedSymbol={selectedSymbol} onSelectSymbol={setSelectedSymbol} onTrade={openTradeModal} />
+                                <InstrumentsTable instruments={grouped.all} selectedSymbol={selectedSymbol} onSelectSymbol={setSelectedSymbol} />
                             </TabsContent>
                             <TabsContent value="crypto" className="mt-0 outline-none">
-                                <InstrumentsTable instruments={grouped.crypto} selectedSymbol={selectedSymbol} onSelectSymbol={setSelectedSymbol} onTrade={openTradeModal} />
+                                <InstrumentsTable instruments={grouped.crypto} selectedSymbol={selectedSymbol} onSelectSymbol={setSelectedSymbol} />
                             </TabsContent>
                             <TabsContent value="forex" className="mt-0 outline-none">
-                                <InstrumentsTable instruments={grouped.forex} selectedSymbol={selectedSymbol} onSelectSymbol={setSelectedSymbol} onTrade={openTradeModal} />
+                                <InstrumentsTable instruments={grouped.forex} selectedSymbol={selectedSymbol} onSelectSymbol={setSelectedSymbol} />
                             </TabsContent>
                             <TabsContent value="commodity" className="mt-0 outline-none">
-                                <InstrumentsTable instruments={grouped.commodity} selectedSymbol={selectedSymbol} onSelectSymbol={setSelectedSymbol} onTrade={openTradeModal} />
+                                <InstrumentsTable instruments={grouped.commodity} selectedSymbol={selectedSymbol} onSelectSymbol={setSelectedSymbol} />
                             </TabsContent>
                             <TabsContent value="indices" className="mt-0 outline-none">
-                                <InstrumentsTable instruments={grouped.indices} selectedSymbol={selectedSymbol} onSelectSymbol={setSelectedSymbol} onTrade={openTradeModal} />
+                                <InstrumentsTable instruments={grouped.indices} selectedSymbol={selectedSymbol} onSelectSymbol={setSelectedSymbol} />
                             </TabsContent>
                         </>
                     )}
@@ -148,19 +134,11 @@ const MarketPage = () => {
             <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
                 {/* Chart card — spans 2 cols on xl */}
                 <Card className="xl:col-span-2">
-                    <div className="flex items-center justify-between mb-5">
-                        <div className="flex items-center gap-2">
-                            <CandlestickIcon size={20} className="text-emerald-400" />
-                            <h3 className="text-lg font-semibold text-white">
-                                {selectedSymbol} — Mum Grafik
-                            </h3>
-                        </div>
-                        <button
-                            onClick={() => openTradeModal(selectedSymbol, "BUY")}
-                            className="text-sm px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-lg shadow-emerald-900/20 transition-all font-medium"
-                        >
-                            Hızlı Al
-                        </button>
+                    <div className="flex items-center gap-2 mb-5">
+                        <CandlestickIcon size={20} className="text-emerald-400" />
+                        <h3 className="text-lg font-semibold text-white">
+                            {selectedSymbol} — Mum Grafik
+                        </h3>
                     </div>
 
                     {chartLoading && <ChartSkeleton />}
@@ -180,13 +158,6 @@ const MarketPage = () => {
 
             {/* Comparison Chart */}
             <ComparisonChart />
-
-            <TradeModal
-                isOpen={tradeModalOpen}
-                onClose={() => setTradeModalOpen(false)}
-                symbol={tradeSymbol}
-                side={tradeSide}
-            />
         </div>
     );
 };

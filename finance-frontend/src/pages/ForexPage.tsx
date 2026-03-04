@@ -4,7 +4,6 @@ import { DollarSign, TrendingUp, TrendingDown, CandlestickChart as CandlestickIc
 import { getMarketInstruments, getMarketHistory } from '../services/marketService';
 import CandlestickChart from '../components/market/CandlestickChart';
 import NewsGrid from '../components/news/NewsGrid';
-import { TradeModal } from '../components/trade/TradeModal';
 
 const PriceSkeleton = () => (
     <div className="animate-pulse bg-slate-800/60 border border-slate-700/50 rounded-xl p-5">
@@ -23,8 +22,6 @@ const ChartSkeleton = () => (
 
 const ForexPage = () => {
     const [selectedSymbol, setSelectedSymbol] = useState('EURUSD');
-    const [tradeOpen, setTradeOpen] = useState(false);
-    const [tradeSide, setTradeSide] = useState<'BUY' | 'SELL'>('BUY');
 
     const { data: instruments = [], isLoading: instsLoading } = useQuery({
         queryKey: ['market-instruments'],
@@ -37,16 +34,7 @@ const ForexPage = () => {
         queryFn: () => getMarketHistory(selectedSymbol),
     });
 
-    // Auto-select first forex pair
     const activePairs = instruments;
-    if (activePairs.length > 0 && !activePairs.some((i) => i.symbol === selectedSymbol)) {
-        // Will be caught on next render
-    }
-
-    const openTrade = (side: 'BUY' | 'SELL') => {
-        setTradeSide(side);
-        setTradeOpen(true);
-    };
 
     return (
         <div className="space-y-8">
@@ -77,10 +65,10 @@ const ForexPage = () => {
                                     }`}
                             >
                                 <p className="text-xs text-slate-400 font-medium mb-1">{inst.symbol}</p>
-                                <p className="text-lg font-bold text-white">
+                                <p className="text-lg font-bold text-white font-mono">
                                     {inst.currentPrice?.toLocaleString('tr-TR', { minimumFractionDigits: 4 }) ?? '—'}
                                 </p>
-                                <span className={`flex items-center gap-1 text-xs font-medium mt-1 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                                <span className={`flex items-center gap-1 text-xs font-medium font-mono mt-1 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
                                     {isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                                     {isPositive ? '+' : ''}{(inst.change24h ?? 0).toFixed(2)}%
                                 </span>
@@ -89,21 +77,11 @@ const ForexPage = () => {
                     })}
             </div>
 
-            {/* Chart */}
+            {/* Chart — no trade buttons */}
             <div className="bg-slate-800/50 backdrop-blur border border-slate-700/60 rounded-2xl p-6 shadow-lg">
-                <div className="flex items-center justify-between mb-5">
-                    <div className="flex items-center gap-2">
-                        <CandlestickIcon size={20} className="text-blue-400" />
-                        <h3 className="text-lg font-semibold text-white">{selectedSymbol} — Mum Grafik</h3>
-                    </div>
-                    <div className="flex gap-2">
-                        <button onClick={() => openTrade('BUY')} className="text-xs px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium transition-colors">
-                            Al
-                        </button>
-                        <button onClick={() => openTrade('SELL')} className="text-xs px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors">
-                            Sat
-                        </button>
-                    </div>
+                <div className="flex items-center gap-2 mb-5">
+                    <CandlestickIcon size={20} className="text-blue-400" />
+                    <h3 className="text-lg font-semibold text-white">{selectedSymbol} — Mum Grafik</h3>
                 </div>
                 {chartLoading && <ChartSkeleton />}
                 {ohlcData && <CandlestickChart data={ohlcData} />}
@@ -111,10 +89,8 @@ const ForexPage = () => {
 
             {/* Forex-specific news */}
             <div className="bg-slate-800/50 backdrop-blur border border-slate-700/60 rounded-2xl p-6 shadow-lg">
-                <NewsGrid topic="FINANCE" title="Finans Haberleri" columns={3} maxItems={9} />
+                <NewsGrid topic="FOREX" title="Döviz Haberleri" columns={3} maxItems={9} />
             </div>
-
-            <TradeModal isOpen={tradeOpen} onClose={() => setTradeOpen(false)} symbol={selectedSymbol} side={tradeSide} />
         </div>
     );
 };

@@ -8,19 +8,17 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { TrendingDown, TrendingUp } from "lucide-react";
+import { TrendingDown, TrendingUp, Eye } from "lucide-react";
 
 interface InstrumentsTableProps {
     instruments: MarketInstrument[];
     onSelectSymbol?: (symbol: string) => void;
-    onTrade?: (symbol: string, side: "BUY" | "SELL") => void;
     selectedSymbol?: string;
 }
 
 export function InstrumentsTable({
     instruments,
     onSelectSymbol,
-    onTrade,
     selectedSymbol,
 }: InstrumentsTableProps) {
     if (!instruments.length) {
@@ -40,7 +38,7 @@ export function InstrumentsTable({
                         <TableHead className="text-slate-300 font-medium">İsim</TableHead>
                         <TableHead className="text-right text-slate-300 font-medium">Fiyat</TableHead>
                         <TableHead className="text-right text-slate-300 font-medium">24s Değişim</TableHead>
-                        <TableHead className="text-right text-slate-300 font-medium w-[180px]">İşlem</TableHead>
+                        <TableHead className="text-center text-slate-300 font-medium w-[100px]">Detay</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -58,7 +56,7 @@ export function InstrumentsTable({
                                     {instrument.symbol}
                                 </TableCell>
                                 <TableCell className="text-slate-400">{instrument.name}</TableCell>
-                                <TableCell className="text-right font-medium text-slate-200">
+                                <TableCell className="text-right font-mono font-medium text-slate-200">
                                     ${(instrument.currentPrice || 0).toLocaleString(undefined, {
                                         minimumFractionDigits: 2,
                                         maximumFractionDigits: 6,
@@ -67,7 +65,7 @@ export function InstrumentsTable({
                                 <TableCell className="text-right">
                                     <Badge
                                         variant={isPositive ? "default" : "destructive"}
-                                        className={`ml-auto flex w-fit items-center gap-1 font-medium ${isPositive
+                                        className={`ml-auto flex w-fit items-center gap-1 font-mono font-medium ${isPositive
                                             ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border-emerald-500/20"
                                             : "bg-red-500/10 text-red-400 hover:bg-red-500/20 border-red-500/20"
                                             }`}
@@ -76,27 +74,19 @@ export function InstrumentsTable({
                                         {Math.abs(instrument.change24h || 0).toFixed(2)}%
                                     </Badge>
                                 </TableCell>
-                                <TableCell className="text-right">
-                                    <div className="flex justify-end gap-2">
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onTrade?.(instrument.symbol, "BUY");
-                                            }}
-                                            className="px-3 py-1 rounded-md text-xs font-semibold bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors"
-                                        >
-                                            Al
-                                        </button>
-                                        <button
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onTrade?.(instrument.symbol, "SELL");
-                                            }}
-                                            className="px-3 py-1 rounded-md text-xs font-semibold bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors"
-                                        >
-                                            Sat
-                                        </button>
-                                    </div>
+                                <TableCell className="text-center">
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onSelectSymbol?.(instrument.symbol);
+                                        }}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
+                                                   bg-slate-700/40 text-slate-300 hover:bg-slate-600/50 hover:text-white
+                                                   border border-slate-600/40 transition-all"
+                                    >
+                                        <Eye size={12} />
+                                        Detay
+                                    </button>
                                 </TableCell>
                             </TableRow>
                         );

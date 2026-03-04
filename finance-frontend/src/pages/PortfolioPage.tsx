@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
-    PieChart as PieChartIcon, TrendingUp, Wallet,
+    PieChart as PieChartIcon, TrendingUp, TrendingDown, Wallet,
     ArrowDownToLine, ShoppingCart, RefreshCw, Plus, ChevronDown,
 } from 'lucide-react';
 import {
@@ -147,7 +147,7 @@ const PortfolioPage = () => {
                                 <Wallet className="text-emerald-400" size={20} />
                             </div>
                             <p className="text-2xl font-bold text-white">
-                                {Number(activePortfolio?.cashBalance ?? 0).toLocaleString('tr-TR', {
+                                {Number(activePortfolio?.portfolioBalance ?? 0).toLocaleString('tr-TR', {
                                     minimumFractionDigits: 2,
                                     maximumFractionDigits: 2,
                                 })} ₺
@@ -223,35 +223,71 @@ const PortfolioPage = () => {
                                     <thead className="bg-slate-900/50 text-slate-400 text-xs uppercase tracking-wider">
                                         <tr>
                                             <th className="p-4 text-left font-semibold">Sembol</th>
-                                            <th className="p-4 text-left font-semibold">Miktar</th>
+                                            <th className="p-4 text-right font-semibold">Miktar</th>
                                             <th className="p-4 text-right font-semibold">Ort. Maliyet</th>
+                                            <th className="p-4 text-right font-semibold">Güncel Fiyat</th>
+                                            <th className="p-4 text-right font-semibold">Toplam Değer</th>
+                                            <th className="p-4 text-right font-semibold">K/Z</th>
                                             {!isAdmin && <th className="p-4 text-center font-semibold">İşlem</th>}
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-700">
-                                        {activePortfolio.portfolioItems.map((item, idx) => (
-                                            <tr key={idx} className="hover:bg-slate-700/50 transition-colors">
-                                                <td className="p-4 font-bold text-white">
-                                                    {item.instrumentDto?.symbol ?? item.instrumentSymbol ?? '—'}
-                                                </td>
-                                                <td className="p-4 text-slate-300 font-mono">{item.amount}</td>
-                                                <td className="p-4 text-right text-slate-300 font-mono">
-                                                    {Number(item.averageCost).toFixed(2)} ₺
-                                                </td>
-                                                {!isAdmin && (
-                                                    <td className="p-4 text-center">
-                                                        <button
-                                                            onClick={() => setSellSymbol(
-                                                                item.instrumentDto?.symbol ?? item.instrumentSymbol ?? ''
+                                    <tbody className="divide-y divide-slate-700/50">
+                                        {activePortfolio.portfolioItems.map((item, idx) => {
+                                            const symbol = item.instrumentDto?.symbol ?? item.instrumentSymbol ?? '—';
+                                            const currentPrice = item.instrumentDto?.currentPrice ?? 0;
+                                            const amount = Number(item.amount ?? 0);
+                                            const avgCost = Number(item.averageCost ?? 0);
+                                            const totalValue = amount * currentPrice;
+                                            const totalCost = amount * avgCost;
+                                            const pnl = totalValue - totalCost;
+                                            const pnlPercent = totalCost > 0 ? ((pnl / totalCost) * 100) : 0;
+                                            const isProfit = pnl >= 0;
+
+                                            return (
+                                                <tr key={idx} className="hover:bg-slate-700/30 transition-colors">
+                                                    <td className="p-4">
+                                                        <div>
+                                                            <span className="font-bold text-white">{symbol}</span>
+                                                            {item.instrumentDto?.name && (
+                                                                <p className="text-[11px] text-slate-500 mt-0.5">{item.instrumentDto.name}</p>
                                                             )}
-                                                            className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg text-xs font-medium transition-colors"
-                                                        >
-                                                            Sat
-                                                        </button>
+                                                        </div>
                                                     </td>
-                                                )}
-                                            </tr>
-                                        ))}
+                                                    <td className="p-4 text-right text-slate-300 font-mono text-sm">
+                                                        {amount.toLocaleString('tr-TR', { maximumFractionDigits: 6 })}
+                                                    </td>
+                                                    <td className="p-4 text-right text-slate-300 font-mono text-sm">
+                                                        {avgCost.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺
+                                                    </td>
+                                                    <td className="p-4 text-right text-white font-mono text-sm font-medium">
+                                                        {currentPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺
+                                                    </td>
+                                                    <td className="p-4 text-right text-white font-mono text-sm font-semibold">
+                                                        {totalValue.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺
+                                                    </td>
+                                                    <td className="p-4 text-right">
+                                                        <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-mono font-semibold ${isProfit
+                                                            ? 'bg-emerald-500/10 text-emerald-400'
+                                                            : 'bg-red-500/10 text-red-400'
+                                                            }`}>
+                                                            {isProfit ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                                                            {isProfit ? '+' : ''}{pnl.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ₺
+                                                            <span className="text-[10px] opacity-70">({isProfit ? '+' : ''}{pnlPercent.toFixed(1)}%)</span>
+                                                        </div>
+                                                    </td>
+                                                    {!isAdmin && (
+                                                        <td className="p-4 text-center">
+                                                            <button
+                                                                onClick={() => setSellSymbol(symbol)}
+                                                                className="px-3 py-1.5 bg-red-500/15 hover:bg-red-500/25 text-red-300 rounded-lg text-xs font-medium transition-colors border border-red-500/20"
+                                                            >
+                                                                Sat
+                                                            </button>
+                                                        </td>
+                                                    )}
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>
