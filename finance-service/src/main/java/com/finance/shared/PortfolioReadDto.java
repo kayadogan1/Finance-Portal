@@ -12,7 +12,7 @@ import java.util.UUID;
 
 @Builder
 public record PortfolioReadDto(
-        @NotBlank
+        @NotNull
         UUID id ,
 
         @NotBlank(message = "Portfolio name cannot be blank")
