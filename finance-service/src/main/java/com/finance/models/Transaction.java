@@ -22,7 +22,7 @@ public class Transaction {
     private Long id;
 
     private String userId;
-
+    @Enumerated(EnumType.STRING)
     private TransactionType type;
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "instrument_id")
