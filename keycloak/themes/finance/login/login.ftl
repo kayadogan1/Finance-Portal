@@ -98,7 +98,7 @@
             </button>
         </form>
 
-        <#if realm.password && realm.registrationAllowed && !registrationDisabled>
+        <#if realm.password && realm.registrationAllowed && !(registrationDisabled!false)>
             <div class="mt-8 pt-6 border-t border-slate-700/50 text-center">
                 <p class="text-slate-400 text-sm">
                     Hesabınız yok mu? 

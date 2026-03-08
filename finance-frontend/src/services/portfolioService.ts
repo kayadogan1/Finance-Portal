@@ -59,7 +59,7 @@ export interface PortfolioItemDto {
 
 /** Matches `com.finance.shared.PerformanceLineChartDto` */
 export interface PerformanceLineChartDto {
-    time: string; // Java LocalDateTime — may contain microseconds
+    time: string; // Java LocalDate — "2026-02-03" format
     totalPrice: number;
 }
 
@@ -68,6 +68,9 @@ export interface PieChartDto {
     instrumentName: string;
     totalValue: number;
 }
+
+/** Matches `com.finance.shared.PortfolioRange` enum */
+export type PortfolioRange = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'THREE_MONTHS' | 'SIX_MONTHS' | 'YEARLY' | 'ALL';
 
 /* ─────────────────────────────── API calls ─────────────────────────────── */
 
@@ -109,18 +112,17 @@ export const getPortfolioPieChart = async (portfolioId: string): Promise<PieChar
 
 /**
  * Fetch portfolio history by ID.
- * Route: GET /api/portfolio/{portfolioId}/history?days=N
+ * Route: GET /api/portfolio/{portfolioId}/history?portfolioRange=WEEKLY
  *
- * Backend returns PerformanceLineChartDto[] with Java LocalDateTime in `time`.
- * We parse dates here at the service layer.
+ * Backend returns PerformanceLineChartDto[] with Java LocalDate in `time`.
  */
 export const getPortfolioHistory = async (
     portfolioId: string,
-    days: number = 30,
+    portfolioRange: PortfolioRange = 'WEEKLY',
 ): Promise<PerformanceLineChartDto[]> => {
     const { data } = await privateApi.get<PerformanceLineChartDto[]>(
         `/api/portfolio/${portfolioId}/history`,
-        { params: { days } },
+        { params: { portfolioRange } },
     );
     return data ?? [];
 };
