@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Entity
 @Data
@@ -22,6 +23,7 @@ public class Transaction {
     private Long id;
 
     private String userId;
+    private UUID portfolioId;
     @Enumerated(EnumType.STRING)
     private TransactionType type;
     @ManyToOne(fetch = FetchType.LAZY)

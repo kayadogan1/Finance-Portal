@@ -62,10 +62,10 @@ public class PortfolioController {
     public ResponseEntity<List<PerformanceLineChartDto>> getPortfolioHistory(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID portfolioId,
-            @RequestParam(defaultValue = "30") int days
+            @RequestParam(defaultValue = "WEEKLY") PortfolioRange portfolioRange
     ) {
         User user = userService.getOrCreateUser(jwt);
-        List<PerformanceLineChartDto> history = portfolioService.getCalculatedPerformanceChartValues(user.getId(), portfolioId, days);
+        List<PerformanceLineChartDto> history = portfolioService.getCalculatedPerformanceChartValues(user.getId(), portfolioId, portfolioRange);
 
         if (history.isEmpty()) {
             logger.info("no portfolio data history for user: {}", user.getId());

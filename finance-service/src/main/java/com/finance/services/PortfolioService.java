@@ -11,6 +11,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.*;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -126,35 +127,74 @@ public class PortfolioService {
         return true;
 
     }
-    public List<PerformanceLineChartDto> calculatePerformanceLineChart(int backDays, Portfolio portfolio) {
+    private LocalDate resolveStartDate(PortfolioRange portfolioRange){
         LocalDate today = LocalDate.now();
-        LocalDate startDate = today.minusDays(backDays);
+        return switch (portfolioRange){
+            case DAILY -> today.minusDays(1);
+            case WEEKLY -> today.minusWeeks(1);
+            case MONTHLY -> today.minusMonths(1);
+            case THREE_MONTHS -> today.minusMonths(3);
+            case SIX_MONTHS -> today.minusMonths(6);
+            case YEARLY -> today.minusYears(1);
+            default -> throw new IllegalStateException("Unexpected value: " + portfolioRange);
+        };
+    }
+    public List<PerformanceLineChartDto> calculatePerformanceLineChart(PortfolioRange portfolioRange, Portfolio portfolio) {
+        LocalDate today = LocalDate.now();
+        LocalDate startDate = (portfolioRange == PortfolioRange.ALL)
+                ? portfolio.getCreatedAt().toLocalDate()
+                : resolveStartDate(portfolioRange);
+
+        List<Transaction> transactionList = transactionRepository.findByPortfolioIdOrderByTimestampAsc(portfolio.getId());
+        Map<UUID,BigDecimal> quantityMap = new HashMap<>();
+        for(Transaction transaction : transactionList){
+            if(transaction.getTimestamp().toLocalDate().isBefore(startDate)){
+                applyTransaction(quantityMap, transaction);
+            }
+        }
+        Map<LocalDate,List<Transaction>> transactionsByDate = transactionList.stream()
+                .filter(transaction -> !transaction.getTimestamp().toLocalDate().isBefore(startDate))
+                .collect(Collectors.groupingBy(transaction -> transaction.getTimestamp().toLocalDate()));
+
         List<PerformanceLineChartDto> performanceLineChartList = new ArrayList<>();
 
         for (LocalDate date = startDate; !date.isAfter(today); date = date.plusDays(1)) {
-
-            BigDecimal dailyTotalValue = BigDecimal.ZERO;
-
-            for (PortfolioItem item : portfolio.getItems()) {
-
-                BigDecimal quantity = item.getQuantity() != null ? item.getQuantity() : BigDecimal.ZERO;
-
-                Optional<MarketData> marketData = marketDataRepository.findLastDataOfDay(item.getInstrument().getId(), date);
-
-                BigDecimal itemValue = quantity.multiply(marketData.map(MarketData::getPrice).orElse(BigDecimal.ZERO));
-                dailyTotalValue = dailyTotalValue.add(itemValue);
+            List<Transaction> dailyTransactions = transactionsByDate.getOrDefault(date, Collections.emptyList());
+            for(Transaction transaction : dailyTransactions){
+                applyTransaction(quantityMap, transaction);
             }
+            BigDecimal dailyTotalValue = BigDecimal.ZERO;
+            for(Map.Entry<UUID,BigDecimal> entry : quantityMap.entrySet()){
+                UUID instrumentId = entry.getKey();
+                BigDecimal quantity = entry.getValue();
+                BigDecimal price = marketDataRepository.findLastDataOfDay(instrumentId,date)
+                        .map(MarketData::getPrice)
+                        .orElse(BigDecimal.ZERO);
+                dailyTotalValue = dailyTotalValue.add(price.multiply(quantity));
 
-            performanceLineChartList.add(new PerformanceLineChartDto(date, dailyTotalValue));
+
+            }
+            performanceLineChartList.add(new PerformanceLineChartDto(date,dailyTotalValue));
+
         }
 
         return performanceLineChartList;
     }
+    private void applyTransaction(Map<UUID,BigDecimal> quantityMap,Transaction transaction) {
+        if(transaction.getInstrument()== null) return;
+        UUID instrumentId = transaction.getInstrument().getId();
+        BigDecimal quantity = transaction.getQuantity();
+        switch (transaction.getType()){
+            case BUY -> quantityMap.merge(instrumentId, quantity, BigDecimal::add);
+            case SELL -> quantityMap.merge(instrumentId, quantity.negate(), BigDecimal::add);
+            default -> {}
+        }
 
-    public List<PerformanceLineChartDto> getCalculatedPerformanceChartValues(String userId, UUID portfolioId, int backDays) {
+    }
+    public List<PerformanceLineChartDto> getCalculatedPerformanceChartValues(String userId, UUID portfolioId, PortfolioRange range) {
         Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
-        logger.info("calculating {} days performance line chart for :{}",backDays,userId);
-        return calculatePerformanceLineChart(backDays, portfolio);
+        logger.info("calculating {} days performance line chart for :{}",range.toString(),userId);
+        return calculatePerformanceLineChart(range , portfolio);
     }
     public List<PortfolioReadDto> getAllPortfolios() {
 
@@ -201,6 +241,7 @@ public class PortfolioService {
 
         Transaction transaction = Transaction.builder()
                 .userId(userId)
+                .portfolioId(portfolioId)
                 .type(com.finance.shared.TransactionType.SELL)
                 .Instrument(instrument)
                 .quantity(quantity)
@@ -267,6 +308,7 @@ public class PortfolioService {
         }
         Transaction transaction = Transaction.builder()
                 .userId(userId)
+                .portfolioId(portfolioId)
                 .type(com.finance.shared.TransactionType.BUY)
                 .Instrument(instrument)
                 .quantity(quantity)
@@ -290,6 +332,7 @@ public class PortfolioService {
         portfolio.setCashBalance(portfolio.getCashBalance().add(amount));
         Transaction transaction = Transaction.builder()
                 .userId(userId)
+                .portfolioId(portfolioId)
                 .type(TransactionType.DEPOSIT)
                 .quantity(BigDecimal.ZERO)
                 .price(BigDecimal.ZERO)
