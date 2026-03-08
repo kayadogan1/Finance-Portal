@@ -2,6 +2,7 @@ package com.finance.controllers;
 
 import com.finance.models.User;
 import com.finance.services.PortfolioService;
+import com.finance.services.TransactionService;
 import com.finance.services.UserService;
 import com.finance.shared.*;
 import jakarta.validation.Valid;
@@ -13,6 +14,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -23,8 +25,10 @@ public class PortfolioController {
     private final Logger logger = LogManager.getLogger(PortfolioController.class);
     private final PortfolioService portfolioService;
     private final UserService userService;
-    public PortfolioController(PortfolioService portfolioService, UserService userService) {
+    private final TransactionService transactionService;
+    public PortfolioController(PortfolioService portfolioService, UserService userService, TransactionService transactionService) {
         this.portfolioService= portfolioService;
+        this.transactionService = transactionService;
         this.userService = userService;
     }
     @GetMapping
@@ -100,6 +104,16 @@ public class PortfolioController {
              return ResponseEntity.noContent().build();
          }
          return ResponseEntity.ok(pieChartList);
+
+    }
+    @GetMapping("/transactions")
+    public ResponseEntity<List<TransactionDto>> getUserTransactionsByTimeStamp(@AuthenticationPrincipal Jwt jwt,@RequestParam(required = false) LocalDate startDate){
+        List<TransactionDto> transactionList= transactionService.getUserTransactionsByTimestamp(jwt.getId(), startDate);
+        if(transactionList.isEmpty()){
+            logger.info("No transaction data history for user: {}", jwt.getId());
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(transactionList);
 
     }
 
