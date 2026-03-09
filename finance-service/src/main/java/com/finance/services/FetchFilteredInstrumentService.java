@@ -14,16 +14,18 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.*;
+import java.util.Collections;
 import java.util.List;
+
 @Service
 @RequiredArgsConstructor
 public class FetchFilteredInstrumentService {
 
     private static final Logger logger =
             LogManager.getLogger(FetchFilteredInstrumentService.class);
+
+    private static final long MIN_FETCH_INTERVAL_SECONDS = 900;
 
     private final MarketDataRepository marketDataRepository;
     private final FetchMarketDataService fetchMarketDataService;
@@ -35,10 +37,11 @@ public class FetchFilteredInstrumentService {
     @Transactional
     public void fetchInstrumentClosePricesSinceLastDate(Instrument instrument) {
 
-        LocalDateTime lastTimestamp = marketDataRepository
+        Instant lastTimestamp = marketDataRepository
                 .findFirstByInstrumentOrderByTimestampDesc(instrument)
                 .map(MarketData::getTimestamp)
-                .orElse(LocalDateTime.now());
+                .map(ldt -> ldt.toInstant(ZoneOffset.UTC))
+                .orElse(null);
 
         List<MarketData> fetchedData = fetchFromYahoo(instrument, lastTimestamp);
 
@@ -51,8 +54,7 @@ public class FetchFilteredInstrumentService {
         logger.info("Saved {} new records for {}", fetchedData.size(), instrument.getSymbol());
     }
 
-    private List<MarketData> fetchFromYahoo(Instrument instrument,
-                                            LocalDateTime lastTimestamp) {
+    private List<MarketData> fetchFromYahoo(Instrument instrument, Instant lastTimestamp) {
 
         String symbol = fetchMarketDataService.convertToYahooFormat(
                 instrument.getSymbol(),
@@ -60,25 +62,36 @@ public class FetchFilteredInstrumentService {
                 instrument.getBaseCurrency()
         );
 
-        long period1 = lastTimestamp != null
-                ? lastTimestamp.toEpochSecond(ZoneOffset.UTC)
-                : LocalDate.now().minusYears(10).atStartOfDay().toEpochSecond(ZoneOffset.UTC);
+        long period2 = LocalDate.now(ZoneOffset.UTC)
+                .atStartOfDay(ZoneOffset.UTC)
+                .toEpochSecond();
 
-        long period2 = LocalDateTime.now().toEpochSecond(ZoneOffset.UTC);
+        long period1;
+        if (lastTimestamp != null) {
+            period1 = lastTimestamp.getEpochSecond();
+
+            if ((period2 - period1) < MIN_FETCH_INTERVAL_SECONDS) {
+                logger.info("Skipping Yahoo fetch for {}, data is already up to date.", symbol);
+                return Collections.emptyList();
+            }
+        } else {
+            period1 = Instant.now()
+                    .atZone(ZoneOffset.UTC)
+                    .minusYears(10)
+                    .toEpochSecond();
+        }
 
         String url = yahooApiUrl
                 .replace("{symbol}", symbol)
                 .replace("{period1}", String.valueOf(period1))
                 .replace("{period2}", String.valueOf(period2));
 
-        return executeYahooRequest(url, instrument, lastTimestamp);
+        return executeYahooRequest(url, instrument);
     }
 
     private List<MarketData> executeYahooRequest(String url,
-                                                 Instrument instrument,
-                                                 LocalDateTime lastTimestamp) {
+                                                 Instrument instrument) {
         try {
-
             YahooChartResponse response = restClient.get()
                     .uri(url)
                     .header("User-Agent", "Mozilla/5.0")
@@ -87,20 +100,10 @@ public class FetchFilteredInstrumentService {
 
             validateResponse(response);
 
-            List<MarketData> marketData =
-                    ChartResponseToModel.toMarketDataList(response, instrument);
-
-            if (lastTimestamp != null) {
-                return marketData.stream()
-                        .filter(data -> data.getTimestamp().isAfter(lastTimestamp))
-                        .toList();
-            }
-
-            return marketData;
+            return ChartResponseToModel.toMarketDataList(response, instrument);
 
         } catch (Exception ex) {
-            logger.error("Yahoo fetch failed for {}",
-                    instrument.getSymbol(), ex);
+            logger.error("Yahoo fetch failed for {}", instrument.getSymbol(), ex);
             throw new RestClientException("Yahoo fetch failed", ex);
         }
     }
