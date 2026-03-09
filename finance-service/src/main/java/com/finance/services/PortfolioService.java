@@ -144,8 +144,25 @@ public class PortfolioService {
         LocalDate startDate = (portfolioRange == PortfolioRange.ALL)
                 ? portfolio.getCreatedAt().toLocalDate()
                 : resolveStartDate(portfolioRange);
-
+        Map<UUID,Map<LocalDate,BigDecimal >> priceMap = new HashMap<>();
+        logger.info("transactions fetching between {} and {}", startDate, today);
         List<Transaction> transactionList = transactionRepository.findByPortfolioIdOrderByTimestampAsc(portfolio.getId());
+        Set<UUID> instrumentIds = transactionList.stream()
+                .filter(transaction -> transaction.getInstrument()!=null)
+                .map(transaction -> transaction.getInstrument().getId())
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        List<MarketData> marketDataList =  marketDataRepository.findDailyClosingPrices(instrumentIds,startDate,today);
+        logger.info("market data fetching between {} and {}", startDate, today);
+        for(MarketData marketData : marketDataList){
+            UUID instrumentId = marketData.getInstrument().getId();
+            LocalDate date = marketData.getTimestamp().toLocalDate();
+            BigDecimal price = marketData.getPrice();
+            priceMap
+                    .computeIfAbsent(instrumentId, k -> new HashMap<>())
+                    .put(date,price);
+        }
+
         Map<UUID,BigDecimal> quantityMap = new HashMap<>();
         for(Transaction transaction : transactionList){
             if(transaction.getTimestamp().toLocalDate().isBefore(startDate)){
@@ -157,7 +174,7 @@ public class PortfolioService {
                 .collect(Collectors.groupingBy(transaction -> transaction.getTimestamp().toLocalDate()));
 
         List<PerformanceLineChartDto> performanceLineChartList = new ArrayList<>();
-
+        Map<UUID,BigDecimal> lastKnownValueMap = new HashMap<>();
         for (LocalDate date = startDate; !date.isAfter(today); date = date.plusDays(1)) {
             List<Transaction> dailyTransactions = transactionsByDate.getOrDefault(date, Collections.emptyList());
             for(Transaction transaction : dailyTransactions){
@@ -167,9 +184,15 @@ public class PortfolioService {
             for(Map.Entry<UUID,BigDecimal> entry : quantityMap.entrySet()){
                 UUID instrumentId = entry.getKey();
                 BigDecimal quantity = entry.getValue();
-                BigDecimal price = marketDataRepository.findLastDataOfDay(instrumentId,date)
-                        .map(MarketData::getPrice)
-                        .orElse(BigDecimal.ZERO);
+                BigDecimal price = priceMap
+                        .getOrDefault(instrumentId, Collections.emptyMap())
+                        .get(date);
+                if(price!=null){
+                    lastKnownValueMap.put(instrumentId,price);
+                }else{
+                    price = lastKnownValueMap.getOrDefault(instrumentId,BigDecimal.ZERO);
+                }
+
                 dailyTotalValue = dailyTotalValue.add(price.multiply(quantity));
 
 
@@ -177,7 +200,6 @@ public class PortfolioService {
             performanceLineChartList.add(new PerformanceLineChartDto(date,dailyTotalValue));
 
         }
-
         return performanceLineChartList;
     }
     private void applyTransaction(Map<UUID,BigDecimal> quantityMap,Transaction transaction) {

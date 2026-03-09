@@ -38,7 +38,7 @@ public class FetchFilteredInstrumentService {
         LocalDateTime lastTimestamp = marketDataRepository
                 .findFirstByInstrumentOrderByTimestampDesc(instrument)
                 .map(MarketData::getTimestamp)
-                .orElse(null);
+                .orElse(LocalDateTime.now());
 
         List<MarketData> fetchedData = fetchFromYahoo(instrument, lastTimestamp);
 
