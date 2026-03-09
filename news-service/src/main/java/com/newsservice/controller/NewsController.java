@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 
@@ -34,13 +35,13 @@ public class NewsController {
         List<FilteredArticleDto> articles;
 
         if (topic != null && country != null) {
-            articles = newsService.getArticlesByTopicAndCountry(topic, country);
+            articles = newsService.getArticlesByTopicAndCountryAfterDate(topic,country, LocalDate.now().minusWeeks(1));
         } else if (topic != null) {
-            articles = newsService.getArticlesByTopic(topic);
+            articles = newsService.getArticlesByTopicAfterDate(topic, LocalDate.now().minusWeeks(1));
         } else if (country != null) {
-            articles = newsService.getArticlesByCountry(country);
+            articles = newsService.getArticlesByCountryAfterDate(country, LocalDate.now().minusWeeks(1));
         } else {
-            articles = newsService.getAllArticlesList();
+            articles = newsService.getAllArticlesAfterDate(LocalDate.now().minusWeeks(1));
         }
 
         if (articles.isEmpty()) {
