@@ -250,16 +250,30 @@ const CandlestickChart = ({
     });
 
     // Transform line data to Lightweight Charts format
+    // IMPORTANT: Lightweight Charts requires STRICTLY ASCENDING timestamps with NO duplicates
     const lineChartData: LinePoint[] = useMemo(() => {
         if (!fetchedLineData) return [];
-        return fetchedLineData.map(d => ({
-            time: Math.floor(d.timestamp / 1000), // UNIX seconds for Lightweight Charts
+        const mapped = fetchedLineData.map(d => ({
+            time: Math.floor(d.timestamp / 1000),
             value: d.close,
         }));
+        // Sort ascending and deduplicate (keep last entry per timestamp)
+        mapped.sort((a, b) => a.time - b.time);
+        const deduped = new Map<number, LinePoint>();
+        for (const p of mapped) deduped.set(p.time, p);
+        return [...deduped.values()];
     }, [fetchedLineData]);
 
     // Use external data if passed, otherwise use fetched data
-    const candleData = externalData ?? fetchedCandleData ?? [];
+    // Also sort + deduplicate candle data
+    const candleData = useMemo(() => {
+        const raw = externalData ?? fetchedCandleData ?? [];
+        if (raw.length === 0) return raw;
+        const sorted = [...raw].sort((a, b) => a.time - b.time);
+        const deduped = new Map<number, OHLCData>();
+        for (const c of sorted) deduped.set(c.time, c);
+        return [...deduped.values()];
+    }, [externalData, fetchedCandleData]);
 
     const showToolbar = !!symbol;
     const isLoading = mode === 'candle' ? candleLoading : lineLoading;
