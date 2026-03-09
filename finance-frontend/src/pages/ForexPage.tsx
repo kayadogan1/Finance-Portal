@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { DollarSign, TrendingUp, TrendingDown, CandlestickChart as CandlestickIcon } from 'lucide-react';
-import { getMarketInstruments, getMarketHistory } from '../services/marketService';
+import { DollarSign, TrendingUp, TrendingDown } from 'lucide-react';
+import { getMarketInstruments } from '../services/marketService';
 import CandlestickChart from '../components/market/CandlestickChart';
 import NewsGrid from '../components/news/NewsGrid';
 
@@ -13,12 +13,6 @@ const PriceSkeleton = () => (
     </div>
 );
 
-const ChartSkeleton = () => (
-    <div className="animate-pulse space-y-4">
-        <div className="h-5 w-48 bg-slate-700 rounded" />
-        <div className="h-[380px] bg-slate-700/30 rounded-xl" />
-    </div>
-);
 
 const ForexPage = () => {
     const [selectedSymbol, setSelectedSymbol] = useState('EURUSD');
@@ -27,11 +21,6 @@ const ForexPage = () => {
         queryKey: ['market-instruments'],
         queryFn: getMarketInstruments,
         select: (data) => data.filter((i) => i.type === 'FIAT'),
-    });
-
-    const { data: ohlcData, isLoading: chartLoading } = useQuery({
-        queryKey: ['market-history', selectedSymbol],
-        queryFn: () => getMarketHistory(selectedSymbol),
     });
 
     const activePairs = instruments;
@@ -77,14 +66,8 @@ const ForexPage = () => {
                     })}
             </div>
 
-            {/* Chart — no trade buttons */}
             <div className="bg-slate-800/50 backdrop-blur border border-slate-700/60 rounded-2xl p-6 shadow-lg">
-                <div className="flex items-center gap-2 mb-5">
-                    <CandlestickIcon size={20} className="text-blue-400" />
-                    <h3 className="text-lg font-semibold text-white">{selectedSymbol} — Mum Grafik</h3>
-                </div>
-                {chartLoading && <ChartSkeleton />}
-                {ohlcData && <CandlestickChart data={ohlcData} />}
+                <CandlestickChart symbol={selectedSymbol} defaultSlot="W1" />
             </div>
 
             {/* Forex-specific news */}

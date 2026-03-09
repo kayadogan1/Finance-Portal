@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { BarChart2, TrendingUp, TrendingDown, CandlestickChart as CandlestickIcon } from 'lucide-react';
-import { getMarketInstruments, getMarketHistory } from '../services/marketService';
+import { BarChart2, TrendingUp, TrendingDown } from 'lucide-react';
+import { getMarketInstruments } from '../services/marketService';
 import CandlestickChart from '../components/market/CandlestickChart';
 import NewsGrid from '../components/news/NewsGrid';
 
@@ -13,12 +13,6 @@ const PriceSkeleton = () => (
     </div>
 );
 
-const ChartSkeleton = () => (
-    <div className="animate-pulse space-y-4">
-        <div className="h-5 w-48 bg-slate-700 rounded" />
-        <div className="h-[380px] bg-slate-700/30 rounded-xl" />
-    </div>
-);
 
 const IndicesPage = () => {
     const [selectedSymbol, setSelectedSymbol] = useState('');
@@ -29,14 +23,7 @@ const IndicesPage = () => {
         select: (data) => data.filter((i) => i.type === 'INDEX'),
     });
 
-    // Auto-select first index if none selected
     const activeSymbol = selectedSymbol || (instruments.length > 0 ? instruments[0].symbol : '');
-
-    const { data: ohlcData, isLoading: chartLoading } = useQuery({
-        queryKey: ['market-history', activeSymbol],
-        queryFn: () => getMarketHistory(activeSymbol),
-        enabled: !!activeSymbol,
-    });
 
     return (
         <div className="space-y-8">
@@ -79,15 +66,9 @@ const IndicesPage = () => {
                     })}
             </div>
 
-            {/* Chart — no trade buttons */}
             {activeSymbol && (
                 <div className="bg-slate-800/50 backdrop-blur border border-slate-700/60 rounded-2xl p-6 shadow-lg">
-                    <div className="flex items-center gap-2 mb-5">
-                        <CandlestickIcon size={20} className="text-violet-400" />
-                        <h3 className="text-lg font-semibold text-white">{activeSymbol} — Mum Grafik</h3>
-                    </div>
-                    {chartLoading && <ChartSkeleton />}
-                    {ohlcData && <CandlestickChart data={ohlcData} />}
+                    <CandlestickChart symbol={activeSymbol} defaultSlot="W1" />
                 </div>
             )}
 

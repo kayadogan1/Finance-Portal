@@ -1,25 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CandlestickChart as CandlestickIcon, Activity } from 'lucide-react';
-import { getMarketHistory, getMarketInstruments } from '../services/marketService';
+import { getMarketInstruments } from '../services/marketService';
 import CandlestickChart from '../components/market/CandlestickChart';
 import AIAnalysisCard from '../components/market/AIAnalysisCard';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InstrumentsTable } from '../components/market/InstrumentsTable';
 import ComparisonChart from '../components/market/ComparisonChart';
 
-/* ─── Skeleton ─── */
-const ChartSkeleton = () => (
-    <div className="animate-pulse space-y-4">
-        <div className="h-5 w-48 bg-slate-700 rounded" />
-        <div className="h-[420px] bg-slate-700/30 rounded-xl" />
-        <div className="flex gap-3">
-            <div className="h-4 bg-slate-700/40 rounded w-24" />
-            <div className="h-4 bg-slate-700/30 rounded w-32" />
-            <div className="h-4 bg-slate-700/20 rounded w-20" />
-        </div>
-    </div>
-);
 
 /* ─── Card wrapper ─── */
 const Card = ({
@@ -63,15 +51,6 @@ const MarketPage = () => {
             indices: instruments.filter(i => i.type === 'INDEX'),
         };
     }, [instruments]);
-
-    const {
-        data: ohlcData,
-        isLoading: chartLoading,
-        isError: chartError,
-    } = useQuery({
-        queryKey: ['market-history', selectedSymbol],
-        queryFn: () => getMarketHistory(selectedSymbol),
-    });
 
     return (
         <div className="space-y-8">
@@ -137,19 +116,11 @@ const MarketPage = () => {
                     <div className="flex items-center gap-2 mb-5">
                         <CandlestickIcon size={20} className="text-emerald-400" />
                         <h3 className="text-lg font-semibold text-white">
-                            {selectedSymbol} — Mum Grafik
+                            {selectedSymbol} — Grafik
                         </h3>
                     </div>
 
-                    {chartLoading && <ChartSkeleton />}
-
-                    {chartError && (
-                        <p className="text-red-400 text-sm">
-                            Piyasa verileri yüklenemedi. Lütfen tekrar deneyin.
-                        </p>
-                    )}
-
-                    {ohlcData && <CandlestickChart data={ohlcData} />}
+                    <CandlestickChart symbol={selectedSymbol} defaultSlot="W1" />
                 </Card>
 
                 {/* AI Insight card — 1 col on xl, full-width on smaller */}

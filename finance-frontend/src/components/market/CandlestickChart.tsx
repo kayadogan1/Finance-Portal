@@ -1,21 +1,30 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { createChart, CandlestickSeries, type IChartApi, type ISeriesApi } from 'lightweight-charts';
+import {
+    createChart,
+    CandlestickSeries,
+    LineSeries,
+    type IChartApi,
+} from 'lightweight-charts';
 import type { OHLCData } from '../../types';
 import { getCandleData, type TimeSlot } from '../../services/marketService';
-import { RefreshCw } from 'lucide-react';
+import { CandlestickChart as CandlestickIcon, LineChart as LineChartIcon, RefreshCw } from 'lucide-react';
+
+/* ─── Types ─── */
+
+type ChartMode = 'candle' | 'line';
 
 /* ─── TimeSlot tabs matching backend com.finance.shared.TimeSlot enum ─── */
 
-const SLOTS: { label: string; value: TimeSlot; desc: string }[] = [
-    { label: '1dk', value: 'M1', desc: '1 Dakika' },
-    { label: '5dk', value: 'M5', desc: '5 Dakika' },
-    { label: '15dk', value: 'M15', desc: '15 Dakika' },
-    { label: '30dk', value: 'M30', desc: '30 Dakika' },
-    { label: '1sa', value: 'H1', desc: '1 Saat' },
-    { label: '4sa', value: 'H4', desc: '4 Saat' },
-    { label: '1G', value: 'D1', desc: 'Günlük' },
-    { label: '1H', value: 'W1', desc: 'Haftalık' },
+const SLOTS: { label: string; value: TimeSlot }[] = [
+    { label: '1dk', value: 'M1' },
+    { label: '5dk', value: 'M5' },
+    { label: '15dk', value: 'M15' },
+    { label: '30dk', value: 'M30' },
+    { label: '1sa', value: 'H1' },
+    { label: '4sa', value: 'H4' },
+    { label: '1G', value: 'D1' },
+    { label: '1H', value: 'W1' },
 ];
 
 /* ─── Skeleton ─── */
@@ -33,16 +42,21 @@ const ChartSkeleton = () => (
     </div>
 );
 
-/* ─── Inner Chart Renderer (pure Lightweight Charts) ─── */
+/* ─── Chart Renderer — handles both Candlestick & Line ─── */
 
-function OHLCChartRenderer({ data }: { data: OHLCData[] }) {
+function ChartRenderer({ data, mode }: { data: OHLCData[]; mode: ChartMode }) {
     const containerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
-    const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
 
-    useEffect(() => {
+    const buildChart = useCallback(() => {
         const el = containerRef.current;
         if (!el || !data.length) return;
+
+        // Destroy previous chart
+        if (chartRef.current) {
+            chartRef.current.remove();
+            chartRef.current = null;
+        }
 
         const chart = createChart(el, {
             width: el.clientWidth,
@@ -60,7 +74,10 @@ function OHLCChartRenderer({ data }: { data: OHLCData[] }) {
                 vertLine: { color: '#475569', labelBackgroundColor: '#334155' },
                 horzLine: { color: '#475569', labelBackgroundColor: '#334155' },
             },
-            rightPriceScale: { borderColor: '#1e293b' },
+            rightPriceScale: {
+                borderColor: '#1e293b',
+                autoScale: true,
+            },
             timeScale: {
                 borderColor: '#1e293b',
                 timeVisible: true,
@@ -68,34 +85,61 @@ function OHLCChartRenderer({ data }: { data: OHLCData[] }) {
             },
         });
 
-        const series = chart.addSeries(CandlestickSeries, {
-            upColor: '#10b981',
-            downColor: '#ef4444',
-            borderDownColor: '#ef4444',
-            borderUpColor: '#10b981',
-            wickDownColor: '#ef4444',
-            wickUpColor: '#10b981',
-        });
-
         chartRef.current = chart;
-        seriesRef.current = series;
-        series.setData(data as Parameters<typeof series.setData>[0]);
+
+        if (mode === 'candle') {
+            const series = chart.addSeries(CandlestickSeries, {
+                upColor: '#10b981',
+                downColor: '#ef4444',
+                borderDownColor: '#ef4444',
+                borderUpColor: '#10b981',
+                wickDownColor: '#ef4444',
+                wickUpColor: '#10b981',
+            });
+            series.setData(data as Parameters<typeof series.setData>[0]);
+        } else {
+            const series = chart.addSeries(LineSeries, {
+                color: '#10b981',
+                lineWidth: 2,
+                crosshairMarkerVisible: true,
+                crosshairMarkerRadius: 4,
+                crosshairMarkerBackgroundColor: '#10b981',
+                crosshairMarkerBorderColor: '#0f172a',
+                priceLineVisible: false,
+            });
+            // Line mode: only use close + time
+            const lineData = data.map(d => ({
+                time: d.time,
+                value: d.close,
+            }));
+            series.setData(lineData as Parameters<typeof series.setData>[0]);
+        }
+
         chart.timeScale().fitContent();
 
+        // Responsive
         const ro = new ResizeObserver((entries) => {
             for (const entry of entries) {
-                chart.applyOptions({ width: entry.contentRect.width });
+                if (chartRef.current) {
+                    chartRef.current.applyOptions({ width: entry.contentRect.width });
+                }
             }
         });
         ro.observe(el);
 
         return () => {
             ro.disconnect();
-            chart.remove();
-            chartRef.current = null;
-            seriesRef.current = null;
+            if (chartRef.current) {
+                chartRef.current.remove();
+                chartRef.current = null;
+            }
         };
-    }, [data]);
+    }, [data, mode]);
+
+    useEffect(() => {
+        const cleanup = buildChart();
+        return () => cleanup?.();
+    }, [buildChart]);
 
     return (
         <div
@@ -113,10 +157,20 @@ interface CandlestickChartProps {
     data?: OHLCData[];
     /** Symbol — when provided, this component fetches its own data with TimeSlot selector */
     symbol?: string;
+    /** Default TimeSlot — defaults to W1 (Haftalık) */
+    defaultSlot?: TimeSlot;
+    /** Show chart mode toggle (Mum/Çizgi) — default true */
+    showModeToggle?: boolean;
 }
 
-const CandlestickChart = ({ data: externalData, symbol }: CandlestickChartProps) => {
-    const [slot, setSlot] = useState<TimeSlot>('D1');
+const CandlestickChart = ({
+    data: externalData,
+    symbol,
+    defaultSlot = 'W1',
+    showModeToggle = true,
+}: CandlestickChartProps) => {
+    const [slot, setSlot] = useState<TimeSlot>(defaultSlot);
+    const [mode, setMode] = useState<ChartMode>('candle');
 
     // Self-managed query when `symbol` is provided
     const { data: fetchedData, isLoading, isError, isFetching } = useQuery<OHLCData[]>({
@@ -129,11 +183,11 @@ const CandlestickChart = ({ data: externalData, symbol }: CandlestickChartProps)
     });
 
     const chartData = externalData ?? fetchedData ?? [];
-    const showSlotSelector = !!symbol;
+    const showToolbar = !!symbol;
     const loading = !!symbol && isLoading;
 
     // Empty fallback
-    if (!loading && chartData.length === 0) {
+    if (!loading && chartData.length === 0 && !isError) {
         return (
             <div
                 className="w-full rounded-xl flex items-center justify-center bg-slate-900/30 border border-slate-700/40"
@@ -142,7 +196,7 @@ const CandlestickChart = ({ data: externalData, symbol }: CandlestickChartProps)
                 <div className="text-center">
                     <p className="text-slate-400 text-sm">Grafik verisi bulunamadı.</p>
                     <p className="text-slate-500 text-xs mt-1">
-                        Bu enstrüman için henüz mum verisi yok.
+                        Bu enstrüman için henüz veri yok.
                     </p>
                 </div>
             </div>
@@ -151,44 +205,77 @@ const CandlestickChart = ({ data: externalData, symbol }: CandlestickChartProps)
 
     return (
         <div className="space-y-3">
-            {/* TimeSlot selector — only when self-managed */}
-            {showSlotSelector && (
-                <div className="flex items-center gap-3">
-                    <div className="flex gap-1 bg-slate-900/60 rounded-lg p-1 border border-slate-700/40">
-                        {SLOTS.map(({ label, value }) => (
-                            <button
-                                key={value}
-                                onClick={() => setSlot(value)}
-                                title={SLOTS.find(s => s.value === value)?.desc}
-                                className={`px-2.5 py-1.5 text-[11px] font-semibold rounded-md transition-all duration-200
-                                    ${slot === value
-                                        ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/25'
-                                        : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                                    }`}
-                            >
-                                {label}
-                            </button>
-                        ))}
+            {/* Toolbar: Mode toggle + TimeSlot selector */}
+            {showToolbar && (
+                <div className="flex items-center justify-between flex-wrap gap-3">
+                    <div className="flex items-center gap-3">
+                        {/* Chart Mode Toggle */}
+                        {showModeToggle && (
+                            <div className="flex gap-0.5 bg-slate-900/60 rounded-lg p-1 border border-slate-700/40">
+                                <button
+                                    onClick={() => setMode('candle')}
+                                    title="Mum Grafik (Candlestick)"
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all duration-200
+                                        ${mode === 'candle'
+                                            ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/25'
+                                            : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                                        }`}
+                                >
+                                    <CandlestickIcon size={12} />
+                                    Mum
+                                </button>
+                                <button
+                                    onClick={() => setMode('line')}
+                                    title="Çizgi Grafik (Line)"
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all duration-200
+                                        ${mode === 'line'
+                                            ? 'bg-blue-500 text-white shadow-md shadow-blue-500/25'
+                                            : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                                        }`}
+                                >
+                                    <LineChartIcon size={12} />
+                                    Çizgi
+                                </button>
+                            </div>
+                        )}
+
+                        {/* TimeSlot Selector */}
+                        <div className="flex gap-0.5 bg-slate-900/60 rounded-lg p-1 border border-slate-700/40">
+                            {SLOTS.map(({ label, value }) => (
+                                <button
+                                    key={value}
+                                    onClick={() => setSlot(value)}
+                                    className={`px-2.5 py-1.5 text-[11px] font-semibold rounded-md transition-all duration-200
+                                        ${slot === value
+                                            ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/25'
+                                            : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
+                                        }`}
+                                >
+                                    {label}
+                                </button>
+                            ))}
+                        </div>
                     </div>
+
+                    {/* Loading indicator */}
                     {isFetching && (
                         <RefreshCw size={14} className="text-emerald-400 animate-spin" />
                     )}
                 </div>
             )}
 
-            {/* Loading */}
+            {/* States */}
             {loading && <ChartSkeleton />}
 
-            {/* Error */}
             {isError && (
                 <div className="flex items-center justify-center rounded-xl bg-red-500/5 border border-red-500/10 text-red-400 text-sm" style={{ minHeight: 420 }}>
-                    Mum verileri yüklenemedi. Tekrar deneyin.
+                    Grafik verileri yüklenemedi. Tekrar deneyin.
                 </div>
             )}
 
-            {/* Chart */}
+            {/* Chart — renders both modes using ChartRenderer */}
             {!loading && chartData.length > 0 && (
-                <OHLCChartRenderer data={chartData} />
+                <ChartRenderer data={chartData} mode={mode} />
             )}
         </div>
     );
