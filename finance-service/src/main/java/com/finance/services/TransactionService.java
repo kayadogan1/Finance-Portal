@@ -3,10 +3,10 @@ package com.finance.services;
 import com.finance.models.Transaction;
 import com.finance.repositories.TransactionRepository;
 import com.finance.shared.TransactionDto;
-import org.springframework.cglib.core.Local;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -24,7 +24,8 @@ public class TransactionService {
         if(date == null){
             date = LocalDate.now().minusWeeks(1);
         }
-        List<Transaction> userTransactionList = transactionRepository.findByUserIdAndTimestampAfterOrderByTimestampDesc(userId,date);
+        LocalDateTime startDate = date.atStartOfDay();
+        List<Transaction> userTransactionList = transactionRepository.findByUserIdAndTimestampAfterOrderByTimestampDesc(userId,startDate);
         return userTransactionList.stream().map(userTransaction -> new TransactionDto(userTransaction.getType(), userTransaction.getInstrument().getName(), userTransaction.getQuantity(), userTransaction.getPrice(), userTransaction.getTimestamp())).collect(Collectors.toList());
 
     }
