@@ -15,6 +15,7 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.util.*;
@@ -136,6 +137,18 @@ public class NewsService {
         } finally {
             childSpan.end();
         }
+    }
+    public List<FilteredArticleDto> getAllArticlesAfterDate(LocalDate date){
+        return newsArticleRepository.findByPublishedDateAfter(date.atStartOfDay()).stream().map(this::toDto).toList();
+    }
+    public List<FilteredArticleDto> getArticlesByTopicAfterDate(NewsTopic topic, LocalDate date){
+        return newsArticleRepository.findByTopicAndPublishedDateAfter(topic,date.atStartOfDay()).stream().map(this::toDto).toList();
+    }
+    public List<FilteredArticleDto> getArticlesByCountryAfterDate(NewsCountry country, LocalDate date){
+        return newsArticleRepository.findByCountryAndPublishedDateAfter(country,date.atStartOfDay()).stream().map(this::toDto).toList();
+    }
+    public List<FilteredArticleDto> getArticlesByTopicAndCountryAfterDate(NewsTopic topic,NewsCountry country ,LocalDate date){
+        return newsArticleRepository.findByTopicAndCountryAndPublishedDateAfter(topic,country,date.atStartOfDay()).stream().map(this::toDto).toList();
     }
 
     public List<FilteredArticleDto> getAllArticlesList(){
