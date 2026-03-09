@@ -1,4 +1,5 @@
 import { ExternalLink, Clock } from 'lucide-react';
+import { TOPIC_LABELS } from '../../services/newsService';
 
 export interface NewsCardProps {
     title: string;
@@ -7,6 +8,7 @@ export interface NewsCardProps {
     urlToImage?: string;
     sourceName?: string;
     publishedAt: string;
+    category?: string;
 }
 
 const fallbackImage = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgNDAwIDIwMCI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMxZTI5M2IiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTYiIGZpbGw9IiM0NzU1NjkiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
@@ -32,6 +34,7 @@ export default function NewsCard({
     urlToImage,
     sourceName,
     publishedAt,
+    category,
 }: NewsCardProps) {
     return (
         <a
@@ -57,6 +60,12 @@ export default function NewsCard({
                     <span className="absolute top-3 left-3 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider
                                      bg-black/70 text-emerald-400 rounded-md backdrop-blur-sm border border-emerald-500/20">
                         {sourceName}
+                    </span>
+                )}
+                {category && (
+                    <span className="absolute top-3 right-3 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider
+                                     bg-emerald-500/20 text-emerald-300 rounded-md backdrop-blur-sm border border-emerald-500/20">
+                        {TOPIC_LABELS[category] || category}
                     </span>
                 )}
             </div>

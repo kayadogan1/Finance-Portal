@@ -195,9 +195,9 @@ const DashboardPage = () => {
                                             {article.title}
                                         </h4>
                                         <div className="flex items-center gap-3 mt-1.5">
-                                            {article.sourceName && (
+                                            {article.source?.name && (
                                                 <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-500">
-                                                    {article.sourceName}
+                                                    {article.source.name}
                                                 </span>
                                             )}
                                             <span className="flex items-center gap-1 text-[11px] text-slate-500">

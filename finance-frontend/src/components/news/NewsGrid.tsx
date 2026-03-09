@@ -21,6 +21,7 @@ const CardSkeleton = () => (
 
 interface NewsGridProps {
     topic?: string;
+    country?: string;
     title?: string;
     maxItems?: number;
     columns?: 2 | 3 | 4;
@@ -28,13 +29,14 @@ interface NewsGridProps {
 
 export default function NewsGrid({
     topic,
+    country,
     title = 'Son Haberler',
     maxItems = 12,
     columns = 3,
 }: NewsGridProps) {
     const { data: articles, isLoading, isError } = useQuery({
-        queryKey: ['news', topic ?? 'all'],
-        queryFn: () => getNews(topic),
+        queryKey: ['news', topic ?? 'all', country ?? 'all'],
+        queryFn: () => getNews(topic, country),
         staleTime: 1000 * 60 * 3,
     });
 
@@ -90,8 +92,9 @@ export default function NewsGrid({
                             description={article.description}
                             url={article.url}
                             urlToImage={article.urlToImage}
-                            sourceName={article.sourceName}
+                            sourceName={article.source?.name}
                             publishedAt={article.publishedAt}
+                            category={article.category}
                         />
                     ))}
                 </div>
