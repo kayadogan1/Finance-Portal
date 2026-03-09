@@ -17,6 +17,7 @@ import {
     DollarSign,
     Landmark,
     BarChart2,
+    BookOpen,
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 
@@ -54,6 +55,7 @@ const MainLayout = () => {
         { to: '/portfolio', label: 'Portföyüm', icon: Wallet },
         { to: '/market', label: 'Piyasalar', icon: TrendingUp },
         { to: '/news', label: 'Haberler', icon: Newspaper },
+        { to: '/dictionary', label: 'Sözlük', icon: BookOpen },
         ...(isAdmin
             ? [{ to: '/admin', label: 'Admin', icon: Shield }]
             : []),

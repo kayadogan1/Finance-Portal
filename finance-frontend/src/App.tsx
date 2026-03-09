@@ -9,6 +9,7 @@ import BitcoinPage from './pages/BitcoinPage';
 import ForexPage from './pages/ForexPage';
 import BondsPage from './pages/BondsPage';
 import IndicesPage from './pages/IndicesPage';
+import DictionaryPage from './pages/DictionaryPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 
 function App() {
@@ -22,6 +23,7 @@ function App() {
                 <Route path="/forex" element={<ForexPage />} />
                 <Route path="/bonds" element={<BondsPage />} />
                 <Route path="/indices" element={<IndicesPage />} />
+                <Route path="/dictionary" element={<DictionaryPage />} />
                 <Route
                     path="/portfolio"
                     element={
