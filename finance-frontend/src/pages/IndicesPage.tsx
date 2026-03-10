@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { BarChart2, TrendingUp, TrendingDown } from 'lucide-react';
 import { getMarketInstruments } from '../services/marketService';
 import CandlestickChart from '../components/market/CandlestickChart';
+import TradeWidget from '../components/trade/TradeWidget';
 import NewsGrid from '../components/news/NewsGrid';
 
 const PriceSkeleton = () => (
@@ -24,6 +25,9 @@ const IndicesPage = () => {
     });
 
     const activeSymbol = selectedSymbol || (instruments.length > 0 ? instruments[0].symbol : '');
+
+    const selectedInst = useMemo(() => instruments.find(i => i.symbol === activeSymbol), [instruments, activeSymbol]);
+    const currentPrice = selectedInst?.currentPrice ?? 0;
 
     return (
         <div className="space-y-8">
@@ -67,8 +71,15 @@ const IndicesPage = () => {
             </div>
 
             {activeSymbol && (
-                <div className="bg-slate-800/50 backdrop-blur border border-slate-700/60 rounded-2xl p-6 shadow-lg">
-                    <CandlestickChart symbol={activeSymbol} defaultSlot="W1" />
+                <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+                    <div className="xl:col-span-3 bg-slate-800/50 backdrop-blur border border-slate-700/60 rounded-2xl p-6 shadow-lg">
+                        <CandlestickChart symbol={activeSymbol} defaultSlot="W1" />
+                    </div>
+                    <div className="xl:col-span-1">
+                        <div className="sticky top-6">
+                            <TradeWidget symbol={activeSymbol} instrumentName={selectedInst?.name} currentPrice={currentPrice} />
+                        </div>
+                    </div>
                 </div>
             )}
 

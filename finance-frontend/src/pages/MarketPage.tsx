@@ -4,6 +4,7 @@ import { CandlestickChart as CandlestickIcon, Activity } from 'lucide-react';
 import { getMarketInstruments } from '../services/marketService';
 import CandlestickChart from '../components/market/CandlestickChart';
 import AIAnalysisCard from '../components/market/AIAnalysisCard';
+import TradeWidget from '../components/trade/TradeWidget';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InstrumentsTable } from '../components/market/InstrumentsTable';
 import ComparisonChart from '../components/market/ComparisonChart';
@@ -33,6 +34,12 @@ const MarketPage = () => {
         queryKey: ['market-instruments'],
         queryFn: getMarketInstruments,
     });
+
+    // Derive current price from selected instrument
+    const selectedInstrument = useMemo(() => {
+        return instruments.find(i => i.symbol === selectedSymbol);
+    }, [instruments, selectedSymbol]);
+    const currentPrice = selectedInstrument?.currentPrice ?? 0;
 
     // Auto-select first symbol if instruments exist and nothing is selected
     useEffect(() => {
@@ -109,10 +116,10 @@ const MarketPage = () => {
                 </Tabs>
             </Card>
 
-            {/* Chart + AI Insight grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                {/* Chart card — spans 2 cols on xl */}
-                <Card className="xl:col-span-2">
+            {/* Chart + AI Insight + Trade Widget grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {/* Chart card — spans 2 cols */}
+                <Card className="lg:col-span-2">
                     <div className="flex items-center gap-2 mb-5">
                         <CandlestickIcon size={20} className="text-emerald-400" />
                         <h3 className="text-lg font-semibold text-white">
@@ -123,8 +130,19 @@ const MarketPage = () => {
                     <CandlestickChart symbol={selectedSymbol} defaultSlot="W1" />
                 </Card>
 
-                {/* AI Insight card — 1 col on xl, full-width on smaller */}
+                {/* AI Insight card */}
                 <AIAnalysisCard symbol={selectedSymbol} />
+
+                {/* Trade Widget — sticky on scroll */}
+                <div className="lg:col-span-1 xl:col-span-1">
+                    <div className="sticky top-6">
+                        <TradeWidget
+                            symbol={selectedSymbol}
+                            instrumentName={selectedInstrument?.name}
+                            currentPrice={currentPrice}
+                        />
+                    </div>
+                </div>
             </div>
 
             {/* Comparison Chart */}
