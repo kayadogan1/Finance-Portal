@@ -70,7 +70,7 @@ public class MarketController {
     @GetMapping("line/{symbol}")
     public ResponseEntity<List<LineChartDto>> getLinesBySymbol(@PathVariable String symbol, @RequestParam(required = false )@DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)LocalDateTime dateTime){
         logger.info("fetching lines for symbol {} with date time: {}", symbol, dateTime);
-        if(dateTime.isAfter(LocalDateTime.now())){
+        if(dateTime!=null && dateTime.isAfter(LocalDateTime.now())){
             logger.warn("Invalid 'dateTime' timestamp: {}. Cannot be in future.", dateTime);
             return ResponseEntity.badRequest().build();
         }

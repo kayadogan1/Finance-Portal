@@ -12,11 +12,13 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
 
 @Service
 
@@ -177,18 +179,27 @@ public class MarketDataService {
 
 
     private LocalDateTime truncateTime(LocalDateTime dateTime, TimeSlot slot) {
-        int intervalMinutes = slot.getMinutes();
+        return switch (slot){
+            case D1 -> dateTime.toLocalDate().atStartOfDay();
+            case W1 -> dateTime.toLocalDate().with(DayOfWeek.MONDAY).atStartOfDay();
+            case MO1, MO6, Y1 -> dateTime.toLocalDate()
+                    .withDayOfMonth(1)
+                    .atStartOfDay();
+            default -> {
+                int intervalMinutes = slot.getMinutes();
+                if (intervalMinutes >= 60) {
+                    int hours = intervalMinutes / 60;
+                    int currentHour = dateTime.getHour();
+                    int truncatedHour = (currentHour / hours) * hours;
+                    yield  dateTime.withHour(truncatedHour).withMinute(0).withSecond(0).withNano(0);
+                } else {
+                    int currentMinute = dateTime.getMinute();
+                    int truncatedMinute = (currentMinute / intervalMinutes) * intervalMinutes;
+                    yield  dateTime.withMinute(truncatedMinute).withSecond(0).withNano(0);
+                }
+            }
+        };
 
-        if (intervalMinutes >= 60) {
-            int hours = intervalMinutes / 60;
-            int currentHour = dateTime.getHour();
-            int truncatedHour = (currentHour / hours) * hours;
-            return dateTime.withHour(truncatedHour).withMinute(0).withSecond(0).withNano(0);
-        } else {
-            int currentMinute = dateTime.getMinute();
-            int truncatedMinute = (currentMinute / intervalMinutes) * intervalMinutes;
-            return dateTime.withMinute(truncatedMinute).withSecond(0).withNano(0);
-        }
     }
 
     private void saveInstruments(Map<String, String> instruments, InstrumentType type) {
