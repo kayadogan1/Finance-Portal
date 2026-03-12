@@ -75,11 +75,11 @@ export type PortfolioRange = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'THREE_MONTHS' | '
 /* ─────────────────────────────── API calls ─────────────────────────────── */
 
 /**
- * Fetch all portfolios for the authenticated user.
- * Route: GET /api/portfolio
+ * Fetch portfolios for the authenticated user.
+ * Route: GET /api/portfolio/myPortfolios
  */
 export const getPortfolios = async (): Promise<PortfolioDto[]> => {
-    const { data } = await privateApi.get<PortfolioDto[]>('/api/portfolio');
+    const { data } = await privateApi.get<PortfolioDto[]>('/api/portfolio/myPortfolios');
     return data ?? [];
 };
 
