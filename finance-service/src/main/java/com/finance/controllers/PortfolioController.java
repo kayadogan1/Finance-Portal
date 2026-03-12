@@ -32,13 +32,21 @@ public class PortfolioController {
         this.userService = userService;
     }
     @GetMapping
-    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<List<PortfolioReadDto>> getAllPortfolios(@AuthenticationPrincipal Jwt jwt){
         User user = userService.getOrCreateUser(jwt);
         logger.info("Fetching all portfolios for user: {}", user.getId());
         return ResponseEntity.ok(portfolioService.getAllPortfolios()) ;
     }
 
+    @GetMapping("/myPortfolios")
+    @PreAuthorize("hasAnyRole('USER')")
+    public ResponseEntity<List<PortfolioReadDto>> getUserPortfolios(@AuthenticationPrincipal Jwt jwt){
+        User user = userService.getOrCreateUser(jwt);
+        logger.info("Fetching portfolios for user: {}", user.getId());
+        List<PortfolioReadDto> userPortfolios = portfolioService.getUserPortfolios(user.getId());
+        return ResponseEntity.ok(userPortfolios);
+    }
 
     @GetMapping("/{portfolioId}")
     @PreAuthorize("hasAnyRole('USER','ADMIN')")

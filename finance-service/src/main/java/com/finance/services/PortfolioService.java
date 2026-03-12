@@ -42,6 +42,15 @@ public class PortfolioService {
                 ));
 
     }
+    public List<PortfolioReadDto> getUserPortfolios(String userId){
+        logger.info("fetching Portfolios for {}", userId);
+
+        return portfolioRepository.findAllByUserId(userId)
+                .stream()
+                .map(this::toPortfolioReadDto)
+                .collect(Collectors.toList());
+
+    }
     private PortfolioReadDto toPortfolioReadDto(Portfolio portfolio){
         List<PortfolioItemDto> itemDtos = portfolio.getItems()
                 .stream()
