@@ -17,8 +17,7 @@ public class MarketDataSyncScheduler {
     private final InstrumentRepository instrumentRepository;
     private final FetchFilteredInstrumentService fetchFilteredInstrumentService;
     private final Logger logger = LogManager.getLogger(this.getClass());
-
-    @Scheduled(cron = "0 0 12 * * MON-FRI", zone = "Europe/Istanbul")
+    @Scheduled(cron = "0 0 14 * * MON-FRI", zone = "Europe/Istanbul")
     public void syncAllInstrumentsDaily() {
         logger.info("Starting daily market data sync job...");
         List<Instrument> instruments = instrumentRepository.findAll();

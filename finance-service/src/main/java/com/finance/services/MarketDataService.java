@@ -1,6 +1,7 @@
 package com.finance.services;
 
 import com.finance.config.InstrumentPropertiesConfig;
+import com.finance.exceptions.BadRequestException;
 import com.finance.models.Instrument;
 import com.finance.models.MarketData;
 import com.finance.repositories.InstrumentRepository;
@@ -130,7 +131,13 @@ public class MarketDataService {
             logger.warn("No market data found for symbol {} ", symbol);
             return List.of();
         }
+        if (fromTimestamp.isAfter(LocalDateTime.now())) {
+            throw new BadRequestException("Invalid Date format");
+        }
 
+        if (symbol == null || symbol.isEmpty()) {
+            throw new BadRequestException("Symbol can not be null or empty");
+        }
         List<CandleDto> candleDtoList = new ArrayList<>();
 
         MarketData firstMarketData = rawData.getFirst();
@@ -166,6 +173,12 @@ public class MarketDataService {
         return candleDtoList;
     }
     public List<LineChartDto> getLineChartDataFrom(String symbol, LocalDateTime from){
+        if(symbol == null || symbol.isEmpty()){
+            throw new BadRequestException("symbol can not empty or null");
+        }
+        if (from.isAfter(LocalDateTime.now())) {
+            throw new BadRequestException("invalid date . future date not valid");
+        }
         List<MarketData> rawData = marketDataRepository.findByInstrumentSymbolAndTimestampAfterOrderByTimestampAsc(symbol, from);
         logger.info("fetching line chart data...");
         if(rawData.isEmpty()){
