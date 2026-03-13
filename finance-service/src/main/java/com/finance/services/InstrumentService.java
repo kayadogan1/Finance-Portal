@@ -1,5 +1,6 @@
 package com.finance.services;
 
+import com.finance.exceptions.InstrumentNotFoundException;
 import com.finance.models.Instrument;
 import com.finance.repositories.InstrumentRepository;
 import org.apache.logging.log4j.LogManager;
@@ -25,12 +26,12 @@ public class InstrumentService {
         return instrumentRepository.findAll();
     }
 
-    public Optional<Instrument> getInstrumentBySymbol(String symbol) {
+    public Instrument getInstrumentBySymbol(String symbol) {
         Instrument cachedInstrument = redisCacheService.get(symbol, Instrument.class);
 
         if (cachedInstrument != null) {
             logger.info("Cache HIT: Data found in Redis for symbol: {}", symbol);
-            return Optional.of(cachedInstrument);
+            return cachedInstrument;
         }
 
         logger.warn("Cache MISS: No data in Redis for symbol: {}, checking DB...", symbol);
@@ -41,6 +42,6 @@ public class InstrumentService {
             logger.info("Data found in DB and saved to Redis for symbol: {}", symbol);
         }
 
-        return dbInstrument;
+        return dbInstrument.orElseThrow(() -> new InstrumentNotFoundException("Instrument not found in DB"));
     }
 }

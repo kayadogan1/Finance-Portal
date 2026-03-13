@@ -3,6 +3,7 @@ package com.newsservice.controller;
 import com.newsservice.dto.FilteredArticleDto;
 import com.newsservice.dto.NewsCountry;
 import com.newsservice.dto.NewsTopic;
+import com.newsservice.handling.ApiResult;
 import com.newsservice.service.NewsService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -26,7 +27,7 @@ public class NewsController {
     }
 
     @GetMapping
-    public ResponseEntity<List<FilteredArticleDto>> getNews(
+    public ResponseEntity<ApiResult<List<FilteredArticleDto>>> getNews(
             @RequestParam(required = false) NewsTopic topic,
             @RequestParam(required = false) NewsCountry country
     ) {
@@ -43,28 +44,23 @@ public class NewsController {
         } else {
             articles = newsService.getAllArticlesAfterDate(LocalDate.now().minusWeeks(1));
         }
-
-        if (articles.isEmpty()) {
-            return ResponseEntity.noContent().build();
-        }
-
-        return ResponseEntity.ok(articles);
+        return ResponseEntity.ok(ApiResult.success(articles,"all news articles fetched",200));
     }
     @PostMapping("/refresh")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> refreshNews() {
+    public ResponseEntity<ApiResult<Void>> refreshNews() {
 
         logger.info("Received request to refresh news articles");
         newsService.refresh();
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(ApiResult.success("all news updating from provider",200));
     }
 
     @GetMapping("/topics")
-    public ResponseEntity<List<String>> getTopics() {
+    public ResponseEntity<ApiResult<List<String>>> getTopics() {
         List<String> topics= Arrays.stream(NewsTopic.values())
                 .map(Enum::toString)
                 .toList();
-        return ResponseEntity.ok(topics);
+        return ResponseEntity.ok(ApiResult.success(topics,"topics fetched",200));
 
     }
 }

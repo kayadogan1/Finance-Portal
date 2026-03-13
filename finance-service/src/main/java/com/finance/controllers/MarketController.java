@@ -1,5 +1,6 @@
 package com.finance.controllers;
 
+import com.finance.handling.ApiResult;
 import com.finance.models.Instrument;
 import com.finance.models.MarketData;
 import com.finance.repositories.MarketDataRepository;
@@ -32,58 +33,29 @@ public class MarketController {
         this.marketDataService = marketDataService;
     }
     @GetMapping("/{symbol}")
-    public ResponseEntity<Instrument> getInstrumentBySymbol(@PathVariable String symbol){
-
-        return instrumentService.getInstrumentBySymbol(symbol)
-                .map(ResponseEntity::ok)
-                .orElseGet(() -> {
-                    logger.warn("Instrument with symbol {} not found.", symbol);
-                    return ResponseEntity.notFound().build();
-                });
+    public ResponseEntity<ApiResult<Instrument>> getInstrumentBySymbol(@PathVariable String symbol){
+        return ResponseEntity.ok(ApiResult.success(instrumentService.getInstrumentBySymbol(symbol),"instrument fetched",200));
     }
     @GetMapping
-    public ResponseEntity<List<Instrument>> getAllInstruments(){
+    public ResponseEntity<ApiResult<List<Instrument>>> getAllInstruments(){
         List<Instrument> instruments = instrumentService.getAllInstruments();
-        if(instruments.isEmpty()){
-            logger.warn("No instruments found in the database.");
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.ok(instruments);
+        return ResponseEntity.ok(ApiResult.success(instruments,"all instruments fetched",200));
     }
 
     @GetMapping("candles/{symbol}")
-    public ResponseEntity<List<CandleDto>> getCandlesBySymbol(@PathVariable String symbol, @RequestParam(defaultValue = "M1")TimeSlot slot, @RequestParam(required = false)@DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from
+    public ResponseEntity<ApiResult<List<CandleDto>>> getCandlesBySymbol(@PathVariable String symbol, @RequestParam(defaultValue = "M1")TimeSlot slot, @RequestParam(required = false)@DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from
     ){
         logger.info("fetching candles for symbol {} with slot time: {}", symbol, slot);
         LocalDateTime startTime = from != null ? from : LocalDateTime.now().minusHours(24);
         List<CandleDto> candleDtoList = marketDataService.getMarketDataHistory(symbol,startTime,slot);
-        if (startTime.isAfter(LocalDateTime.now())) {
-            logger.warn("Invalid 'from' timestamp: {}. Cannot be in future.", startTime);
-            return ResponseEntity.badRequest().build();
-        }
-        if(candleDtoList.isEmpty()){
-            logger.warn("No candles found for symbol {}", symbol);
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.ok(candleDtoList);
+        return ResponseEntity.ok(ApiResult.success(candleDtoList,"all candle data fetched",200));
     }
     @GetMapping("line/{symbol}")
-    public ResponseEntity<List<LineChartDto>> getLinesBySymbol(@PathVariable String symbol, @RequestParam(required = false )@DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)LocalDateTime dateTime){
+    public ResponseEntity<ApiResult<List<LineChartDto>>> getLinesBySymbol(@PathVariable String symbol, @RequestParam(required = false )@DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)LocalDateTime dateTime){
         logger.info("fetching lines for symbol {} with date time: {}", symbol, dateTime);
-        if(dateTime!=null && dateTime.isAfter(LocalDateTime.now())){
-            logger.warn("Invalid 'dateTime' timestamp: {}. Cannot be in future.", dateTime);
-            return ResponseEntity.badRequest().build();
-        }
-        if(symbol.isEmpty()){
-            logger.warn("symbol is empty.");
-            return ResponseEntity.badRequest().build();
-        }
+
         List<LineChartDto> lineChartDtoList =marketDataService.getLineChartDataFrom(symbol, dateTime);
-        if(lineChartDtoList.isEmpty()){
-            logger.warn("No lines found for symbol {}", symbol);
-            return ResponseEntity.noContent().build();
-        }
-        return ResponseEntity.ok(lineChartDtoList);
+        return ResponseEntity.ok(ApiResult.success(lineChartDtoList,"line chart data fetched",200));
     }
 
 
@@ -96,14 +68,8 @@ public class MarketController {
             logger.warn("Invalid 'from' timestamp: {}. It cannot be in the future.", from);
             return ResponseEntity.badRequest().build();
         }
-
         LocalDateTime startTime = from != null ? from : LocalDateTime.now().minusHours(24);
         List<MarketData> marketDataList = marketDataRepository.findByInstrumentSymbolAndTimestampAfterOrderByTimestampAsc(symbol, startTime);
-
-        if (marketDataList.isEmpty()) {
-            logger.warn("No market data found for symbol {} after {}", symbol, startTime);
-            return ResponseEntity.noContent().build();
-        }
         return ResponseEntity.ok(marketDataList);
     }
 }
