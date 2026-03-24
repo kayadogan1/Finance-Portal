@@ -51,15 +51,13 @@ function formatCurrency(value: number): string {
 /* ─── Skeleton ─── */
 
 const ChartSkeleton = () => (
-    <div className="animate-pulse space-y-4">
+    <div className="animate-pulse space-y-3">
         <div className="flex gap-2">
             {Array.from({ length: 7 }).map((_, i) => (
-                <div key={i} className="h-8 w-12 bg-slate-700/40 rounded-md" />
+                <div key={i} className="h-7 w-10 bg-white/[0.05] rounded" />
             ))}
         </div>
-        <div className="h-[380px] bg-slate-700/20 rounded-xl relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-700/10 to-transparent" />
-        </div>
+        <div className="h-[380px] bg-white/[0.03] rounded" />
     </div>
 );
 
@@ -74,11 +72,9 @@ interface TooltipProps {
 const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
     if (!active || !payload?.length || !label) return null;
     return (
-        <div className="bg-slate-900/95 backdrop-blur-sm border border-slate-600/50 rounded-xl px-4 py-3 shadow-2xl shadow-black/40">
-            <p className="text-slate-400 text-[11px] font-medium mb-1">{formatDateFull(label)}</p>
-            <p className="text-white text-base font-bold font-mono">
-                {formatCurrency(payload[0].value)}
-            </p>
+        <div className="bg-card border border-border rounded px-3.5 py-2.5 shadow-none">
+            <p className="text-meta mb-0.5">{formatDateFull(label)}</p>
+            <p className="text-[14px] font-bold tabular-nums text-foreground">{formatCurrency(payload[0].value)}</p>
         </div>
     );
 };
@@ -124,17 +120,11 @@ export default function PerformanceAreaChart({ portfolioId }: PerformanceAreaCha
             {/* Range selector + Performance summary */}
             <div className="flex items-center justify-between flex-wrap gap-3">
                 {/* Range tabs */}
-                <div className="flex gap-1 bg-slate-900/60 rounded-lg p-1 border border-slate-700/40">
+                <div className="flex gap-0.5 bg-background rounded p-1 border border-border">
                     {RANGES.map(({ label, value }) => (
-                        <button
-                            key={value}
-                            onClick={() => setRange(value)}
-                            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all duration-200
-                                ${range === value
-                                    ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/25'
-                                    : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                                }`}
-                        >
+                        <button key={value} onClick={() => setRange(value)}
+                            className={`px-2.5 py-1.5 text-[11px] font-medium rounded transition-colors
+                                ${range === value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}>
                             {label}
                         </button>
                     ))}
@@ -142,16 +132,11 @@ export default function PerformanceAreaChart({ portfolioId }: PerformanceAreaCha
 
                 {/* Performance badge */}
                 {chartData.length > 1 && !isLoading && (
-                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-mono font-semibold border ${isPositive
-                            ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                            : isNeutral
-                                ? 'bg-slate-500/10 text-slate-400 border-slate-500/20'
-                                : 'bg-red-500/10 text-red-400 border-red-500/20'
-                        }`}>
-                        {isPositive ? <TrendingUp size={14} /> : isNeutral ? <Minus size={14} /> : <TrendingDown size={14} />}
+                    <span className={`inline-flex items-center gap-1.5 ${isPositive ? 'badge-positive' : isNeutral ? 'bg-white/5 text-muted-foreground text-[12px] font-medium px-2 py-0.5 rounded-sm' : 'badge-negative'}`}>
+                        {isPositive ? <TrendingUp size={12} /> : isNeutral ? <Minus size={12} /> : <TrendingDown size={12} />}
                         {isPositive ? '+' : ''}{formatCurrency(change)}
-                        <span className="text-[11px] opacity-70">({isPositive ? '+' : ''}{changePercent.toFixed(2)}%)</span>
-                    </div>
+                        <span className="text-[10px] opacity-60">({isPositive ? '+' : ''}{changePercent.toFixed(2)}%)</span>
+                    </span>
                 )}
             </div>
 
@@ -167,10 +152,10 @@ export default function PerformanceAreaChart({ portfolioId }: PerformanceAreaCha
 
             {/* Empty state */}
             {!isLoading && !isError && chartData.length === 0 && (
-                <div className="flex flex-col items-center justify-center h-96 text-slate-500 rounded-xl bg-slate-800/30 border border-slate-700/30">
-                    <TrendingUp size={36} className="mb-3 opacity-30" />
-                    <p className="text-sm">Bu zaman aralığı için veri bulunamadı.</p>
-                    <p className="text-xs mt-1 text-slate-600">Farklı bir aralık seçmeyi deneyin.</p>
+                <div className="flex flex-col items-center justify-center h-96 rounded bg-background border border-border">
+                    <TrendingUp size={28} className="mb-2 text-ghost" />
+                    <p className="text-[13px] text-muted-foreground">Bu zaman aralığı için veri bulunamadı.</p>
+                    <p className="text-meta mt-1">Farklı bir aralık seçmeyi deneyin.</p>
                 </div>
             )}
 

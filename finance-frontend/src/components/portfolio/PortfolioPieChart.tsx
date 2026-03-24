@@ -15,14 +15,12 @@ const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: { name
     if (!active || !payload || !payload.length) return null;
     const item = payload[0];
     return (
-        <div className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 shadow-xl">
-            <p className="text-white text-sm font-semibold">{item.name}</p>
-            <p className="text-emerald-400 text-xs font-mono">
+        <div className="bg-card border border-border rounded px-3 py-2 shadow-none">
+            <p className="text-[13px] font-semibold text-foreground">{item.name}</p>
+            <p className="text-primary text-[12px] tabular-nums">
                 ₺{Number(item.value).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
             </p>
-            <p className="text-slate-400 text-[10px]">
-                {(item.payload.percent * 100).toFixed(1)}%
-            </p>
+            <p className="text-meta">{(item.payload.percent * 100).toFixed(1)}%</p>
         </div>
     );
 };
@@ -30,7 +28,7 @@ const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: { name
 export default function PortfolioPieChartComponent({ data }: PortfolioPieChartProps) {
     if (data.length === 0) {
         return (
-            <div className="flex items-center justify-center h-[280px] text-slate-500 text-sm">
+            <div className="flex items-center justify-center h-[280px] text-muted-foreground text-[13px]">
                 Varlık bulunamadı
             </div>
         );
@@ -69,7 +67,7 @@ export default function PortfolioPieChartComponent({ data }: PortfolioPieChartPr
                     iconType="circle"
                     iconSize={8}
                     formatter={(value: string) => (
-                        <span className="text-xs text-slate-300">{value}</span>
+                        <span className="text-[11px] text-muted-foreground">{value}</span>
                     )}
                 />
             </PieChart>

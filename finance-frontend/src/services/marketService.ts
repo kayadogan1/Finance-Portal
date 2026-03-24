@@ -175,7 +175,7 @@ export const getMarketDataHistory = async (
     const { data } = await publicApi.get<MarketDataEntry[]>(`/api/market/history/${symbol}`, {
         params: { from },
     });
-    return data ?? [];
+    return Array.isArray(data) ? data : [];
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -185,6 +185,8 @@ export const getMarketDataHistory = async (
 
 export const getMarketInstruments = async (): Promise<MarketInstrument[]> => {
     const { data: instruments } = await publicApi.get<BackendInstrument[]>('/api/market');
+
+    if (!Array.isArray(instruments) || instruments.length === 0) return [];
 
     const from24h = toLocalDateTime(new Date(Date.now() - 24 * 60 * 60 * 1000));
 

@@ -4,11 +4,11 @@ import toast from 'react-hot-toast';
 import { Bitcoin, DollarSign, TrendingUp, Globe, RefreshCw, Filter } from 'lucide-react';
 import type { Instrument, MarketTabType } from '../types';
 
-const TABS: { id: MarketTabType; label: string; icon: React.ReactNode; color: string }[] = [
-    { id: 'ALL', label: 'Tümü', icon: <Globe size={14} />, color: 'slate' },
-    { id: 'FOREX', label: 'Döviz', icon: <DollarSign size={14} />, color: 'blue' },
-    { id: 'CRYPTO', label: 'Kripto', icon: <Bitcoin size={14} />, color: 'orange' },
-    { id: 'STOCK', label: 'Hisse', icon: <TrendingUp size={14} />, color: 'purple' },
+const TABS: { id: MarketTabType; label: string; icon: React.ReactNode }[] = [
+    { id: 'ALL', label: 'Tümü', icon: <Globe size={13} /> },
+    { id: 'FOREX', label: 'Döviz', icon: <DollarSign size={13} /> },
+    { id: 'CRYPTO', label: 'Kripto', icon: <Bitcoin size={13} /> },
+    { id: 'STOCK', label: 'Hisse', icon: <TrendingUp size={13} /> },
 ];
 
 export default function ExchangeRatesView() {
@@ -20,13 +20,9 @@ export default function ExchangeRatesView() {
     const fetchInstruments = async () => {
         try {
             const { data } = await publicApi.get('/api/public/exchange-rates');
-            setInstruments(data);
-            setLastUpdate(new Date());
-            setLoading(false);
+            setInstruments(data); setLastUpdate(new Date()); setLoading(false);
         } catch (err) {
-            console.error('Veri çekme hatası:', err);
-            toast.error('Piyasa verileri yüklenemedi.');
-            setLoading(false);
+            console.error('Veri çekme hatası:', err); toast.error('Piyasa verileri yüklenemedi.'); setLoading(false);
         }
     };
 
@@ -37,133 +33,87 @@ export default function ExchangeRatesView() {
         return () => clearInterval(interval);
     }, []);
 
-    const filteredInstruments = activeTab === 'ALL'
-        ? instruments
-        : instruments.filter(i => i.type === activeTab);
+    const filteredInstruments = activeTab === 'ALL' ? instruments : instruments.filter(i => i.type === activeTab);
 
-    const getTypeConfig = (type: string) => {
+    const getTypeIcon = (type: string) => {
         switch (type) {
-            case 'CRYPTO':
-                return { icon: <Bitcoin size={16} />, bgColor: 'bg-orange-500/10', textColor: 'text-orange-400', borderColor: 'border-orange-500/20' };
-            case 'FOREX':
-                return { icon: <DollarSign size={16} />, bgColor: 'bg-blue-500/10', textColor: 'text-blue-400', borderColor: 'border-blue-500/20' };
-            case 'STOCK':
-                return { icon: <TrendingUp size={16} />, bgColor: 'bg-purple-500/10', textColor: 'text-purple-400', borderColor: 'border-purple-500/20' };
-            default:
-                return { icon: <Globe size={16} />, bgColor: 'bg-slate-500/10', textColor: 'text-slate-400', borderColor: 'border-slate-500/20' };
+            case 'CRYPTO': return <Bitcoin size={13} className="text-[#F97316]" />;
+            case 'FOREX': return <DollarSign size={13} className="text-[#3B82F6]" />;
+            case 'STOCK': return <TrendingUp size={13} className="text-[#8B5CF6]" />;
+            default: return <Globe size={13} className="text-subtle" />;
         }
     };
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <RefreshCw className="animate-spin text-emerald-400" size={32} />
-            </div>
-        );
-    }
+    if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="animate-spin text-primary" size={24} /></div>;
 
     return (
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-emerald-500/20 rounded-lg">
-                        <Filter className="text-emerald-400" size={20} />
-                    </div>
+                <div className="flex items-center gap-2.5">
+                    <Filter size={16} className="text-primary" />
                     <div>
-                        <h2 className="text-lg font-semibold text-white">Piyasa Verileri</h2>
-                        <p className="text-xs text-slate-400">
-                            Son güncelleme: {lastUpdate.toLocaleTimeString('tr-TR')}
-                        </p>
+                        <h2 className="text-[20px] font-semibold tracking-[-0.2px] text-foreground">Piyasa Verileri</h2>
+                        <p className="text-meta">Son güncelleme: {lastUpdate.toLocaleTimeString('tr-TR')}</p>
                     </div>
                 </div>
 
-                {/* Tab Filtreleri */}
-                <div className="flex bg-slate-800 rounded-xl p-1 border border-slate-700">
-                    {TABS.map(tab => (
-                        <button
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id)}
-                            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === tab.id
-                                ? 'bg-emerald-500 text-white shadow-lg'
-                                : 'text-slate-400 hover:text-white hover:bg-slate-700'
-                                }`}
-                        >
-                            {tab.icon}
-                            <span className="hidden sm:inline">{tab.label}</span>
-                        </button>
-                    ))}
+                {/* Tab filters — underline style */}
+                <div className="border-b border-border">
+                    <div className="flex gap-5">
+                        {TABS.map(tab => (
+                            <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                                className={`flex items-center gap-1.5 text-label pb-2 border-b-2 transition-colors ${activeTab === tab.id ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+                                {tab.icon}
+                                <span className="hidden sm:inline">{tab.label}</span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filteredInstruments.map((instrument) => {
-                    const config = getTypeConfig(instrument.type);
-
-                    return (
-                        <div
-                            key={instrument.symbol}
-                            className="group bg-slate-800 rounded-xl border border-slate-700 p-5 hover:border-emerald-500/50 hover:shadow-lg hover:shadow-emerald-500/10 transition-all duration-300"
-                        >
-                            <div className="flex items-start justify-between mb-4">
-                                <div>
-                                    <h3 className="text-lg font-bold text-white group-hover:text-emerald-400 transition-colors">
-                                        {instrument.symbol}
-                                    </h3>
-                                    <p className="text-xs text-slate-400 line-clamp-1">{instrument.name}</p>
-                                </div>
-                                <span className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full border ${config.bgColor} ${config.textColor} ${config.borderColor}`}>
-                                    {config.icon}
-                                </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                {filteredInstruments.map(instrument => (
+                    <div key={instrument.symbol} className="card-base !p-4 group hover:border-border/60 transition-colors">
+                        <div className="flex items-start justify-between mb-3">
+                            <div>
+                                <h3 className="text-[13px] font-semibold text-foreground">{instrument.symbol}</h3>
+                                <p className="text-meta line-clamp-1">{instrument.name}</p>
                             </div>
-
-                            <div className="mb-3">
-                                <p className="text-2xl font-bold text-emerald-400 font-mono">
-                                    {new Intl.NumberFormat('tr-TR', {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 4
-                                    }).format(instrument.currentPrice)}
-                                    <span className="text-sm text-slate-400 ml-1">₺</span>
-                                </p>
-                            </div>
-
-                            <div className="flex items-center justify-between text-xs text-slate-500">
-                                <span className="flex items-center gap-1">
-                                    <span className="relative flex h-2 w-2">
-                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                                    </span>
-                                    Canlı
-                                </span>
-                                <span className="font-mono">
-                                    {new Date(instrument.lastUpdateTime).toLocaleTimeString('tr-TR')}
-                                </span>
-                            </div>
+                            {getTypeIcon(instrument.type)}
                         </div>
-                    );
-                })}
+                        <p className="text-data">
+                            {new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 4 }).format(instrument.currentPrice)}
+                            <span className="text-subtle text-[11px] ml-1">₺</span>
+                        </p>
+                        <div className="flex items-center justify-between mt-2 text-meta">
+                            <span className="flex items-center gap-1">
+                                <span className="relative flex h-1.5 w-1.5">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-positive opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-positive"></span>
+                                </span>
+                                Canlı
+                            </span>
+                            <span className="tabular-nums">{new Date(instrument.lastUpdateTime).toLocaleTimeString('tr-TR')}</span>
+                        </div>
+                    </div>
+                ))}
             </div>
 
             {filteredInstruments.length === 0 && (
-                <div className="text-center py-12 text-slate-400">
-                    <Globe className="mx-auto mb-3 opacity-50" size={40} />
-                    <p>Bu kategoride enstrüman bulunamadı</p>
+                <div className="text-center py-10">
+                    <Globe className="mx-auto mb-2 text-ghost" size={28} />
+                    <p className="text-[13px] text-muted-foreground">Bu kategoride enstrüman bulunamadı</p>
                 </div>
             )}
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {TABS.filter(t => t.id !== 'ALL').map(tab => {
                     const count = instruments.filter(i => i.type === tab.id).length;
                     return (
-                        <div
-                            key={tab.id}
-                            className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50 text-center"
-                        >
-                            <div className={`inline-flex items-center gap-2 text-${tab.color}-400 mb-2`}>
-                                {tab.icon}
-                                <span className="text-sm font-medium">{tab.label}</span>
-                            </div>
-                            <p className="text-2xl font-bold text-white">{count}</p>
-                            <p className="text-xs text-slate-500">enstrüman</p>
+                        <div key={tab.id} className="card-base text-center">
+                            <div className="inline-flex items-center gap-1.5 mb-1.5">{tab.icon}<span className="text-[12px] font-medium text-muted-foreground">{tab.label}</span></div>
+                            <p className="text-data">{count}</p>
+                            <p className="text-meta">enstrüman</p>
                         </div>
                     );
                 })}

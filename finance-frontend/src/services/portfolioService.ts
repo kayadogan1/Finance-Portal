@@ -80,7 +80,7 @@ export type PortfolioRange = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'THREE_MONTHS' | '
  */
 export const getPortfolios = async (): Promise<PortfolioDto[]> => {
     const { data } = await privateApi.get<PortfolioDto[]>('/api/portfolio/myPortfolios');
-    return data ?? [];
+    return Array.isArray(data) ? data : [];
 };
 
 /**

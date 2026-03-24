@@ -1,14 +1,7 @@
 import type { MarketInstrument } from "@/services/marketService";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
+    Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { TrendingDown, TrendingUp, Eye } from "lucide-react";
 
 interface InstrumentsTableProps {
     instruments: MarketInstrument[];
@@ -16,83 +9,54 @@ interface InstrumentsTableProps {
     selectedSymbol?: string;
 }
 
-export function InstrumentsTable({
-    instruments,
-    onSelectSymbol,
-    selectedSymbol,
-}: InstrumentsTableProps) {
+export function InstrumentsTable({ instruments, onSelectSymbol, selectedSymbol }: InstrumentsTableProps) {
     if (!instruments.length) {
-        return (
-            <div className="text-center py-8 text-slate-400">
-                Bu kategoride enstrüman bulunamadı.
-            </div>
-        );
+        return <div className="text-center py-8 text-[13px] text-subtle">Bu kategoride enstrüman bulunamadı.</div>;
     }
 
     return (
-        <div className="rounded-xl border border-slate-700/60 overflow-hidden bg-slate-800/20">
-            <Table>
-                <TableHeader className="bg-slate-800/60">
-                    <TableRow className="border-slate-700/60 hover:bg-transparent">
-                        <TableHead className="text-slate-300 font-medium">Sembol</TableHead>
-                        <TableHead className="text-slate-300 font-medium">İsim</TableHead>
-                        <TableHead className="text-right text-slate-300 font-medium">Fiyat</TableHead>
-                        <TableHead className="text-right text-slate-300 font-medium">24s Değişim</TableHead>
-                        <TableHead className="text-center text-slate-300 font-medium w-[100px]">Detay</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {instruments.map((instrument) => {
-                        const isPositive = (instrument.change24h || 0) >= 0;
-                        const isSelected = selectedSymbol === instrument.symbol;
-                        return (
-                            <TableRow
-                                key={instrument.symbol}
-                                className={`border-slate-700/60 transition-colors cursor-pointer ${isSelected ? "bg-slate-700/40" : "hover:bg-slate-700/20"
-                                    }`}
-                                onClick={() => onSelectSymbol?.(instrument.symbol)}
-                            >
-                                <TableCell className="font-semibold text-white">
-                                    {instrument.symbol}
-                                </TableCell>
-                                <TableCell className="text-slate-400">{instrument.name}</TableCell>
-                                <TableCell className="text-right font-mono font-medium text-slate-200">
-                                    ${(instrument.currentPrice || 0).toLocaleString(undefined, {
-                                        minimumFractionDigits: 2,
-                                        maximumFractionDigits: 6,
-                                    })}
-                                </TableCell>
-                                <TableCell className="text-right">
-                                    <Badge
-                                        variant={isPositive ? "default" : "destructive"}
-                                        className={`ml-auto flex w-fit items-center gap-1 font-mono font-medium ${isPositive
-                                            ? "bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 border-emerald-500/20"
-                                            : "bg-red-500/10 text-red-400 hover:bg-red-500/20 border-red-500/20"
-                                            }`}
-                                    >
-                                        {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                                        {Math.abs(instrument.change24h || 0).toFixed(2)}%
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="text-center">
-                                    <button
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onSelectSymbol?.(instrument.symbol);
-                                        }}
-                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
-                                                   bg-slate-700/40 text-slate-300 hover:bg-slate-600/50 hover:text-white
-                                                   border border-slate-600/40 transition-all"
-                                    >
-                                        <Eye size={12} />
-                                        Detay
-                                    </button>
-                                </TableCell>
-                            </TableRow>
-                        );
-                    })}
-                </TableBody>
-            </Table>
-        </div>
+        <Table>
+            <TableHeader>
+                <TableRow className="hover:bg-transparent border-b border-border">
+                    <TableHead className="text-label py-2.5 h-auto">Sembol</TableHead>
+                    <TableHead className="text-label py-2.5 h-auto">İsim</TableHead>
+                    <TableHead className="text-label py-2.5 h-auto text-right">Fiyat</TableHead>
+                    <TableHead className="text-label py-2.5 h-auto text-right">24s Değişim</TableHead>
+                    <TableHead className="text-label py-2.5 h-auto text-right w-[70px]">Detay</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-border/50">
+                {instruments.map((inst) => {
+                    const isPositive = (inst.change24h || 0) >= 0;
+                    const isSelected = selectedSymbol === inst.symbol;
+                    return (
+                        <TableRow
+                            key={inst.symbol}
+                            className={`h-11 cursor-pointer transition-colors duration-150 border-0 ${isSelected ? 'bg-white/[0.03]' : 'hover:bg-white/[0.02]'}`}
+                            onClick={() => onSelectSymbol?.(inst.symbol)}
+                        >
+                            <TableCell className="text-[13px] font-semibold text-foreground py-0 w-24">{inst.symbol}</TableCell>
+                            <TableCell className="text-[13px] text-muted-foreground py-0 truncate max-w-[180px]">{inst.name}</TableCell>
+                            <TableCell className="text-right text-[13px] font-medium tabular-nums text-foreground py-0">
+                                {(inst.currentPrice || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+                            </TableCell>
+                            <TableCell className="text-right py-0">
+                                <span className={isPositive ? 'badge-positive' : 'badge-negative'}>
+                                    {isPositive ? '+' : ''}{(inst.change24h || 0).toFixed(2)}%
+                                </span>
+                            </TableCell>
+                            <TableCell className="text-right py-0">
+                                <button
+                                    onClick={(e) => { e.stopPropagation(); onSelectSymbol?.(inst.symbol); }}
+                                    className="text-[12px] font-medium text-ghost hover:text-foreground transition-colors"
+                                >
+                                    Detay →
+                                </button>
+                            </TableCell>
+                        </TableRow>
+                    );
+                })}
+            </TableBody>
+        </Table>
     );
 }

@@ -1,118 +1,61 @@
 import { useQuery } from '@tanstack/react-query';
-import { BrainCircuit, Sparkles, AlertTriangle, Minus } from 'lucide-react';
+import { Sparkles, AlertTriangle, Minus, BarChart2 } from 'lucide-react';
 import { getAIInsight } from '../../services/marketService';
 import type { Sentiment } from '../../types';
 
-interface AIAnalysisCardProps {
-    symbol: string;
-}
+interface AIAnalysisCardProps { symbol: string; }
 
-/* ─── Sentiment badge ─── */
-const sentimentConfig: Record<
-    Sentiment,
-    { label: string; bg: string; text: string; border: string; icon: React.ReactNode }
-> = {
-    BULLISH: {
-        label: 'Bullish',
-        bg: 'bg-emerald-500/15',
-        text: 'text-emerald-400',
-        border: 'border-emerald-500/30',
-        icon: <Sparkles size={14} />,
-    },
-    BEARISH: {
-        label: 'Bearish',
-        bg: 'bg-red-500/15',
-        text: 'text-red-400',
-        border: 'border-red-500/30',
-        icon: <AlertTriangle size={14} />,
-    },
-    NEUTRAL: {
-        label: 'Neutral',
-        bg: 'bg-slate-500/15',
-        text: 'text-slate-400',
-        border: 'border-slate-500/30',
-        icon: <Minus size={14} />,
-    },
+const sentimentConfig: Record<Sentiment, { label: string; cls: string; icon: React.ReactNode }> = {
+    BULLISH:  { label: 'Bullish',  cls: 'badge-positive', icon: <Sparkles size={11} /> },
+    BEARISH:  { label: 'Bearish',  cls: 'badge-negative', icon: <AlertTriangle size={11} /> },
+    NEUTRAL:  { label: 'Neutral',  cls: 'bg-white/5 text-muted-foreground text-[12px] font-medium tabular-nums px-2 py-0.5 rounded-sm', icon: <Minus size={11} /> },
 };
 
-const SentimentBadge = ({ sentiment }: { sentiment: Sentiment }) => {
-    const cfg = sentimentConfig[sentiment];
-    return (
-        <span
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold border ${cfg.bg} ${cfg.text} ${cfg.border}`}
-        >
-            {cfg.icon}
-            {cfg.label}
-        </span>
-    );
-};
-
-/* ─── Skeleton ─── */
 const InsightSkeleton = () => (
-    <div className="animate-pulse space-y-4">
-        <div className="flex items-center justify-between">
-            <div className="h-5 w-40 bg-slate-700 rounded" />
-            <div className="h-6 w-20 bg-slate-700 rounded-full" />
+    <div className="animate-pulse space-y-3">
+        <div className="h-5 w-40 rounded bg-white/[0.05]" />
+        <div className="space-y-2 pt-1">
+            <div className="h-3.5 rounded w-full bg-white/[0.04]" />
+            <div className="h-3.5 rounded w-5/6 bg-white/[0.03]" />
+            <div className="h-3.5 rounded w-4/6 bg-white/[0.02]" />
         </div>
-        <div className="space-y-2.5 pt-2">
-            <div className="h-4 bg-slate-700/50 rounded w-full" />
-            <div className="h-4 bg-slate-700/40 rounded w-5/6" />
-            <div className="h-4 bg-slate-700/30 rounded w-4/6" />
-        </div>
-        <div className="h-3 bg-slate-700/20 rounded w-3/4 mt-4" />
     </div>
 );
 
-/* ─── Card ─── */
 const AIAnalysisCard = ({ symbol }: AIAnalysisCardProps) => {
-    const {
-        data: insight,
-        isLoading,
-        isError,
-    } = useQuery({
-        queryKey: ['ai-insight', symbol],
-        queryFn: () => getAIInsight(symbol),
-        staleTime: 1000 * 60 * 15, // 15 min cache
+    const { data: insight, isLoading, isError } = useQuery({
+        queryKey: ['ai-insight', symbol], queryFn: () => getAIInsight(symbol), staleTime: 1000 * 60 * 15,
     });
 
     return (
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/60 rounded-2xl p-6 shadow-lg flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-5">
+        <div className="card-base flex flex-col">
+            <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-violet-500/20 rounded-lg">
-                        <BrainCircuit size={20} className="text-violet-400" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-white">AI Market Insight</h3>
+                    <Sparkles size={14} className="text-primary" />
+                    <span className="text-[14px] font-medium text-foreground">AI Market Insight</span>
                 </div>
-                {insight && <SentimentBadge sentiment={insight.sentiment} />}
+                {insight && (
+                    <span className={`inline-flex items-center gap-1 ${sentimentConfig[insight.sentiment].cls}`}>
+                        {sentimentConfig[insight.sentiment].icon}
+                        {sentimentConfig[insight.sentiment].label}
+                    </span>
+                )}
             </div>
 
-            {/* Body */}
             {isLoading && <InsightSkeleton />}
 
             {isError && (
-                <div className="flex flex-col flex-1 items-center justify-center p-4 text-center">
-                    <p className="text-slate-400 text-sm">
-                        Yapay zeka analiz servisi şu anda kullanılamıyor.
-                    </p>
-                    <p className="text-slate-500 text-xs mt-2">
-                        (Backend'de bu servis henüz aktif değil)
-                    </p>
+                <div className="flex flex-col flex-1 items-center justify-center py-8 text-center">
+                    <BarChart2 size={24} className="mb-2 text-ghost" />
+                    <p className="text-[13px] text-muted-foreground">AI analiz servisi kullanılamıyor.</p>
+                    <p className="text-meta mt-1">(Backend'de bu servis henüz aktif değil)</p>
                 </div>
             )}
 
             {insight && (
                 <div className="flex flex-col flex-1">
-                    {/* Summary */}
-                    <p className="text-slate-300 leading-relaxed text-[15px]">
-                        {insight.ai_summary}
-                    </p>
-
-                    {/* Disclaimer footer */}
-                    <p className="mt-auto pt-5 text-xs text-slate-500 italic border-t border-slate-700/40">
-                        {insight.disclaimer}
-                    </p>
+                    <p className="text-[13px] leading-relaxed text-muted-foreground">{insight.ai_summary}</p>
+                    <p className="mt-auto pt-4 text-[11px] italic text-subtle border-t border-border/50">{insight.disclaimer}</p>
                 </div>
             )}
         </div>

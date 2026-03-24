@@ -1,389 +1,251 @@
-/* Finans Portalı Premium Keycloak Theme */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+/* ─── Finans Portalı — Keycloak Auth Theme ─── */
+/* Matches the v2 design system: Inter font, blue accent, flat cards */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
+/* ─── CSS Variables (Dark default) ─── */
 :root {
-    --bg-color: #020617;
-    /* slate-950 */
-    --card-bg: rgba(15, 23, 42, 0.75);
-    /* slate-900 with opacity */
-    --card-border: rgba(51, 65, 85, 0.5);
-    /* slate-700 */
-    --primary: #10b981;
-    /* emerald-500 */
-    --primary-hover: #059669;
-    /* emerald-600 */
-    --primary-glow: rgba(16, 185, 129, 0.4);
-    --text-main: #f8fafc;
-    /* slate-50 */
-    --text-muted: #94a3b8;
-    /* slate-400 */
-    --input-bg: rgba(2, 6, 23, 0.6);
-    /* slate-950 */
-    --input-border: #1e293b;
-    /* slate-800 */
-    --error: #ef4444;
-    /* red-500 */
+    --bg:       #0F1117;
+    --bg-card:  #171D27;
+    --border:   #202736;
+    --fg:       #E8E9ED;
+    --fg-muted: #8B8B9E;
+    --fg-subtle:#52525F;
+    --primary:  #2962FF;
+    --negative: #F43F5E;
+    --positive: #10B981;
+    --input-bg: #0F1117;
 }
 
+/* ─── Light mode ─── */
+.light {
+    --bg:       #F7F8FA;
+    --bg-card:  #FFFFFF;
+    --border:   #D9DCE3;
+    --fg:       #111827;
+    --fg-muted: #6B7280;
+    --fg-subtle:#9CA3AF;
+    --primary:  #2962FF;
+    --negative: #E11D48;
+    --positive: #059669;
+    --input-bg: #F7F8FA;
+}
+
+/* ─── Reset ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
 body {
-    background-color: var(--bg-color);
-    background-image:
-        radial-gradient(circle at 15% 50%, rgba(16, 185, 129, 0.08), transparent 25%),
-        radial-gradient(circle at 85% 30%, rgba(56, 189, 248, 0.05), transparent 25%);
-    font-family: 'Inter', sans-serif;
-    color: var(--text-main);
+    background: var(--bg);
+    color: var(--fg);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    margin: 0;
+    -webkit-font-smoothing: antialiased;
+    padding: 1rem;
 }
 
-/* Background Animated Grid (Optional premium feel) */
-body::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image:
-        linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-        linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-    background-size: 40px 40px;
-    z-index: -1;
-    pointer-events: none;
-}
-
-/* Base Card Layout */
-.login-pf-page {
-    width: 100%;
-    max-width: 440px;
-    padding: 1.5rem;
-    box-sizing: border-box;
-    position: relative;
-    z-index: 1;
-}
-
-/* Glowing orb behind card */
-.login-pf-page::before {
-    content: '';
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 100%;
-    height: 100%;
-    background: radial-gradient(circle, var(--primary-glow) 0%, transparent 60%);
-    filter: blur(60px);
-    z-index: -1;
-    opacity: 0.5;
-    pointer-events: none;
-}
+/* ─── Card ─── */
+.login-pf-page { width: 100%; max-width: 400px; }
 
 .card-pf {
-    background: var(--card-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid var(--card-border);
-    border-radius: 1.5rem;
-    padding: 3rem 2.5rem;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
-    margin: 0;
-    position: relative;
-    overflow: hidden;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 32px;
+}
+.light .card-pf {
+    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.06);
 }
 
-/* Top border highlight */
-.card-pf::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, transparent, var(--primary), transparent);
-    opacity: 0.8;
-}
-
-/* Header */
-.login-pf-header {
-    text-align: center;
-    margin-bottom: 2.5rem;
-}
+/* ─── Header ─── */
+.login-pf-header { text-align: center; margin-bottom: 28px; }
+#kc-header-wrapper { display: none; }
 
 .fp-logo-container {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.75rem;
-    margin-bottom: 0.75rem;
+    gap: 8px;
+    margin-bottom: 4px;
 }
 
 .fp-logo-icon {
-    width: 36px;
-    height: 36px;
-    background: linear-gradient(135deg, var(--primary), #047857);
-    border-radius: 0.75rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 4px 12px var(--primary-glow);
+    width: 28px; height: 28px;
+    color: var(--primary);
+    display: flex; align-items: center; justify-content: center;
 }
-
 .fp-logo-icon svg {
-    width: 22px;
-    height: 22px;
-    stroke: white;
-    stroke-width: 2.5;
-    fill: none;
+    width: 24px; height: 24px;
+    stroke: var(--primary); stroke-width: 2.5; fill: none;
 }
 
 .fp-logo-text {
-    font-size: 1.75rem;
-    font-weight: 800;
-    color: white;
-    letter-spacing: -0.025em;
-    margin: 0;
+    font-size: 18px; font-weight: 600;
+    color: var(--fg); letter-spacing: -0.3px;
 }
 
 .fp-subtitle {
-    color: var(--text-muted);
-    font-size: 0.95rem;
-    margin-top: 0;
+    font-size: 13px; color: var(--fg-muted); margin-top: 2px;
 }
 
-#kc-header-wrapper {
-    display: none;
-}
-
-/* Form Elements */
+/* ─── Form ─── */
 .pf-c-form__group {
-    margin-bottom: 1.5rem;
-    position: relative;
-    display: flex;
-    flex-direction: column-reverse;
-    /* Puts label AFTER input in DOM flow for floating labels */
+    margin-bottom: 16px;
 }
 
 .pf-c-form__label {
     display: block;
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    font-weight: 500;
-    margin-bottom: 0.5rem;
-    transition: all 0.2s;
+    font-size: 11px; font-weight: 500;
+    letter-spacing: 0.5px; text-transform: uppercase;
+    color: var(--fg-subtle);
+    margin-bottom: 6px;
 }
 
 .pf-c-form-control {
     width: 100%;
-    background-color: var(--input-bg);
-    border: 1px solid var(--input-border);
-    border-radius: 0.75rem;
-    color: white;
-    padding: 0.875rem 1rem;
-    font-size: 1rem;
+    height: 36px;
+    background: var(--input-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--fg);
+    padding: 0 12px;
+    font-size: 13px;
     font-family: inherit;
-    box-sizing: border-box;
-    transition: all 0.2s ease;
-    box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: border-color 150ms;
 }
-
 .pf-c-form-control:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15), inset 0 2px 4px rgba(0, 0, 0, 0.1);
-    background-color: rgba(15, 23, 42, 0.8);
+    box-shadow: 0 0 0 1px var(--primary);
 }
-
-/* Error states */
 .pf-c-form-control[aria-invalid="true"] {
-    border-color: var(--error);
+    border-color: var(--negative);
 }
-
 .pf-c-form-control[aria-invalid="true"]:focus {
-    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15);
+    box-shadow: 0 0 0 1px var(--negative);
 }
 
 .pf-c-form__helper-text {
-    color: var(--error);
-    font-size: 0.8rem;
-    margin-top: 0.5rem;
-    display: block;
+    color: var(--negative);
+    font-size: 12px; margin-top: 4px;
 }
 
-/* Button */
+/* ─── Buttons ─── */
 .pf-c-button.pf-m-primary {
     width: 100%;
-    background: linear-gradient(135deg, var(--primary), #047857);
-    color: white;
-    border: 1px solid #059669;
-    border-radius: 0.75rem;
-    padding: 0.875rem 1rem;
-    font-size: 1.05rem;
+    height: 36px;
+    background: var(--primary);
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 13px;
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
-    transition: all 0.2s ease;
-    margin-top: 1.5rem;
-    box-shadow: 0 8px 20px -6px var(--primary-glow);
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    margin-top: 8px;
+    transition: opacity 150ms;
 }
+.pf-c-button.pf-m-primary:hover { opacity: 0.9; }
+.pf-c-button.pf-m-primary:active { opacity: 0.85; }
 
-.pf-c-button.pf-m-primary:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 24px -6px var(--primary-glow);
-    filter: brightness(1.1);
-}
-
-.pf-c-button.pf-m-primary:active {
-    transform: translateY(0);
-}
-
-/* Links */
-.pf-c-button.pf-m-link,
+/* ─── Links ─── */
 a {
     color: var(--primary);
     text-decoration: none;
-    font-size: 0.9rem;
-    font-weight: 500;
-    transition: color 0.2s;
+    font-size: 13px; font-weight: 500;
+    transition: opacity 150ms;
 }
+a:hover { opacity: 0.8; }
 
-.pf-c-button.pf-m-link:hover,
-a:hover {
-    color: #34d399;
-    /* emerald-400 */
-}
-
-/* Form Settings (Remember Me & Forgot Password) */
+/* ─── Options row (Remember me + Forgot password) ─── */
 #kc-form-options {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 0.5rem;
-    margin-top: 0.5rem;
+    margin: 4px 0 8px;
 }
 
-.checkbox {
-    display: flex;
-    align-items: center;
-}
-
+.checkbox { display: flex; align-items: center; }
 .checkbox label {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    cursor: pointer;
-    user-select: none;
+    display: flex; align-items: center; gap: 6px;
+    color: var(--fg-muted); font-size: 13px; cursor: pointer;
 }
 
 input[type="checkbox"] {
     appearance: none;
-    background-color: var(--input-bg);
-    margin: 0;
-    font: inherit;
-    color: currentColor;
-    width: 1.25em;
-    height: 1.25em;
-    border: 1px solid var(--card-border);
-    border-radius: 0.3em;
-    display: grid;
-    place-content: center;
+    width: 16px; height: 16px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--input-bg);
     cursor: pointer;
-    transition: all 0.2s;
+    display: grid; place-content: center;
+    transition: all 150ms;
 }
-
 input[type="checkbox"]::before {
     content: "";
-    width: 0.65em;
-    height: 0.65em;
+    width: 10px; height: 10px;
     transform: scale(0);
-    transition: 120ms transform ease-in-out;
-    background-color: white;
-    transform-origin: center;
+    transition: 100ms transform ease-in-out;
+    background: #fff;
     clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
 }
-
 input[type="checkbox"]:checked {
-    background-color: var(--primary);
+    background: var(--primary);
     border-color: var(--primary);
 }
+input[type="checkbox"]:checked::before { transform: scale(1); }
 
-input[type="checkbox"]:checked::before {
-    transform: scale(1);
-}
-
-/* Registration Divider/Section */
+/* ─── Registration section ─── */
 #kc-registration {
-    margin-top: 2.5rem;
+    margin-top: 24px;
+    padding-top: 20px;
     text-align: center;
-    font-size: 0.95rem;
-    color: var(--text-muted);
-    position: relative;
-    padding-top: 2rem;
+    font-size: 13px;
+    color: var(--fg-muted);
+    border-top: 1px solid var(--border);
 }
-
-#kc-registration::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--card-border), transparent);
-}
-
 #kc-registration a {
-    color: white;
+    color: var(--fg);
     font-weight: 600;
-    margin-left: 0.5rem;
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
-    background-color: rgba(255, 255, 255, 0.05);
-    transition: all 0.2s;
+    margin-left: 4px;
 }
+#kc-registration a:hover { color: var(--primary); }
 
-#kc-registration a:hover {
-    background-color: rgba(255, 255, 255, 0.1);
-    color: var(--primary);
-}
-
-/* Feedback / Error Messages */
+/* ─── Alerts ─── */
 .pf-c-alert {
-    border-radius: 0.75rem;
-    padding: 1rem 1.25rem;
-    margin-bottom: 2rem;
-    font-size: 0.9rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin-bottom: 20px;
+    font-size: 13px;
+    display: flex; align-items: center; gap: 8px;
 }
-
 .pf-c-alert.pf-m-danger {
-    background-color: rgba(239, 68, 68, 0.1);
-    color: #fca5a5;
-    border: 1px solid rgba(239, 68, 68, 0.2);
+    background: rgba(244, 63, 94, 0.06);
+    color: var(--negative);
+    border: 1px solid rgba(244, 63, 94, 0.12);
 }
-
 .pf-c-alert.pf-m-success {
-    background-color: rgba(16, 185, 129, 0.1);
-    color: #6ee7b7;
-    border: 1px solid rgba(16, 185, 129, 0.2);
+    background: rgba(16, 185, 129, 0.06);
+    color: var(--positive);
+    border: 1px solid rgba(16, 185, 129, 0.12);
 }
 
-/* Locale Switcher */
-#kc-locale {
-    text-align: center;
-    margin-bottom: 1.5rem;
-}
+/* ─── Locale ─── */
+#kc-locale { text-align: center; margin-bottom: 16px; }
+.kc-dropdown { position: relative; display: inline-block; }
+.kc-dropdown a { color: var(--fg-muted); font-size: 12px; }
 
-.kc-dropdown {
-    position: relative;
-    display: inline-block;
+/* ─── Theme toggle ─── */
+.theme-toggle {
+    position: absolute; top: 16px; right: 16px;
+    background: none; border: 1px solid var(--border);
+    border-radius: 4px; width: 32px; height: 32px;
+    cursor: pointer; display: flex;
+    align-items: center; justify-content: center;
+    color: var(--fg-muted); transition: all 150ms;
 }
-
-.kc-dropdown a {
-    color: var(--text-muted);
-    text-decoration: none;
-    font-size: 0.875rem;
-}
+.theme-toggle:hover { color: var(--fg); border-color: var(--fg-muted); }
+.theme-toggle svg { width: 16px; height: 16px; }

@@ -1,29 +1,21 @@
 import { useState, useEffect } from 'react';
 import { publicApi, privateApi } from '../services/api';
 import toast from 'react-hot-toast';
-import { Wallet, TrendingUp, TrendingDown, Plus, ArrowDownToLine, ShoppingCart, RefreshCw, X } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, Plus, ArrowDownToLine, RefreshCw, X } from 'lucide-react';
 import type { Portfolio, Instrument } from '../types';
 
-interface ModalProps {
-    isOpen: boolean;
-    onClose: () => void;
-    title: string;
-    children: React.ReactNode;
-}
+interface ModalProps { isOpen: boolean; onClose: () => void; title: string; children: React.ReactNode; }
 
 const Modal = ({ isOpen, onClose, title, children }: ModalProps) => {
     if (!isOpen) return null;
-
     return (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl w-full max-w-md mx-4 overflow-hidden">
-                <div className="flex items-center justify-between p-4 border-b border-slate-700">
-                    <h3 className="text-lg font-semibold text-white">{title}</h3>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
-                        <X size={20} />
-                    </button>
+            <div className="bg-card rounded border border-border w-full max-w-md mx-4 overflow-hidden shadow-none">
+                <div className="flex items-center justify-between px-5 py-3.5 border-b border-border">
+                    <h3 className="text-[14px] font-semibold text-foreground">{title}</h3>
+                    <button onClick={onClose} className="text-subtle hover:text-foreground transition-colors"><X size={16} /></button>
                 </div>
-                <div className="p-6">{children}</div>
+                <div className="p-5">{children}</div>
             </div>
         </div>
     );
@@ -45,16 +37,10 @@ export default function PortfolioView() {
     const fetchData = async () => {
         try {
             const [portfolioRes, instrumentsRes] = await Promise.all([
-                privateApi.get<Portfolio>('/api/portfolio'),
-                publicApi.get<Instrument[]>('/api/market')
+                privateApi.get<Portfolio>('/api/portfolio'), publicApi.get<Instrument[]>('/api/market'),
             ]);
-            setPortfolio(portfolioRes.data);
-            setInstruments(instrumentsRes.data);
-            setLoading(false);
-        } catch (error) {
-            console.error('Failed to fetch data:', error);
-            setLoading(false);
-        }
+            setPortfolio(portfolioRes.data); setInstruments(instrumentsRes.data); setLoading(false);
+        } catch { setLoading(false); }
     };
 
     useEffect(() => {
@@ -67,62 +53,28 @@ export default function PortfolioView() {
     const handleDeposit = async () => {
         if (!depositAmount || parseFloat(depositAmount) <= 0) return;
         setActionLoading(true);
-        try {
-            await privateApi.post('/api/portfolio/deposit', { amount: parseFloat(depositAmount) });
-            toast.success('Para yatırma işlemi başarılı!');
-            await fetchData();
-            setDepositModal(false);
-            setDepositAmount('');
-        } catch (err) {
-            console.error('Para yatırma hatası:', err);
-            toast.error('Para yatırma işlemi başarısız.');
-        }
+        try { await privateApi.post('/api/portfolio/deposit', { amount: parseFloat(depositAmount) }); toast.success('Para yatırma başarılı!'); await fetchData(); setDepositModal(false); setDepositAmount(''); }
+        catch { toast.error('Para yatırma başarısız.'); }
         setActionLoading(false);
     };
 
     const handleBuy = async () => {
         if (!buySymbol || !buyQuantity || parseFloat(buyQuantity) <= 0) return;
         setActionLoading(true);
-        try {
-            await privateApi.post('/api/portfolio/buy', {
-                instrumentSymbol: buySymbol,
-                quantity: parseFloat(buyQuantity),
-            });
-            toast.success('Alım işlemi başarılı!');
-            await fetchData();
-            setBuyModal(false);
-            setBuySymbol('');
-            setBuyQuantity('');
-        } catch (err) {
-            console.error('Alım hatası:', err);
-            toast.error('Alım işlemi başarısız.');
-        }
+        try { await privateApi.post('/api/portfolio/buy', { instrumentSymbol: buySymbol, quantity: parseFloat(buyQuantity) }); toast.success('Alım başarılı!'); await fetchData(); setBuyModal(false); setBuySymbol(''); setBuyQuantity(''); }
+        catch { toast.error('Alım başarısız.'); }
         setActionLoading(false);
     };
 
     const handleSell = async () => {
         if (!sellModal || !sellQuantity || parseFloat(sellQuantity) <= 0) return;
         setActionLoading(true);
-        try {
-            await privateApi.post('/api/portfolio/sell', {
-                instrumentSymbol: sellModal,
-                quantity: parseFloat(sellQuantity),
-            });
-            toast.success('Satış işlemi başarılı!');
-            await fetchData();
-            setSellModal(null);
-            setSellQuantity('');
-        } catch (err) {
-            console.error('Satım hatası:', err);
-            toast.error('Satış işlemi başarısız.');
-        }
+        try { await privateApi.post('/api/portfolio/sell', { instrumentSymbol: sellModal, quantity: parseFloat(sellQuantity) }); toast.success('Satış başarılı!'); await fetchData(); setSellModal(null); setSellQuantity(''); }
+        catch { toast.error('Satış başarısız.'); }
         setActionLoading(false);
     };
 
-    const getInstrumentPrice = (symbol: string): number => {
-        const inst = instruments.find(i => i.symbol === symbol);
-        return inst?.currentPrice || 0;
-    };
+    const getInstrumentPrice = (symbol: string): number => instruments.find(i => i.symbol === symbol)?.currentPrice || 0;
 
     const calculatePnL = (item: { instrument: Instrument; quantity: number; averageCost: number }) => {
         const currentPrice = getInstrumentPrice(item.instrument.symbol) || item.instrument.currentPrice;
@@ -133,134 +85,85 @@ export default function PortfolioView() {
         return { pnl, pnlPercent, currentValue };
     };
 
-    const totalPortfolioValue = portfolio?.items?.reduce((sum, item) => {
-        const { currentValue } = calculatePnL(item);
-        return sum + currentValue;
-    }, portfolio.cashBalance || 0) || 0;
+    const totalPortfolioValue = portfolio?.items?.reduce((sum, item) => sum + calculatePnL(item).currentValue, portfolio.cashBalance || 0) || 0;
 
-    if (loading) {
-        return (
-            <div className="flex items-center justify-center h-64">
-                <RefreshCw className="animate-spin text-emerald-400" size={32} />
-            </div>
-        );
-    }
+    if (loading) return <div className="flex items-center justify-center h-64"><RefreshCw className="animate-spin text-primary" size={24} /></div>;
+
+    const inputCls = "w-full h-9 bg-background border border-border rounded px-3 text-[13px] text-foreground placeholder:text-ghost focus-visible:ring-1 focus-visible:ring-primary focus-visible:ring-offset-0";
 
     return (
         <div className="space-y-6">
-            {/* Özet Kartları */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Nakit Bakiye */}
-                <div className="bg-gradient-to-br from-emerald-600/20 to-emerald-800/20 rounded-xl p-5 border border-emerald-500/30 backdrop-blur-sm">
-                    <div className="flex items-center justify-between mb-3">
-                        <span className="text-emerald-300 text-sm font-medium">Nakit Bakiye</span>
-                        <Wallet className="text-emerald-400" size={20} />
-                    </div>
-                    <p className="text-2xl font-bold text-white">
-                        {new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2 }).format(portfolio?.cashBalance || 0)} ₺
-                    </p>
+            {/* Summary cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="card-base" style={{ borderLeft: '2px solid hsl(var(--primary))' }}>
+                    <span className="text-label">Nakit Bakiye</span>
+                    <p className="text-price mt-1">{new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2 }).format(portfolio?.cashBalance || 0)} ₺</p>
                 </div>
-
-                {/* Toplam Değer */}
-                <div className="bg-gradient-to-br from-blue-600/20 to-blue-800/20 rounded-xl p-5 border border-blue-500/30 backdrop-blur-sm">
-                    <div className="flex items-center justify-between mb-3">
-                        <span className="text-blue-300 text-sm font-medium">Toplam Portföy</span>
-                        <TrendingUp className="text-blue-400" size={20} />
-                    </div>
-                    <p className="text-2xl font-bold text-white">
-                        {new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2 }).format(totalPortfolioValue)} ₺
-                    </p>
+                <div className="card-base" style={{ borderLeft: '2px solid hsl(var(--primary))' }}>
+                    <span className="text-label">Toplam Portföy</span>
+                    <p className="text-price mt-1">{new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2 }).format(totalPortfolioValue)} ₺</p>
                 </div>
-
-                {/* İşlemler */}
-                <div className="bg-gradient-to-br from-purple-600/20 to-purple-800/20 rounded-xl p-5 border border-purple-500/30 backdrop-blur-sm">
-                    <div className="flex items-center justify-between mb-3">
-                        <span className="text-purple-300 text-sm font-medium">Hızlı İşlemler</span>
-                        <ShoppingCart className="text-purple-400" size={20} />
-                    </div>
+                <div className="card-base">
+                    <span className="text-label mb-2 block">Hızlı İşlemler</span>
                     <div className="flex gap-2">
-                        <button
-                            onClick={() => setDepositModal(true)}
-                            className="flex-1 flex items-center justify-center gap-1 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 rounded-lg py-2 text-sm font-medium transition-colors"
-                        >
-                            <ArrowDownToLine size={14} /> Yatır
+                        <button onClick={() => setDepositModal(true)} className="flex-1 flex items-center justify-center gap-1 h-9 rounded text-[12px] font-medium bg-transparent border border-border text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
+                            <ArrowDownToLine size={12} /> Yatır
                         </button>
-                        <button
-                            onClick={() => setBuyModal(true)}
-                            className="flex-1 flex items-center justify-center gap-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-lg py-2 text-sm font-medium transition-colors"
-                        >
-                            <Plus size={14} /> Al
+                        <button onClick={() => setBuyModal(true)} className="flex-1 flex items-center justify-center gap-1 h-9 rounded text-[12px] font-medium bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
+                            <Plus size={12} /> Al
                         </button>
                     </div>
                 </div>
             </div>
 
-            {/* Pozisyonlar Tablosu */}
-            <div className="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
-                <div className="p-4 border-b border-slate-700">
-                    <h2 className="text-lg font-semibold text-white">Pozisyonlarım</h2>
+            {/* Positions table */}
+            <div className="card-base !p-0 overflow-hidden">
+                <div className="px-5 py-3.5 border-b border-border flex items-center gap-2">
+                    <Wallet size={14} className="text-primary" />
+                    <span className="text-[14px] font-medium text-foreground">Pozisyonlarım</span>
                 </div>
 
                 {!portfolio?.items?.length ? (
-                    <div className="p-12 text-center text-slate-400">
-                        <Wallet className="mx-auto mb-3 opacity-50" size={40} />
-                        <p>Henüz pozisyonunuz yok</p>
-                        <p className="text-sm mt-1">Hemen ilk yatırımınızı yapın!</p>
+                    <div className="py-10 text-center">
+                        <Wallet className="mx-auto mb-2 text-ghost" size={28} />
+                        <p className="text-[13px] text-muted-foreground">Henüz pozisyonunuz yok</p>
                     </div>
                 ) : (
                     <div className="overflow-x-auto">
                         <table className="w-full">
-                            <thead className="bg-slate-900/50 text-slate-400 text-xs uppercase tracking-wider">
-                                <tr>
-                                    <th className="p-4 text-left font-semibold">Sembol</th>
-                                    <th className="p-4 text-left font-semibold">Miktar</th>
-                                    <th className="p-4 text-right font-semibold">Ort. Maliyet</th>
-                                    <th className="p-4 text-right font-semibold">Güncel Fiyat</th>
-                                    <th className="p-4 text-right font-semibold">Kar/Zarar</th>
-                                    <th className="p-4 text-center font-semibold">İşlem</th>
+                            <thead>
+                                <tr className="border-b border-border">
+                                    <th className="px-5 py-2.5 text-left text-label">Sembol</th>
+                                    <th className="px-5 py-2.5 text-left text-label">Miktar</th>
+                                    <th className="px-5 py-2.5 text-right text-label">Ort. Maliyet</th>
+                                    <th className="px-5 py-2.5 text-right text-label">Güncel Fiyat</th>
+                                    <th className="px-5 py-2.5 text-right text-label">Kar/Zarar</th>
+                                    <th className="px-5 py-2.5 text-center text-label">İşlem</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-700">
-                                {portfolio.items.map((item) => {
+                            <tbody className="divide-y divide-border/50">
+                                {portfolio.items.map(item => {
                                     const { pnl, pnlPercent } = calculatePnL(item);
                                     const isPositive = pnl >= 0;
                                     const currentPrice = getInstrumentPrice(item.instrument.symbol) || item.instrument.currentPrice;
-
                                     return (
-                                        <tr key={item.id} className="hover:bg-slate-700/50 transition-colors">
-                                            <td className="p-4">
-                                                <div>
-                                                    <span className="font-bold text-white">{item.instrument.symbol}</span>
-                                                    <p className="text-xs text-slate-400">{item.instrument.name}</p>
-                                                </div>
+                                        <tr key={item.id} className="h-11 hover:bg-white/[0.02] transition-colors">
+                                            <td className="px-5">
+                                                <span className="text-[13px] font-semibold text-foreground">{item.instrument.symbol}</span>
+                                                <p className="text-meta">{item.instrument.name}</p>
                                             </td>
-                                            <td className="p-4 text-slate-300 font-mono">
-                                                {new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 4 }).format(item.quantity)}
+                                            <td className="px-5 text-[13px] tabular-nums text-muted-foreground">{new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 4 }).format(item.quantity)}</td>
+                                            <td className="px-5 text-right text-[13px] tabular-nums text-muted-foreground">{new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2 }).format(item.averageCost)} ₺</td>
+                                            <td className="px-5 text-right text-[13px] tabular-nums font-medium text-foreground">{new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2 }).format(currentPrice)} ₺</td>
+                                            <td className="px-5 text-right">
+                                                <span className={`inline-flex items-center gap-1 ${isPositive ? 'badge-positive' : 'badge-negative'}`}>
+                                                    {isPositive ? <TrendingUp size={11} /> : <TrendingDown size={11} />}
+                                                    {isPositive ? '+' : ''}{pnlPercent.toFixed(2)}%
+                                                </span>
                                             </td>
-                                            <td className="p-4 text-right text-slate-300 font-mono">
-                                                {new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2 }).format(item.averageCost)} ₺
-                                            </td>
-                                            <td className="p-4 text-right text-white font-mono font-medium">
-                                                {new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2 }).format(currentPrice)} ₺
-                                            </td>
-                                            <td className="p-4 text-right">
-                                                <div className={`flex items-center justify-end gap-1 font-mono ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-                                                    {isPositive ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
-                                                    <span className="font-medium">
-                                                        {isPositive ? '+' : ''}{pnlPercent.toFixed(2)}%
-                                                    </span>
-                                                </div>
-                                                <p className={`text-xs ${isPositive ? 'text-emerald-400/70' : 'text-red-400/70'}`}>
-                                                    {isPositive ? '+' : ''}{new Intl.NumberFormat('tr-TR', { minimumFractionDigits: 2 }).format(pnl)} ₺
-                                                </p>
-                                            </td>
-                                            <td className="p-4 text-center">
-                                                <button
-                                                    onClick={() => setSellModal(item.instrument.symbol)}
-                                                    className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg text-xs font-medium transition-colors"
-                                                >
-                                                    Sat
-                                                </button>
+                                            <td className="px-5 text-center">
+                                                <button onClick={() => setSellModal(item.instrument.symbol)}
+                                                    className="px-2.5 py-1 rounded text-[11px] font-medium bg-negative/10 text-negative hover:bg-negative/15 transition-colors">Sat</button>
                                             </td>
                                         </tr>
                                     );
@@ -271,89 +174,43 @@ export default function PortfolioView() {
                 )}
             </div>
 
-            {/* Para Yatırma Modal */}
+            {/* Deposit Modal */}
             <Modal isOpen={depositModal} onClose={() => setDepositModal(false)} title="Para Yatır">
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm text-slate-400 mb-2">Miktar (₺)</label>
-                        <input
-                            type="number"
-                            value={depositAmount}
-                            onChange={(e) => setDepositAmount(e.target.value)}
-                            placeholder="0.00"
-                            className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
-                        />
+                        <label className="text-label mb-1.5 block">Miktar (₺)</label>
+                        <input type="number" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} placeholder="0.00" className={inputCls} />
                     </div>
-                    <button
-                        onClick={handleDeposit}
-                        disabled={actionLoading}
-                        className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-semibold py-3 rounded-lg transition-colors"
-                    >
-                        {actionLoading ? 'İşleniyor...' : 'Para Yatır'}
-                    </button>
+                    <button onClick={handleDeposit} disabled={actionLoading} className="w-full h-9 rounded text-[13px] font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors">{actionLoading ? 'İşleniyor...' : 'Para Yatır'}</button>
                 </div>
             </Modal>
 
-            {/* Alım Modal */}
+            {/* Buy Modal */}
             <Modal isOpen={buyModal} onClose={() => setBuyModal(false)} title="Enstrüman Al">
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm text-slate-400 mb-2">Enstrüman</label>
-                        <select
-                            value={buySymbol}
-                            onChange={(e) => setBuySymbol(e.target.value)}
-                            className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500"
-                        >
+                        <label className="text-label mb-1.5 block">Enstrüman</label>
+                        <select value={buySymbol} onChange={e => setBuySymbol(e.target.value)} className={inputCls}>
                             <option value="">Seçin...</option>
-                            {instruments.map(inst => (
-                                <option key={inst.symbol} value={inst.symbol}>
-                                    {inst.symbol} - {inst.name} ({new Intl.NumberFormat('tr-TR').format(inst.currentPrice)} ₺)
-                                </option>
-                            ))}
+                            {instruments.map(inst => <option key={inst.symbol} value={inst.symbol}>{inst.symbol} - {inst.name}</option>)}
                         </select>
                     </div>
                     <div>
-                        <label className="block text-sm text-slate-400 mb-2">Miktar</label>
-                        <input
-                            type="number"
-                            value={buyQuantity}
-                            onChange={(e) => setBuyQuantity(e.target.value)}
-                            placeholder="0"
-                            step="0.0001"
-                            className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                        />
+                        <label className="text-label mb-1.5 block">Miktar</label>
+                        <input type="number" value={buyQuantity} onChange={e => setBuyQuantity(e.target.value)} placeholder="0" step="0.0001" className={inputCls} />
                     </div>
-                    <button
-                        onClick={handleBuy}
-                        disabled={actionLoading}
-                        className="w-full bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white font-semibold py-3 rounded-lg transition-colors"
-                    >
-                        {actionLoading ? 'İşleniyor...' : 'Satın Al'}
-                    </button>
+                    <button onClick={handleBuy} disabled={actionLoading} className="w-full h-9 rounded text-[13px] font-medium bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-colors">{actionLoading ? 'İşleniyor...' : 'Satın Al'}</button>
                 </div>
             </Modal>
 
-            {/* Satış Modal */}
+            {/* Sell Modal */}
             <Modal isOpen={Boolean(sellModal)} onClose={() => setSellModal(null)} title={`${sellModal} Sat`}>
                 <div className="space-y-4">
                     <div>
-                        <label className="block text-sm text-slate-400 mb-2">Miktar</label>
-                        <input
-                            type="number"
-                            value={sellQuantity}
-                            onChange={(e) => setSellQuantity(e.target.value)}
-                            placeholder="0"
-                            step="0.0001"
-                            className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-red-500"
-                        />
+                        <label className="text-label mb-1.5 block">Miktar</label>
+                        <input type="number" value={sellQuantity} onChange={e => setSellQuantity(e.target.value)} placeholder="0" step="0.0001" className={inputCls} />
                     </div>
-                    <button
-                        onClick={handleSell}
-                        disabled={actionLoading}
-                        className="w-full bg-red-500 hover:bg-red-600 disabled:opacity-50 text-white font-semibold py-3 rounded-lg transition-colors"
-                    >
-                        {actionLoading ? 'İşleniyor...' : 'Sat'}
-                    </button>
+                    <button onClick={handleSell} disabled={actionLoading} className="w-full h-9 rounded text-[13px] font-medium bg-negative text-white hover:bg-negative/90 disabled:opacity-50 transition-colors">{actionLoading ? 'İşleniyor...' : 'Sat'}</button>
                 </div>
             </Modal>
         </div>

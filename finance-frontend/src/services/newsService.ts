@@ -71,7 +71,7 @@ export const getNews = async (topic?: string, country?: string): Promise<Filtere
     if (country) params.country = country;
 
     const { data } = await publicApi.get<FilteredArticleDto[]>('/api/news', { params });
-    return data ?? [];
+    return Array.isArray(data) ? data : [];
 };
 
 /**
@@ -81,7 +81,7 @@ export const getNews = async (topic?: string, country?: string): Promise<Filtere
  */
 export const getTopics = async (): Promise<string[]> => {
     const { data } = await publicApi.get<string[]>('/api/news/topics');
-    return data ?? [];
+    return Array.isArray(data) ? data : [];
 };
 
 /**

@@ -67,12 +67,10 @@ const ChartSkeleton = () => (
     <div className="animate-pulse space-y-3">
         <div className="flex gap-2">
             {Array.from({ length: 7 }).map((_, i) => (
-                <div key={i} className="h-7 w-10 bg-slate-700/40 rounded-md" />
+                <div key={i} className="h-7 w-10 bg-white/[0.05] rounded" />
             ))}
         </div>
-        <div className="h-[420px] bg-slate-700/15 rounded-xl relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-700/10 to-transparent" />
-        </div>
+        <div className="h-[420px] bg-white/[0.03] rounded" />
     </div>
 );
 
@@ -287,14 +285,12 @@ const CandlestickChart = ({
     if (!loading && !hasData && !isError) {
         return (
             <div
-                className="w-full rounded-xl flex items-center justify-center bg-slate-900/30 border border-slate-700/40"
+                className="w-full rounded flex items-center justify-center bg-background border border-border"
                 style={{ minHeight: 420 }}
             >
                 <div className="text-center">
-                    <p className="text-slate-400 text-sm">Grafik verisi bulunamadı.</p>
-                    <p className="text-slate-500 text-xs mt-1">
-                        Bu enstrüman için seçilen zaman aralığında veri yok.
-                    </p>
+                    <p className="text-[13px] text-muted-foreground">Grafik verisi bulunamadı.</p>
+                    <p className="text-meta mt-1">Bu enstrüman için seçilen zaman aralığında veri yok.</p>
                 </div>
             </div>
         );
@@ -310,46 +306,32 @@ const CandlestickChart = ({
                         <div className="flex items-center gap-3">
                             {/* Chart Mode Toggle */}
                             {showModeToggle && (
-                                <div className="flex gap-0.5 bg-slate-900/60 rounded-lg p-1 border border-slate-700/40">
+                                <div className="flex gap-0.5 bg-background rounded p-1 border border-border">
                                     <button
                                         onClick={() => setMode('candle')}
-                                        title="Mum Grafik (Candlestick)"
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all duration-200
-                                            ${mode === 'candle'
-                                                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/25'
-                                                : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                                            }`}
+                                        title="Mum Grafik"
+                                        className={`flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded transition-colors
+                                            ${mode === 'candle' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
                                     >
-                                        <CandlestickIcon size={12} />
-                                        Mum
+                                        <CandlestickIcon size={12} /> Mum
                                     </button>
                                     <button
                                         onClick={() => setMode('line')}
-                                        title="Çizgi Grafik (Line)"
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold rounded-md transition-all duration-200
-                                            ${mode === 'line'
-                                                ? 'bg-blue-500 text-white shadow-md shadow-blue-500/25'
-                                                : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                                            }`}
+                                        title="Çizgi Grafik"
+                                        className={`flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-medium rounded transition-colors
+                                            ${mode === 'line' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}
                                     >
-                                        <LineChartIcon size={12} />
-                                        Çizgi
+                                        <LineChartIcon size={12} /> Çizgi
                                     </button>
                                 </div>
                             )}
 
                             {/* Date Range Selector — applies to BOTH modes */}
-                            <div className="flex gap-0.5 bg-slate-900/60 rounded-lg p-1 border border-slate-700/40">
+                            <div className="flex gap-0.5 bg-background rounded p-1 border border-border">
                                 {DATE_RANGES.map(({ label, value }) => (
-                                    <button
-                                        key={value}
-                                        onClick={() => setRange(value)}
-                                        className={`px-2.5 py-1.5 text-[11px] font-semibold rounded-md transition-all duration-200
-                                            ${range === value
-                                                ? 'bg-blue-500 text-white shadow-md shadow-blue-500/25'
-                                                : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                                            }`}
-                                    >
+                                    <button key={value} onClick={() => setRange(value)}
+                                        className={`px-2.5 py-1.5 text-[11px] font-medium rounded transition-colors
+                                            ${range === value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}>
                                         {label}
                                     </button>
                                 ))}
@@ -358,25 +340,19 @@ const CandlestickChart = ({
 
                         {/* Loading indicator */}
                         {isFetching && (
-                            <RefreshCw size={14} className="text-emerald-400 animate-spin" />
+                            <RefreshCw size={14} className="text-primary animate-spin" />
                         )}
                     </div>
 
                     {/* Row 2: TimeSlot selector — only for candle mode */}
                     {mode === 'candle' && (
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-slate-500 uppercase tracking-wider font-medium">Mum Aralığı:</span>
-                            <div className="flex gap-0.5 bg-slate-900/60 rounded-lg p-1 border border-slate-700/40">
+                            <span className="text-label">Mum Aralığı:</span>
+                            <div className="flex gap-0.5 bg-background rounded p-1 border border-border">
                                 {SLOTS.map(({ label, value }) => (
-                                    <button
-                                        key={value}
-                                        onClick={() => setSlot(value)}
-                                        className={`px-2.5 py-1.5 text-[11px] font-semibold rounded-md transition-all duration-200
-                                            ${slot === value
-                                                ? 'bg-emerald-500 text-white shadow-md shadow-emerald-500/25'
-                                                : 'text-slate-400 hover:text-white hover:bg-slate-700/50'
-                                            }`}
-                                    >
+                                    <button key={value} onClick={() => setSlot(value)}
+                                        className={`px-2.5 py-1.5 text-[11px] font-medium rounded transition-colors
+                                            ${slot === value ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'}`}>
                                         {label}
                                     </button>
                                 ))}

@@ -4,6 +4,18 @@ import keycloak from '../utils/keycloak';
 const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
 /**
+ * Backend wraps ALL responses in: { success, data, message, response, timestamp }
+ * This interceptor auto-unwraps so service functions receive only the inner `data`.
+ */
+function unwrapResponse(response: import('axios').AxiosResponse) {
+    const body = response.data;
+    if (body && typeof body === 'object' && 'success' in body && 'data' in body) {
+        response.data = body.data;
+    }
+    return response;
+}
+
+/**
  * Public API Instance
  * Used strictly for fetching public endpoints (permitAll) without triggering Keycloak login flows.
  */
@@ -14,6 +26,8 @@ export const publicApi = axios.create({
         'Content-Type': 'application/json',
     },
 });
+
+publicApi.interceptors.response.use(unwrapResponse);
 
 /**
  * Private API Instance
@@ -44,7 +58,7 @@ privateApi.interceptors.request.use(
 );
 
 privateApi.interceptors.response.use(
-    (response) => response,
+    unwrapResponse,
     (error) => {
         const status = error.response?.status;
         if (status === 401 && keycloak.authenticated) {
@@ -53,3 +67,4 @@ privateApi.interceptors.response.use(
         return Promise.reject(error);
     },
 );
+

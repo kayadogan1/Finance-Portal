@@ -34,7 +34,7 @@ function SymbolPicker({ value, onChange, options, placeholder }: SymbolPickerPro
                 <button
                     role="combobox"
                     aria-expanded={open}
-                    className="w-[200px] justify-between flex items-center px-3 py-2 border border-slate-700 bg-slate-800 text-sm rounded-lg text-white hover:bg-slate-700/50 transition-colors"
+                    className="w-[200px] justify-between flex items-center px-3 h-9 border border-border bg-card text-[13px] rounded text-foreground hover:border-border/60 transition-colors"
                 >
                     {value
                         ? options.find((opt) => opt.symbol === value)?.symbol || value
@@ -42,9 +42,9 @@ function SymbolPicker({ value, onChange, options, placeholder }: SymbolPickerPro
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </button>
             </PopoverTrigger>
-            <PopoverContent className="w-[200px] p-0 bg-slate-800 border-slate-700">
-                <Command className="bg-slate-800 text-slate-200">
-                    <CommandInput placeholder="Sembol ara..." className="text-sm border-slate-700" />
+            <PopoverContent className="w-[200px] p-0 bg-card border-border shadow-none">
+                <Command className="bg-card text-foreground">
+                    <CommandInput placeholder="Sembol ara..." className="text-[13px] border-border" />
                     <CommandList>
                         <CommandEmpty>Sonuç bulunamadı.</CommandEmpty>
                         <CommandGroup>
@@ -56,11 +56,11 @@ function SymbolPicker({ value, onChange, options, placeholder }: SymbolPickerPro
                                         onChange(currentValue.toUpperCase());
                                         setOpen(false);
                                     }}
-                                    className="aria-selected:bg-emerald-500/20 aria-selected:text-emerald-400 cursor-pointer text-slate-200"
+                                    className="aria-selected:bg-primary/10 aria-selected:text-primary cursor-pointer text-foreground"
                                 >
                                     <Check
                                         className={cn(
-                                            "mr-2 h-4 w-4 text-emerald-500",
+                                            "mr-2 h-4 w-4 text-primary",
                                             value === opt.symbol ? "opacity-100" : "opacity-0"
                                         )}
                                     />
@@ -133,11 +133,11 @@ export default function ComparisonChart() {
     const isLoading = loadingA || loadingB;
 
     return (
-        <div className="bg-slate-800/50 backdrop-blur border border-slate-700/60 rounded-2xl p-6 shadow-lg">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <div className="card-base">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-5 gap-4">
                 <div>
-                    <h3 className="text-xl font-semibold text-white">Karşılaştırma Grafiği</h3>
-                    <p className="text-slate-400 text-sm">Varlıkların % değişim oranını kıyaslayın.</p>
+                    <h3 className="text-[14px] font-medium text-foreground">Karşılaştırma Grafiği</h3>
+                    <p className="text-meta mt-0.5">Varlıkların % değişim oranını kıyaslayın.</p>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -147,7 +147,7 @@ export default function ComparisonChart() {
                         options={instruments}
                         placeholder="Seç 1"
                     />
-                    <span className="text-slate-500 font-medium text-sm">VS</span>
+                    <span className="text-subtle text-[12px] font-medium">VS</span>
                     <SymbolPicker
                         value={symbolB}
                         onChange={setSymbolB}
@@ -157,18 +157,16 @@ export default function ComparisonChart() {
                 </div>
             </div>
 
-            <div className="h-[400px] w-full bg-slate-900/30 rounded-xl p-2">
+            <div className="h-[400px] w-full bg-background rounded p-2">
                 {isLoading ? (
                     <div className="w-full h-full flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                     </div>
                 ) : chartSeries.length === 0 ? (
                     /* RULE 3: Empty data fallback */
                     <div className="w-full h-full flex flex-col items-center justify-center text-center">
-                        <p className="text-slate-400 text-sm">Kıyaslanacak veri bulunamadı.</p>
-                        <p className="text-slate-500 text-xs mt-1">
-                            Seçilen semboller için henüz fiyat geçmişi yok.
-                        </p>
+                        <p className="text-[13px] text-muted-foreground">Kıyaslanacak veri bulunamadı.</p>
+                        <p className="text-meta mt-1">Seçilen semboller için henüz fiyat geçmişi yok.</p>
                     </div>
                 ) : (
                     <Chart
