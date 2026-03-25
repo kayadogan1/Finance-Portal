@@ -1,5 +1,6 @@
 package com.finance.config;
 
+import com.finance.services.UserService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,8 +20,13 @@ import java.util.stream.Collectors;
 @Component
 public class KeycloakRoleConverter implements Converter<Jwt, AbstractAuthenticationToken> {
     private final static Logger logger = LogManager.getLogger(KeycloakRoleConverter.class);
+    private final UserService userService;
     @Value("${keycloak.clientId}")
     private  String CLIENT_ID ;
+
+    public KeycloakRoleConverter(UserService userService) {
+        this.userService = userService;
+    }
 
     @Override
     public AbstractAuthenticationToken convert(Jwt jwt) {
@@ -29,6 +35,7 @@ public class KeycloakRoleConverter implements Converter<Jwt, AbstractAuthenticat
         if (resourceAccess == null) {
             return new JwtAuthenticationToken(jwt, Collections.emptyList());
         }
+        userService.getOrCreateUser(jwt);
         logger.info("resource_access: {}", resourceAccess.toString());
         Object clientObj = resourceAccess.get(CLIENT_ID);
 

@@ -60,7 +60,7 @@ public class MarketController {
 
 
     @GetMapping("/history/{symbol}")
-    public ResponseEntity<List<MarketData>> getMarketDataHistory(
+    public ResponseEntity<ApiResult<List<MarketData>>> getMarketDataHistory(
             @PathVariable String symbol,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from) {
 
@@ -70,6 +70,6 @@ public class MarketController {
         }
         LocalDateTime startTime = from != null ? from : LocalDateTime.now().minusHours(24);
         List<MarketData> marketDataList = marketDataRepository.findByInstrumentSymbolAndTimestampAfterOrderByTimestampAsc(symbol, startTime);
-        return ResponseEntity.ok(marketDataList);
+        return ResponseEntity.ok(ApiResult.success(marketDataList,"all market data fetched",200));
     }
 }
