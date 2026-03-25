@@ -30,13 +30,14 @@ public class GlobalExceptionAdvisor {
 
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
-    public ApiResult<String> handleGeneral() {
-        return new ApiResult<>(false, null, "Beklenmeyen bir hata oluştu", 500, LocalDateTime.now());
+    public ApiResult<String> handleGeneral(Exception exception) {
+        return new ApiResult<>(false, null, exception.getMessage(), 500, LocalDateTime.now());
     }
+
     @ExceptionHandler(MethodNotAllowedException.class)
     @ResponseStatus(HttpStatus.METHOD_NOT_ALLOWED)
     public ApiResult<String> handleMethodNotAllowedException(MethodNotAllowedException exception) {
-        return new ApiResult<>(false, null, exception.getMessage(), 403, LocalDateTime.now());
+        return new ApiResult<>(false, null, exception.getMessage(), 405, LocalDateTime.now());
     }
 
 }

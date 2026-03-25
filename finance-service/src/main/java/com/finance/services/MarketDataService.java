@@ -176,6 +176,9 @@ public class MarketDataService {
         if(symbol == null || symbol.isEmpty()){
             throw new BadRequestException("symbol can not empty or null");
         }
+        if(from== null){
+            from = LocalDateTime.now();
+        }
         if (from.isAfter(LocalDateTime.now())) {
             throw new BadRequestException("invalid date . future date not valid");
         }

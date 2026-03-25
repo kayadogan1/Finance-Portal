@@ -35,7 +35,7 @@ public class PortfolioService {
         logger.info("fetching Portfolio for {}", userId);
 
 
-        return portfolioRepository.findById(portfolioId)
+        return portfolioRepository.findByIdAndUserId(portfolioId,userId)
                 .map(this::toPortfolioReadDto)
                 .orElseThrow(() -> new RuntimeException(
                         "Error occurred while mapper entity to dto . userId=" + userId + ", portfolioId=" + portfolioId
@@ -67,7 +67,7 @@ public class PortfolioService {
                 .build();
     }
     private Portfolio getPortfolioEntity(String userId, UUID portfolioId) {
-        return portfolioRepository.findById(portfolioId)
+        return portfolioRepository.findByIdAndUserId(portfolioId,userId)
                 .orElseThrow(() ->
                         new RuntimeException("Portfolio not found for user: " + userId));
     }
