@@ -8,7 +8,8 @@ import {
 } from 'lightweight-charts';
 import type { OHLCData } from '../../types';
 import { getCandleData, getLineData, type TimeSlot } from '../../services/marketService';
-import { CandlestickChart as CandlestickIcon, LineChart as LineChartIcon, RefreshCw } from 'lucide-react';
+import { CandlestickChart as CandlestickIcon, LineChart as LineChartIcon, RefreshCw, TrendingUp } from 'lucide-react';
+import { calculateSMA, calculateEMA, calculateRSI, type IndicatorPoint } from '../../utils/indicators';
 
 /* ─── Types ─── */
 
@@ -74,14 +75,40 @@ const ChartSkeleton = () => (
     </div>
 );
 
-/* ─── Chart Renderer — handles both Candlestick & Line ─── */
+/* ─── Indicator Config ─── */
+
+type IndicatorId = 'sma20' | 'sma50' | 'ema12' | 'ema26' | 'rsi';
+
+interface IndicatorConfig {
+    id: IndicatorId;
+    label: string;
+    color: string;
+    type: 'overlay' | 'panel';
+}
+
+const INDICATORS: IndicatorConfig[] = [
+    { id: 'sma20', label: 'SMA 20', color: '#f59e0b', type: 'overlay' },
+    { id: 'sma50', label: 'SMA 50', color: '#8b5cf6', type: 'overlay' },
+    { id: 'ema12', label: 'EMA 12', color: '#06b6d4', type: 'overlay' },
+    { id: 'ema26', label: 'EMA 26', color: '#ec4899', type: 'overlay' },
+    { id: 'rsi',   label: 'RSI 14', color: '#a855f7', type: 'panel' },
+];
+
+/* ─── Chart Renderer — handles both Candlestick & Line + indicator overlays ─── */
 
 interface LinePoint {
     time: number;
     value: number;
 }
 
-function ChartRenderer({ ohlcData, lineData, mode }: { ohlcData: OHLCData[]; lineData: LinePoint[]; mode: ChartMode }) {
+interface ChartRendererProps {
+    ohlcData: OHLCData[];
+    lineData: LinePoint[];
+    mode: ChartMode;
+    overlays: { id: string; data: IndicatorPoint[]; color: string }[];
+}
+
+function ChartRenderer({ ohlcData, lineData, mode, overlays }: ChartRendererProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
 
@@ -92,7 +119,6 @@ function ChartRenderer({ ohlcData, lineData, mode }: { ohlcData: OHLCData[]; lin
         const data = mode === 'candle' ? ohlcData : lineData;
         if (!data || data.length === 0) return;
 
-        // Destroy previous chart
         if (chartRef.current) {
             chartRef.current.remove();
             chartRef.current = null;
@@ -146,16 +172,26 @@ function ChartRenderer({ ohlcData, lineData, mode }: { ohlcData: OHLCData[]; lin
                 crosshairMarkerBackgroundColor: '#10b981',
                 crosshairMarkerBorderColor: '#0f172a',
                 priceLineVisible: false,
-                // lineType 0 = Simple (point-to-point, no smoothing)
-                // This ensures actual data points are connected without interpolation
                 lineType: 0,
             });
             series.setData(lineData as Parameters<typeof series.setData>[0]);
         }
 
+        // Add indicator overlays (SMA, EMA lines)
+        for (const overlay of overlays) {
+            if (overlay.data.length === 0) continue;
+            const overlaySeries = chart.addSeries(LineSeries, {
+                color: overlay.color,
+                lineWidth: 1,
+                crosshairMarkerVisible: false,
+                priceLineVisible: false,
+                lastValueVisible: false,
+            });
+            overlaySeries.setData(overlay.data as Parameters<typeof overlaySeries.setData>[0]);
+        }
+
         chart.timeScale().fitContent();
 
-        // Responsive
         const ro = new ResizeObserver((entries) => {
             for (const entry of entries) {
                 if (chartRef.current) {
@@ -172,7 +208,7 @@ function ChartRenderer({ ohlcData, lineData, mode }: { ohlcData: OHLCData[]; lin
                 chartRef.current = null;
             }
         };
-    }, [ohlcData, lineData, mode]);
+    }, [ohlcData, lineData, mode, overlays]);
 
     useEffect(() => {
         const cleanup = buildChart();
@@ -185,6 +221,97 @@ function ChartRenderer({ ohlcData, lineData, mode }: { ohlcData: OHLCData[]; lin
             className="w-full rounded-xl overflow-hidden"
             style={{ minHeight: 420 }}
         />
+    );
+}
+
+/* ─── RSI Panel ─── */
+
+function RSIPanel({ data }: { data: IndicatorPoint[] }) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const chartRef = useRef<IChartApi | null>(null);
+
+    useEffect(() => {
+        const el = containerRef.current;
+        if (!el || data.length === 0) return;
+
+        if (chartRef.current) {
+            chartRef.current.remove();
+            chartRef.current = null;
+        }
+
+        const chart = createChart(el, {
+            width: el.clientWidth,
+            height: 120,
+            layout: {
+                background: { color: 'transparent' },
+                textColor: '#94a3b8',
+                fontFamily: '"SF Mono", "Fira Code", monospace',
+            },
+            grid: {
+                vertLines: { color: '#1e293b' },
+                horzLines: { color: '#1e293b' },
+            },
+            crosshair: {
+                vertLine: { color: '#475569', labelBackgroundColor: '#334155' },
+                horzLine: { color: '#475569', labelBackgroundColor: '#334155' },
+            },
+            rightPriceScale: {
+                borderColor: '#1e293b',
+                autoScale: false,
+                scaleMargins: { top: 0.05, bottom: 0.05 },
+            },
+            timeScale: {
+                borderColor: '#1e293b',
+                timeVisible: true,
+                secondsVisible: false,
+                visible: false,
+            },
+        });
+
+        chartRef.current = chart;
+
+        const rsiSeries = chart.addSeries(LineSeries, {
+            color: '#a855f7',
+            lineWidth: 2,
+            priceLineVisible: false,
+            lastValueVisible: true,
+        });
+        rsiSeries.setData(data as Parameters<typeof rsiSeries.setData>[0]);
+
+        // Overbought / Oversold lines
+        rsiSeries.createPriceLine({ price: 70, color: '#ef444480', lineWidth: 1, lineStyle: 2, title: '70' });
+        rsiSeries.createPriceLine({ price: 30, color: '#10b98180', lineWidth: 1, lineStyle: 2, title: '30' });
+        rsiSeries.createPriceLine({ price: 50, color: '#475569',   lineWidth: 1, lineStyle: 1, title: '' });
+
+        chart.timeScale().fitContent();
+
+        const ro = new ResizeObserver((entries) => {
+            for (const entry of entries) {
+                if (chartRef.current) {
+                    chartRef.current.applyOptions({ width: entry.contentRect.width });
+                }
+            }
+        });
+        ro.observe(el);
+
+        return () => {
+            ro.disconnect();
+            if (chartRef.current) {
+                chartRef.current.remove();
+                chartRef.current = null;
+            }
+        };
+    }, [data]);
+
+    return (
+        <div className="space-y-1">
+            <span className="text-[11px] font-medium text-muted-foreground tracking-wide">RSI (14)</span>
+            <div
+                ref={containerRef}
+                className="w-full rounded overflow-hidden border border-border"
+                style={{ minHeight: 120 }}
+            />
+        </div>
     );
 }
 
@@ -213,6 +340,15 @@ const CandlestickChart = ({
     const [slot, setSlot] = useState<TimeSlot>(defaultSlot);
     const [mode, setMode] = useState<ChartMode>('candle');
     const [range, setRange] = useState<DateRange>(defaultRange);
+    const [activeIndicators, setActiveIndicators] = useState<Set<IndicatorId>>(new Set());
+
+    const toggleIndicator = (id: IndicatorId) => {
+        setActiveIndicators(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
 
     // Compute `from` string based on selected DateRange
     const fromDate = useMemo(() => dateRangeToFrom(range), [range]);
@@ -272,6 +408,22 @@ const CandlestickChart = ({
         for (const c of sorted) deduped.set(c.time, c);
         return [...deduped.values()];
     }, [externalData, fetchedCandleData]);
+
+    // Compute indicator data from candle OHLC data
+    const indicatorOverlays = useMemo(() => {
+        if (mode !== 'candle' || candleData.length === 0) return [];
+        const overlays: { id: string; data: IndicatorPoint[]; color: string }[] = [];
+        if (activeIndicators.has('sma20')) overlays.push({ id: 'sma20', data: calculateSMA(candleData, 20), color: '#f59e0b' });
+        if (activeIndicators.has('sma50')) overlays.push({ id: 'sma50', data: calculateSMA(candleData, 50), color: '#8b5cf6' });
+        if (activeIndicators.has('ema12')) overlays.push({ id: 'ema12', data: calculateEMA(candleData, 12), color: '#06b6d4' });
+        if (activeIndicators.has('ema26')) overlays.push({ id: 'ema26', data: calculateEMA(candleData, 26), color: '#ec4899' });
+        return overlays;
+    }, [candleData, activeIndicators, mode]);
+
+    const rsiData = useMemo(() => {
+        if (!activeIndicators.has('rsi') || candleData.length === 0) return [];
+        return calculateRSI(candleData, 14);
+    }, [candleData, activeIndicators]);
 
     const showToolbar = !!symbol;
     const isLoading = mode === 'candle' ? candleLoading : lineLoading;
@@ -359,6 +511,30 @@ const CandlestickChart = ({
                             </div>
                         </div>
                     )}
+
+                    {/* Row 3: Indicator selector — only for candle mode */}
+                    {mode === 'candle' && (
+                        <div className="flex items-center gap-2">
+                            <TrendingUp size={13} className="text-muted-foreground" />
+                            <span className="text-label">İndikatörler:</span>
+                            <div className="flex gap-1 flex-wrap">
+                                {INDICATORS.map((ind) => (
+                                    <button
+                                        key={ind.id}
+                                        onClick={() => toggleIndicator(ind.id)}
+                                        className={`px-2.5 py-1 text-[11px] font-medium rounded-full border transition-all ${
+                                            activeIndicators.has(ind.id)
+                                                ? 'border-transparent text-white'
+                                                : 'border-border text-muted-foreground hover:text-foreground hover:border-white/10'
+                                        }`}
+                                        style={activeIndicators.has(ind.id) ? { backgroundColor: ind.color + '30', color: ind.color, borderColor: ind.color + '50' } : undefined}
+                                    >
+                                        {ind.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -373,7 +549,29 @@ const CandlestickChart = ({
 
             {/* Chart */}
             {!loading && hasData && (
-                <ChartRenderer ohlcData={candleData} lineData={lineChartData} mode={mode} />
+                <>
+                    <ChartRenderer ohlcData={candleData} lineData={lineChartData} mode={mode} overlays={indicatorOverlays} />
+
+                    {/* Indicator legend */}
+                    {indicatorOverlays.length > 0 && (
+                        <div className="flex gap-3 px-1">
+                            {indicatorOverlays.map(o => {
+                                const cfg = INDICATORS.find(i => i.id === o.id);
+                                return (
+                                    <span key={o.id} className="flex items-center gap-1.5 text-[11px] font-medium" style={{ color: o.color }}>
+                                        <span className="inline-block w-3 h-[2px] rounded" style={{ backgroundColor: o.color }} />
+                                        {cfg?.label}
+                                    </span>
+                                );
+                            })}
+                        </div>
+                    )}
+
+                    {/* RSI Panel */}
+                    {activeIndicators.has('rsi') && rsiData.length > 0 && (
+                        <RSIPanel data={rsiData} />
+                    )}
+                </>
             )}
         </div>
     );
