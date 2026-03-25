@@ -117,12 +117,12 @@ public class PortfolioService {
                 .toList();
     }
 
-    public boolean createPortfolio(String userId,PortfolioDto portfolio){
+    public void createPortfolio(String userId,PortfolioDto portfolio){
         logger.info("creating Portfolio {}", portfolio.portfolioName());
 
         User user = userRepository.findById(userId).orElseThrow(() ->{
             logger.error("user not found");
-            return  new RuntimeException("User not found");
+            return  new RuntimeException("User not found ");
         });
         Portfolio portfolioEntity = Portfolio.builder()
                 .user(user)
@@ -133,7 +133,7 @@ public class PortfolioService {
                 .build();
         portfolioRepository.save(portfolioEntity);
         logger.info("{} with name portfolio created", portfolio.portfolioName());
-        return true;
+
 
     }
     private LocalDate resolveStartDate(PortfolioRange portfolioRange){
