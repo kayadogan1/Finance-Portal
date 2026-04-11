@@ -6,9 +6,9 @@ import type { Sentiment } from '../../types';
 interface AIAnalysisCardProps { symbol: string; }
 
 const sentimentConfig: Record<Sentiment, { label: string; cls: string; icon: React.ReactNode }> = {
-    BULLISH:  { label: 'Bullish',  cls: 'badge-positive', icon: <Sparkles size={11} /> },
-    BEARISH:  { label: 'Bearish',  cls: 'badge-negative', icon: <AlertTriangle size={11} /> },
-    NEUTRAL:  { label: 'Neutral',  cls: 'bg-white/5 text-muted-foreground text-[12px] font-medium tabular-nums px-2 py-0.5 rounded-sm', icon: <Minus size={11} /> },
+    BULLISH:  { label: 'Yükseliş',  cls: 'badge-positive', icon: <Sparkles size={11} /> },
+    BEARISH:  { label: 'Düşüş',  cls: 'badge-negative', icon: <AlertTriangle size={11} /> },
+    NEUTRAL:  { label: 'Nötr',  cls: 'bg-white/5 text-muted-foreground text-[12px] font-medium tabular-nums px-2 py-0.5 rounded-sm', icon: <Minus size={11} /> },
 };
 
 const InsightSkeleton = () => (
@@ -32,7 +32,7 @@ const AIAnalysisCard = ({ symbol }: AIAnalysisCardProps) => {
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                     <Sparkles size={14} className="text-primary" />
-                    <span className="text-[14px] font-medium text-foreground">AI Market Insight</span>
+                    <span className="text-[14px] font-medium text-foreground">Yapay Zeka Analizi</span>
                 </div>
                 {insight && (
                     <span className={`inline-flex items-center gap-1 ${sentimentConfig[insight.sentiment].cls}`}>

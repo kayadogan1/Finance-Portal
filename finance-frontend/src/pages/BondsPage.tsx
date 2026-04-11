@@ -1,14 +1,11 @@
-import { Landmark, BarChart3, Info } from 'lucide-react';
+import { BarChart3, Info } from 'lucide-react';
 import NewsGrid from '../components/news/NewsGrid';
 
 const BondsPage = () => (
     <div className="space-y-6">
-        <div className="flex items-center gap-2.5">
-            <Landmark size={20} className="text-warning" />
-            <div>
-                <h2 className="text-[20px] font-semibold tracking-[-0.2px] text-foreground">Tahvil & Bono</h2>
-                <p className="text-meta">Makroekonomik gelişmeleri ve faiz piyasalarını takip edin</p>
-            </div>
+        <div>
+            <h2 className="text-[20px] font-semibold tracking-[-0.2px] text-foreground">Tahvil & Bono</h2>
+            <p className="text-meta">Makroekonomik gelişmeleri ve faiz piyasalarını takip edin</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
