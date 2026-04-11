@@ -47,7 +47,7 @@ const MainLayout = () => {
     }, []);
 
     const navItems = [
-        { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+        { to: '/dashboard', label: 'Genel Bakış', icon: LayoutDashboard },
         { to: '/portfolio', label: 'Portföy', icon: Wallet },
         { to: '/market', label: 'Piyasalar', icon: TrendingUp },
         { to: '/news', label: 'Haberler', icon: Newspaper },
@@ -185,7 +185,7 @@ const MainLayout = () => {
             {/* FOOTER */}
             <footer className="mt-auto py-4 text-center text-[11px] text-subtle border-t border-border">
                 <div className="max-w-7xl mx-auto px-4">
-                    Data provided by Yahoo Finance &amp; Binance APIs via Spring Boot
+                    Yahoo Finance ve Binance API üzerinden Spring Boot ile sunulmaktadır
                 </div>
             </footer>
         </div>

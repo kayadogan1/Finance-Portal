@@ -31,6 +31,14 @@ const MarketPage = () => {
         forex: instruments.filter(i => i.type === 'FIAT'),
         commodity: instruments.filter(i => i.type === 'COMMODITY'),
         indices: instruments.filter(i => i.type === 'INDEX'),
+        gainers: [...instruments]
+            .filter(i => (i.change24h ?? 0) > 0)
+            .sort((a, b) => (b.change24h ?? 0) - (a.change24h ?? 0))
+            .slice(0, 10),
+        losers: [...instruments]
+            .filter(i => (i.change24h ?? 0) < 0)
+            .sort((a, b) => (a.change24h ?? 0) - (b.change24h ?? 0))
+            .slice(0, 10),
     }), [instruments]);
 
     const tabCls = 'text-label pb-2 border-b-2 border-transparent rounded-none data-[state=active]:border-primary data-[state=active]:text-foreground text-muted-foreground';
@@ -38,43 +46,48 @@ const MarketPage = () => {
     return (
         <div className="space-y-6">
             <div>
-                <h2 className="text-[20px] font-semibold tracking-[-0.2px] text-foreground">Piyasalar</h2>
+                <h2 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-1px', color: 'hsl(var(--foreground))' }}>
+                    Piyasalar
+                </h2>
                 <p className="text-meta mt-1">Küresel piyasaları takip edin ve AI ile analiz edin.</p>
             </div>
 
             {/* Table with underline tabs */}
             <Tabs defaultValue="all" className="w-full">
-                <div className="border-b border-border pb-0 mb-0">
-                    <TabsList className="bg-transparent p-0 h-auto gap-6 rounded-none">
+                <div className="border-b border-border pb-0 mb-0" style={{ overflowX: 'auto' }}>
+                    <TabsList className="bg-transparent p-0 h-auto gap-4 rounded-none" style={{ flexWrap: 'nowrap', minWidth: 'max-content' }}>
                         <TabsTrigger value="all" className={tabCls}>Tümü</TabsTrigger>
                         <TabsTrigger value="crypto" className={tabCls}>Kripto</TabsTrigger>
                         <TabsTrigger value="forex" className={tabCls}>Döviz</TabsTrigger>
                         <TabsTrigger value="commodity" className={tabCls}>Emtia</TabsTrigger>
                         <TabsTrigger value="indices" className={tabCls}>Endeks</TabsTrigger>
+                        <TabsTrigger value="gainers" className={tabCls} style={{ color: isLoading ? undefined : '#10b981' }}>
+                            En Çok Artanlar
+                        </TabsTrigger>
+                        <TabsTrigger value="losers" className={tabCls} style={{ color: isLoading ? undefined : '#ef4444' }}>
+                            En Çok Düşenler
+                        </TabsTrigger>
                     </TabsList>
                 </div>
 
-                {isLoading ? (
-                    <div className="animate-pulse space-y-2 pt-4">
-                        {[1,2,3,4,5].map(i => <div key={i} className="h-11 rounded bg-white/[0.03]" />)}
-                    </div>
-                ) : (
-                    <>
-                        {(['all','crypto','forex','commodity','indices'] as const).map(key => (
-                            <TabsContent key={key} value={key} className="mt-0 outline-none pt-0">
-                                <InstrumentsTable instruments={grouped[key]} selectedSymbol={selectedSymbol} onSelectSymbol={setSelectedSymbol} />
-                            </TabsContent>
-                        ))}
-                    </>
-                )}
+                {(['all', 'crypto', 'forex', 'commodity', 'indices', 'gainers', 'losers'] as const).map(key => (
+                    <TabsContent key={key} value={key} className="mt-0 outline-none pt-0">
+                        <InstrumentsTable
+                            instruments={grouped[key]}
+                            selectedSymbol={selectedSymbol}
+                            onSelectSymbol={setSelectedSymbol}
+                            isLoading={isLoading}
+                        />
+                    </TabsContent>
+                ))}
             </Tabs>
 
             {/* Chart + AI + Trade */}
             <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                <div className="lg:col-span-2 card-base">
+                <div className="lg:col-span-2" style={{ background: '#111118', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)', padding: 20 }}>
                     <div className="flex items-center gap-2 mb-4">
                         <CandlestickIcon size={14} className="text-primary" />
-                        <span className="text-[14px] font-medium text-foreground">{selectedSymbol}</span>
+                        <span style={{ fontSize: 14, fontWeight: 600, color: '#f1f5f9' }}>{selectedSymbol}</span>
                     </div>
                     <CandlestickChart symbol={selectedSymbol} defaultSlot="W1" />
                 </div>

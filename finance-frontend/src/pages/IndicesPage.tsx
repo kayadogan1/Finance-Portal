@@ -17,12 +17,9 @@ const IndicesPage = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-2.5">
-                <BarChart2 size={20} className="text-[#8B5CF6]" />
-                <div>
-                    <h2 className="text-[20px] font-semibold tracking-[-0.2px] text-foreground">Endeksler</h2>
-                    <p className="text-meta">Küresel borsa endekslerini takip edin</p>
-                </div>
+            <div>
+                <h2 className="text-[20px] font-semibold tracking-[-0.2px] text-foreground">Endeksler</h2>
+                <p className="text-meta">Küresel borsa endekslerini takip edin</p>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">

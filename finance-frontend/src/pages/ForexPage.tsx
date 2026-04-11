@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { DollarSign } from 'lucide-react';
 import { getMarketInstruments } from '../services/marketService';
 import CandlestickChart from '../components/market/CandlestickChart';
 import TradeWidget from '../components/trade/TradeWidget';
@@ -16,12 +15,9 @@ const ForexPage = () => {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-2.5">
-                <DollarSign size={20} className="text-[#3B82F6]" />
-                <div>
-                    <h2 className="text-[20px] font-semibold tracking-[-0.2px] text-foreground">Döviz Piyasaları</h2>
-                    <p className="text-meta">Küresel döviz çiftlerini takip edin</p>
-                </div>
+            <div>
+                <h2 className="text-[20px] font-semibold tracking-[-0.2px] text-foreground">Döviz Piyasaları</h2>
+                <p className="text-meta">Küresel döviz çiftlerini takip edin</p>
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">

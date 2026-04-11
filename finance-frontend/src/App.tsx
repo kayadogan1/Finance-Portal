@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
+import LandingPage from './pages/LandingPage';
 import DashboardPage from './pages/DashboardPage';
 import PortfolioPage from './pages/PortfolioPage';
 import MarketPage from './pages/MarketPage';
@@ -15,6 +16,10 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 function App() {
     return (
         <Routes>
+            {/* Landing page — standalone layout */}
+            <Route path="/" element={<LandingPage />} />
+
+            {/* App pages — inside MainLayout */}
             <Route element={<MainLayout />}>
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/market" element={<MarketPage />} />
@@ -42,7 +47,7 @@ function App() {
                     }
                 />
 
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
             </Route>
         </Routes>
     );
