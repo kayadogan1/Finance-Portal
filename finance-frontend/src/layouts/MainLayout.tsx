@@ -18,6 +18,7 @@ import {
     BookOpen,
     Sun,
     Moon,
+    User,
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import useTheme from '../hooks/useTheme';
@@ -161,6 +162,14 @@ const MainLayout = () => {
                                             <p className="text-[11px] text-subtle mt-0.5">{isAdmin ? 'Yönetici' : 'Kullanıcı'}</p>
                                         </div>
                                         <div className="py-1">
+                                            <NavLink
+                                                to="/profile"
+                                                onClick={() => setDropdownOpen(false)}
+                                                className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+                                            >
+                                                <User size={14} />
+                                                Profil
+                                            </NavLink>
                                             <button
                                                 onClick={() => { setDropdownOpen(false); logout(); }}
                                                 className="w-full flex items-center gap-2 px-3 py-2 text-[13px] font-medium text-negative hover:bg-white/5 transition-colors"

@@ -158,3 +158,27 @@ export const sellInstrument = async (
 ): Promise<void> => {
     await privateApi.post('/api/portfolio/sell', { instrumentSymbol, quantity, portfolioId });
 };
+
+/* ─────────────────────────────── Transaction History ─────────────────────────────── */
+
+/** Matches `com.finance.shared.TransactionDto` */
+export interface TransactionDto {
+    transactionType: 'BUY' | 'SELL';
+    instrumentName: string;
+    quantity: number;
+    price: number;
+    dateTime: string; // Java LocalDateTime ISO
+}
+
+/**
+ * Fetch transaction history for the authenticated user.
+ * Route: GET /api/portfolio/transactions?startDate={YYYY-MM-DD}
+ */
+export const getTransactions = async (startDate?: string): Promise<TransactionDto[]> => {
+    const params: Record<string, string> = {};
+    if (startDate) params.startDate = startDate;
+
+    const { data } = await privateApi.get<TransactionDto[]>('/api/portfolio/transactions', { params });
+    return Array.isArray(data) ? data : [];
+};
+

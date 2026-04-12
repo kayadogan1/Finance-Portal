@@ -4,11 +4,11 @@ import type { OHLCData, AIInsight } from '../types';
 /* ═══════════════════════════════════════════════════════════════════════
    BACKEND ENDPOINT MAP  (MarketController)
    ─────────────────────────────────────────────────────────────────────
-   GET /api/market                             → Instrument[]
-   GET /api/market/{symbol}                    → Instrument
-   GET /api/market/candles/{symbol}?slot=&from= → CandleDto[]     (OHLC)
-   GET /api/market/line/{symbol}?dateTime=      → LineChartDto[]   (close)
-   GET /api/market/history/{symbol}?from=       → MarketData[]     (price)
+   GET /api/market?page=&size=                  → Page<InstrumentDto>
+   GET /api/market/{symbol}                     → Instrument
+   GET /api/market/candles/{symbol}?slot=&from=  → CandleDto[]     (OHLC)
+   GET /api/market/line/{symbol}?dateTime=       → LineChartDto[]   (close)
+   GET /api/market/history/{symbol}?from=        → MarketData[]     (price)
    ═══════════════════════════════════════════════════════════════════════ */
 
 /* ────────────────────── TimeSlot Enum ──────────────────────────────── */
@@ -43,10 +43,6 @@ function javaDateToUnixSeconds(isoString: string): number {
     return Math.floor(new Date(isoString).getTime() / 1000);
 }
 
-function javaDateToUnixMs(isoString: string): number {
-    return new Date(isoString).getTime();
-}
-
 /* ────────────────────── Backend DTO Shapes ─────────────────────────── */
 
 /** Matches `com.finance.shared.CandleDto` */
@@ -64,7 +60,18 @@ export interface LineChartDto {
     close: number;
 }
 
-/** Matches `com.finance.models.Instrument` JPA entity */
+/**
+ * Matches `com.finance.shared.InstrumentDto` (paginated endpoint).
+ * Field name is `instrumentType` (not `type`).
+ */
+export interface InstrumentDto {
+    symbol: string;
+    name: string;
+    instrumentType: 'CRYPTO' | 'FIAT' | 'COMMODITY' | 'INDEX' | 'STOCK' | 'FOREX' | 'BOND';
+    currentPrice: number;
+}
+
+/** Matches `com.finance.models.Instrument` JPA entity (single-instrument endpoint) */
 export interface BackendInstrument {
     id: string;
     symbol: string;
@@ -86,8 +93,24 @@ export interface MarketDataEntry {
 }
 
 /** Frontend-enriched instrument with computed change24h */
-export interface MarketInstrument extends BackendInstrument {
+export interface MarketInstrument {
+    symbol: string;
+    name: string;
+    type: string;
+    currentPrice: number;
     change24h: number;
+}
+
+/** Spring Boot Page<T> response shape */
+export interface PagedResponse<T> {
+    content: T[];
+    totalElements: number;
+    totalPages: number;
+    number: number;   // current page (0-indexed)
+    size: number;
+    first: boolean;
+    last: boolean;
+    empty: boolean;
 }
 
 /** Parsed line chart point — ready for ApexCharts/Recharts */
@@ -179,19 +202,33 @@ export const getMarketDataHistory = async (
 };
 
 /* ═══════════════════════════════════════════════════════════════════════
-   4. INSTRUMENTS  →  enriched with real change24h from /history
-   Endpoint: GET /api/market → Instrument[]
+   4a. INSTRUMENTS (PAGINATED)
+   Endpoint: GET /api/market?page={page}&size={size}
+   Returns:  Page<InstrumentDto> → { content, totalPages, ... }
    ═══════════════════════════════════════════════════════════════════════ */
 
-export const getMarketInstruments = async (): Promise<MarketInstrument[]> => {
-    const { data: instruments } = await publicApi.get<BackendInstrument[]>('/api/market');
+/**
+ * Fetch a single page of instruments with change24h enrichment.
+ * Backend returns Page<InstrumentDto>. The `instrumentType` field
+ * is mapped to `type` for frontend consistency.
+ */
+export const getMarketInstrumentsPaged = async (
+    page = 0,
+    size = 10,
+): Promise<PagedResponse<MarketInstrument>> => {
+    const { data: pageData } = await publicApi.get<PagedResponse<InstrumentDto>>('/api/market', {
+        params: { page, size },
+    });
 
-    if (!Array.isArray(instruments) || instruments.length === 0) return [];
+    if (!pageData || !pageData.content || pageData.content.length === 0) {
+        return { content: [], totalElements: 0, totalPages: 0, number: 0, size, first: true, last: true, empty: true };
+    }
 
     const from24h = toLocalDateTime(new Date(Date.now() - 24 * 60 * 60 * 1000));
 
+    // Fetch 24h history for change calculation — only for current page items
     const historyResults = await Promise.allSettled(
-        instruments.map((inst) =>
+        pageData.content.map((inst) =>
             publicApi
                 .get<{ price: number; timestamp: string }[]>(
                     `/api/market/history/${inst.symbol}`,
@@ -208,14 +245,44 @@ export const getMarketInstruments = async (): Promise<MarketInstrument[]> => {
         }
     }
 
-    return instruments.map((inst) => {
+    const enriched: MarketInstrument[] = pageData.content.map((inst) => {
         const current = Number(inst.currentPrice) || 0;
         const old = oldPriceMap.get(inst.symbol);
         const change24h = old && old !== 0
             ? Number((((current - old) / old) * 100).toFixed(2))
             : 0;
-        return { ...inst, currentPrice: current, change24h };
+        return {
+            symbol: inst.symbol,
+            name: inst.name,
+            type: inst.instrumentType,  // map instrumentType → type
+            currentPrice: current,
+            change24h,
+        };
     });
+
+    return { ...pageData, content: enriched };
+};
+
+/* ═══════════════════════════════════════════════════════════════════════
+   4b. ALL INSTRUMENTS (non-paginated fetch for Dashboard, categories)
+   Fetches ALL pages sequentially and returns a flat MarketInstrument[].
+   Used by Dashboard, category tabs, and comparison chart.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+export const getMarketInstruments = async (): Promise<MarketInstrument[]> => {
+    // Fetch first page to know total pages
+    const firstPage = await getMarketInstrumentsPaged(0, 30);
+
+    if (firstPage.totalPages <= 1) return firstPage.content;
+
+    // Fetch remaining pages in parallel
+    const remaining = await Promise.all(
+        Array.from({ length: firstPage.totalPages - 1 }, (_, i) =>
+            getMarketInstrumentsPaged(i + 1, 30)
+        ),
+    );
+
+    return [firstPage, ...remaining].flatMap((p) => p.content);
 };
 
 /**

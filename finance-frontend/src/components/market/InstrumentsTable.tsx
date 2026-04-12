@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
-import { Search, ChevronUp, ChevronDown } from 'lucide-react';
+import { Search, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import type { MarketInstrument } from '@/services/marketService';
+import { useFavorites } from '@/hooks/useFavorites';
 
 /* ─── Sort types ─── */
 type SortKey = 'symbol' | 'name' | 'currentPrice' | 'change24h';
@@ -9,7 +10,7 @@ type SortDir = 'asc' | 'desc';
 /* ─── Skeleton Row ─── */
 const SkeletonRow = () => (
     <tr>
-        {Array.from({ length: 5 }).map((_, i) => (
+        {Array.from({ length: 6 }).map((_, i) => (
             <td key={i} style={{ padding: '10px 12px' }}>
                 <div
                     className="animate-pulse"
@@ -17,7 +18,7 @@ const SkeletonRow = () => (
                         height: 14,
                         borderRadius: 6,
                         background: 'rgba(255,255,255,0.04)',
-                        width: i === 0 ? 60 : i === 1 ? 120 : i === 4 ? 50 : 80,
+                        width: i === 0 ? 28 : i === 1 ? 60 : i === 2 ? 120 : i === 5 ? 50 : 80,
                     }}
                 />
             </td>
@@ -44,12 +45,23 @@ interface InstrumentsTableProps {
     onSelectSymbol?: (symbol: string) => void;
     selectedSymbol?: string;
     isLoading?: boolean;
+    /* ─── Pagination props (optional) ─── */
+    page?: number;
+    totalPages?: number;
+    totalElements?: number;
+    onPageChange?: (page: number) => void;
 }
 
-export function InstrumentsTable({ instruments, onSelectSymbol, selectedSymbol, isLoading }: InstrumentsTableProps) {
+export function InstrumentsTable({
+    instruments, onSelectSymbol, selectedSymbol, isLoading,
+    page, totalPages, totalElements, onPageChange,
+}: InstrumentsTableProps) {
     const [search, setSearch] = useState('');
     const [sortKey, setSortKey] = useState<SortKey>('symbol');
     const [sortDir, setSortDir] = useState<SortDir>('asc');
+    const { isFavorite, toggleFavorite } = useFavorites();
+
+    const hasPagination = totalPages !== undefined && totalPages > 1 && onPageChange !== undefined;
 
     /* ─── Sort handler ─── */
     const handleSort = (key: SortKey) => {
@@ -98,6 +110,19 @@ export function InstrumentsTable({ instruments, onSelectSymbol, selectedSymbol, 
         return data;
     }, [instruments, search, sortKey, sortDir]);
 
+    /* ─── Page numbers to show ─── */
+    const pageNumbers = useMemo(() => {
+        if (!hasPagination || totalPages === undefined || page === undefined) return [];
+        const pages: number[] = [];
+        const maxVisible = 5;
+        let start = Math.max(0, page - Math.floor(maxVisible / 2));
+        const end = Math.min(totalPages, start + maxVisible);
+        if (end - start < maxVisible) start = Math.max(0, end - maxVisible);
+
+        for (let i = start; i < end; i++) pages.push(i);
+        return pages;
+    }, [page, totalPages, hasPagination]);
+
     /* ─── Loading skeleton ─── */
     if (isLoading) {
         return (
@@ -134,6 +159,24 @@ export function InstrumentsTable({ instruments, onSelectSymbol, selectedSymbol, 
         border: 'none',
         borderBottom: '1px solid rgba(255,255,255,0.06)',
         whiteSpace: 'nowrap',
+    });
+
+    const paginationBtnStyle = (active: boolean, disabled?: boolean): React.CSSProperties => ({
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minWidth: 32,
+        height: 32,
+        padding: '0 8px',
+        borderRadius: 6,
+        fontSize: 12,
+        fontWeight: 600,
+        border: active ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.08)',
+        background: active ? 'rgba(99,102,241,0.1)' : 'transparent',
+        color: disabled ? '#334155' : active ? '#818cf8' : '#94a3b8',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        transition: 'all 0.15s',
+        pointerEvents: disabled ? 'none' : 'auto',
     });
 
     return (
@@ -182,6 +225,9 @@ export function InstrumentsTable({ instruments, onSelectSymbol, selectedSymbol, 
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr>
+                            <th style={{ ...thStyle('left'), cursor: 'default', width: 40, padding: '10px 8px 10px 12px' }}>
+                                {/* Fav column header — empty */}
+                            </th>
                             <th style={thStyle('left')} onClick={() => handleSort('symbol')}>
                                 <span style={{ display: 'inline-flex', alignItems: 'center' }}>
                                     Sembol <SortArrow column="symbol" sortKey={sortKey} sortDir={sortDir} />
@@ -211,6 +257,7 @@ export function InstrumentsTable({ instruments, onSelectSymbol, selectedSymbol, 
                         {processed.map((inst) => {
                             const isPositive = (inst.change24h || 0) >= 0;
                             const isSelected = selectedSymbol === inst.symbol;
+                            const fav = isFavorite(inst.symbol);
                             return (
                                 <tr
                                     key={inst.symbol}
@@ -228,6 +275,21 @@ export function InstrumentsTable({ instruments, onSelectSymbol, selectedSymbol, 
                                         if (!isSelected) e.currentTarget.style.background = 'transparent';
                                     }}
                                 >
+                                    {/* Favorite star */}
+                                    <td style={{ padding: '10px 4px 10px 12px', width: 40 }}>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); toggleFavorite(inst.symbol); }}
+                                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex' }}
+                                            title={fav ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+                                        >
+                                            <Star
+                                                size={14}
+                                                fill={fav ? '#eab308' : 'none'}
+                                                color={fav ? '#eab308' : '#475569'}
+                                                style={{ transition: 'all 0.15s' }}
+                                            />
+                                        </button>
+                                    </td>
                                     <td style={{ padding: '10px 12px', fontSize: 13, fontWeight: 600, color: '#f1f5f9', width: 100 }}>
                                         {inst.symbol}
                                     </td>
@@ -287,10 +349,68 @@ export function InstrumentsTable({ instruments, onSelectSymbol, selectedSymbol, 
                 </table>
             </div>
 
-            {/* Row count */}
-            <div style={{ textAlign: 'center', padding: '4px 0 8px', fontSize: 11, color: '#475569' }}>
-                {processed.length} enstrüman
-            </div>
+            {/* Pagination / Row count */}
+            {hasPagination ? (
+                <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '12px 0 8px', flexWrap: 'wrap', gap: 8,
+                }}>
+                    <span style={{ fontSize: 12, color: '#64748b' }}>
+                        Toplam {totalElements ?? 0} enstrüman
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                        {/* Prev */}
+                        <button
+                            style={paginationBtnStyle(false, page === 0)}
+                            onClick={() => page !== undefined && page > 0 && onPageChange!(page - 1)}
+                        >
+                            <ChevronLeft size={14} />
+                        </button>
+
+                        {/* Page numbers */}
+                        {pageNumbers[0] > 0 && (
+                            <>
+                                <button style={paginationBtnStyle(page === 0)} onClick={() => onPageChange!(0)}>1</button>
+                                {pageNumbers[0] > 1 && <span style={{ color: '#475569', fontSize: 12, padding: '0 4px' }}>…</span>}
+                            </>
+                        )}
+                        {pageNumbers.map((n) => (
+                            <button
+                                key={n}
+                                style={paginationBtnStyle(n === page)}
+                                onClick={() => onPageChange!(n)}
+                            >
+                                {n + 1}
+                            </button>
+                        ))}
+                        {pageNumbers[pageNumbers.length - 1] < totalPages! - 1 && (
+                            <>
+                                {pageNumbers[pageNumbers.length - 1] < totalPages! - 2 && (
+                                    <span style={{ color: '#475569', fontSize: 12, padding: '0 4px' }}>…</span>
+                                )}
+                                <button
+                                    style={paginationBtnStyle(page === totalPages! - 1)}
+                                    onClick={() => onPageChange!(totalPages! - 1)}
+                                >
+                                    {totalPages}
+                                </button>
+                            </>
+                        )}
+
+                        {/* Next */}
+                        <button
+                            style={paginationBtnStyle(false, page === totalPages! - 1)}
+                            onClick={() => page !== undefined && onPageChange!(page + 1)}
+                        >
+                            <ChevronRight size={14} />
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div style={{ textAlign: 'center', padding: '4px 0 8px', fontSize: 11, color: '#475569' }}>
+                    {processed.length} enstrüman
+                </div>
+            )}
         </div>
     );
 }
