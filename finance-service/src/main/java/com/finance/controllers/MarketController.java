@@ -7,10 +7,12 @@ import com.finance.repositories.MarketDataRepository;
 import com.finance.services.InstrumentService;
 import com.finance.services.MarketDataService;
 import com.finance.shared.CandleDto;
+import com.finance.shared.InstrumentDto;
 import com.finance.shared.LineChartDto;
 import com.finance.shared.TimeSlot;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -37,9 +39,12 @@ public class MarketController {
         return ResponseEntity.ok(ApiResult.success(instrumentService.getInstrumentBySymbol(symbol),"instrument fetched",200));
     }
     @GetMapping
-    public ResponseEntity<ApiResult<List<Instrument>>> getAllInstruments(){
-        List<Instrument> instruments = instrumentService.getAllInstruments();
-        return ResponseEntity.ok(ApiResult.success(instruments,"all instruments fetched",200));
+    public ResponseEntity<ApiResult<Page<InstrumentDto>>> getAllInstruments(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        Page<InstrumentDto> instruments = instrumentService.getAllInstruments(page, size);
+        return ResponseEntity.ok(ApiResult.success(instruments, "all instruments fetched", 200));
     }
 
     @GetMapping("candles/{symbol}")
@@ -57,6 +62,7 @@ public class MarketController {
         List<LineChartDto> lineChartDtoList =marketDataService.getLineChartDataFrom(symbol, dateTime);
         return ResponseEntity.ok(ApiResult.success(lineChartDtoList,"line chart data fetched",200));
     }
+
 
 
     @GetMapping("/history/{symbol}")

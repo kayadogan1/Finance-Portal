@@ -3,11 +3,14 @@ package com.finance.services;
 import com.finance.exceptions.InstrumentNotFoundException;
 import com.finance.models.Instrument;
 import com.finance.repositories.InstrumentRepository;
+import com.finance.shared.InstrumentDto;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -22,8 +25,10 @@ public class InstrumentService {
         this.redisCacheService = redisCacheService;
     }
 
-    public List<Instrument> getAllInstruments() {
-        return instrumentRepository.findAll();
+    public Page<InstrumentDto> getAllInstruments(int page,int size) {
+        Pageable pageable = PageRequest.of(Math.max(0,Math.min(page,100)),Math.max(1,Math.min(size,30)) );
+        return instrumentRepository.findAll(pageable)
+                .map(this::toInstrumentDto);
     }
 
     public Instrument getInstrumentBySymbol(String symbol) {
@@ -43,5 +48,9 @@ public class InstrumentService {
         }
 
         return dbInstrument.orElseThrow(() -> new InstrumentNotFoundException("Instrument not found in DB"));
+    }
+
+    public InstrumentDto toInstrumentDto(Instrument instrument) {
+        return new InstrumentDto(instrument.getSymbol(),instrument.getName(),instrument.getType(),instrument.getCurrentPrice());
     }
 }
