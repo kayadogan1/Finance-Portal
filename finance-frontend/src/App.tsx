@@ -3,6 +3,7 @@ import MainLayout from './layouts/MainLayout';
 import LandingPage from './pages/LandingPage';
 import DashboardPage from './pages/DashboardPage';
 import PortfolioPage from './pages/PortfolioPage';
+import ProfilePage from './pages/ProfilePage';
 import MarketPage from './pages/MarketPage';
 import NewsPage from './pages/NewsPage';
 import AdminPage from './pages/AdminPage';
@@ -34,6 +35,15 @@ function App() {
                     element={
                         <ProtectedRoute>
                             <PortfolioPage />
+                        </ProtectedRoute>
+                    }
+                />
+                
+                <Route
+                    path="/profile"
+                    element={
+                        <ProtectedRoute>
+                            <ProfilePage />
                         </ProtectedRoute>
                     }
                 />

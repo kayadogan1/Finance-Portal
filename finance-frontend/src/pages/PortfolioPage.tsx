@@ -2,10 +2,11 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import {
     PieChart as PieChartIcon, TrendingUp, TrendingDown, Wallet,
-    ArrowDownToLine, RefreshCw, Plus, ChevronDown,
+    ArrowDownToLine, ArrowUpFromLine, RefreshCw, Plus, ChevronDown, Clock,
 } from 'lucide-react';
 import {
-    getPortfolios, getPortfolioPieChart, type PortfolioDto,
+    getPortfolios, getPortfolioPieChart, getTransactions,
+    type PortfolioDto, type TransactionDto,
 } from '../services/portfolioService';
 import PortfolioPieChart from '../components/portfolio/PortfolioPieChart';
 import PerformanceAreaChart from '../components/portfolio/PerformanceAreaChart';
@@ -13,6 +14,73 @@ import { CreatePortfolioModal } from '../components/portfolio/CreatePortfolioMod
 import { DepositModal } from '../components/portfolio/DepositModal';
 import { TradeModal } from '../components/trade/TradeModal';
 import useAuth from '../hooks/useAuth';
+
+/* ─── Transaction History (inline component) ─── */
+
+const TransactionHistory = () => {
+    const { data: transactions = [], isLoading } = useQuery({
+        queryKey: ['portfolio-transactions'],
+        queryFn: () => getTransactions(),
+        staleTime: 1000 * 60 * 2,
+    });
+
+    return (
+        <div className="border-t border-border pt-5">
+            <span className="text-label mb-4 block">Son İşlemler</span>
+            {isLoading ? (
+                <div className="py-8 text-center">
+                    <RefreshCw className="mx-auto mb-2 text-ghost animate-spin" size={22} />
+                    <p className="text-meta">İşlemler yükleniyor...</p>
+                </div>
+            ) : transactions.length === 0 ? (
+                <div className="py-8 text-center">
+                    <Clock className="mx-auto mb-2 text-ghost" size={22} />
+                    <p className="text-meta">Henüz işlem geçmişi bulunmuyor.</p>
+                </div>
+            ) : (
+                <div className="overflow-x-auto">
+                    <table className="w-full">
+                        <thead>
+                            <tr className="border-b border-border">
+                                <th className="px-4 py-2.5 text-left text-label">Tür</th>
+                                <th className="px-4 py-2.5 text-left text-label">Enstrüman</th>
+                                <th className="px-4 py-2.5 text-right text-label">Miktar</th>
+                                <th className="px-4 py-2.5 text-right text-label">Fiyat</th>
+                                <th className="px-4 py-2.5 text-right text-label">Tarih</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/50">
+                            {transactions.slice(0, 20).map((tx, idx) => {
+                                const isBuy = tx.transactionType === 'BUY';
+                                const txDate = new Date(tx.dateTime);
+                                return (
+                                    <tr key={idx} className="h-11 hover:bg-white/[0.02] transition-colors">
+                                        <td className="px-4 py-0">
+                                            <span className={`inline-flex items-center gap-1 text-[12px] font-semibold ${isBuy ? 'text-positive' : 'text-negative'}`}>
+                                                {isBuy ? <ArrowDownToLine size={12} /> : <ArrowUpFromLine size={12} />}
+                                                {isBuy ? 'ALIŞ' : 'SATIŞ'}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-0 text-[13px] font-medium text-foreground">{tx.instrumentName}</td>
+                                        <td className="px-4 py-0 text-right text-[13px] tabular-nums text-muted-foreground">
+                                            {Number(tx.quantity).toLocaleString('tr-TR', { maximumFractionDigits: 6 })}
+                                        </td>
+                                        <td className="px-4 py-0 text-right text-[13px] font-medium tabular-nums text-foreground">
+                                            {Number(tx.price).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                                        </td>
+                                        <td className="px-4 py-0 text-right text-[12px] text-subtle tabular-nums">
+                                            {txDate.toLocaleDateString('tr-TR')} {txDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const PortfolioPage = () => {
     const { isAdmin } = useAuth();
@@ -206,14 +274,8 @@ const PortfolioPage = () => {
                         )}
                     </div>
 
-                    {/* Recent transactions placeholder */}
-                    <div className="border-t border-border pt-5">
-                        <span className="text-label mb-4 block">Son İşlemler</span>
-                        <div className="py-8 text-center">
-                            <RefreshCw className="mx-auto mb-2 text-ghost" size={22} />
-                            <p className="text-meta">İşlem geçmişi yakında aktif olacak.</p>
-                        </div>
-                    </div>
+                    {/* Transaction History */}
+                    <TransactionHistory />
                 </>
             )}
 

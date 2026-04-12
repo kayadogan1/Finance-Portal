@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CandlestickChart as CandlestickIcon } from 'lucide-react';
-import { getMarketInstruments } from '../services/marketService';
+import { getMarketInstruments, getMarketInstrumentsPaged } from '../services/marketService';
 import CandlestickChart from '../components/market/CandlestickChart';
 import AIAnalysisCard from '../components/market/AIAnalysisCard';
 import TradeWidget from '../components/trade/TradeWidget';
@@ -9,37 +9,61 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InstrumentsTable } from '../components/market/InstrumentsTable';
 import ComparisonChart from '../components/market/ComparisonChart';
 
+const PAGE_SIZE = 10;
+
 const MarketPage = () => {
     const [selectedSymbol, setSelectedSymbol] = useState<string>('BTCUSDT');
+    const [activeTab, setActiveTab] = useState('all');
+    const [page, setPage] = useState(0);
 
-    const { data: instruments = [], isLoading } = useQuery({
-        queryKey: ['market-instruments'],
-        queryFn: getMarketInstruments,
+    // Paginated fetch for "Tümü" tab
+    const { data: pagedData, isLoading: pagedLoading } = useQuery({
+        queryKey: ['market-instruments-paged', page],
+        queryFn: () => getMarketInstrumentsPaged(page, PAGE_SIZE),
+        enabled: activeTab === 'all',
     });
 
-    const selected = useMemo(() => instruments.find(i => i.symbol === selectedSymbol), [instruments, selectedSymbol]);
+    // Full fetch for category tabs (backend doesn't support type filter with pagination)
+    const { data: allInstruments = [], isLoading: allLoading } = useQuery({
+        queryKey: ['market-instruments'],
+        queryFn: getMarketInstruments,
+        enabled: activeTab !== 'all',
+    });
+
+    const instruments = activeTab === 'all' ? (pagedData?.content ?? []) : allInstruments;
+    const isLoading = activeTab === 'all' ? pagedLoading : allLoading;
+
+    const selected = useMemo(() => {
+        const all = activeTab === 'all' ? (pagedData?.content ?? []) : allInstruments;
+        return all.find(i => i.symbol === selectedSymbol);
+    }, [pagedData, allInstruments, selectedSymbol, activeTab]);
 
     useEffect(() => {
-        if (instruments.length > 0 && !instruments.some(i => i.symbol === selectedSymbol)) {
-            setSelectedSymbol(instruments[0].symbol);
+        const list = activeTab === 'all' ? (pagedData?.content ?? []) : allInstruments;
+        if (list.length > 0 && !list.some(i => i.symbol === selectedSymbol)) {
+            setSelectedSymbol(list[0].symbol);
         }
-    }, [instruments, selectedSymbol]);
+    }, [pagedData, allInstruments, selectedSymbol, activeTab]);
+
+    // Reset page when tab changes
+    useEffect(() => {
+        setPage(0);
+    }, [activeTab]);
 
     const grouped = useMemo(() => ({
-        all: instruments,
-        crypto: instruments.filter(i => i.type === 'CRYPTO'),
-        forex: instruments.filter(i => i.type === 'FIAT'),
-        commodity: instruments.filter(i => i.type === 'COMMODITY'),
-        indices: instruments.filter(i => i.type === 'INDEX'),
-        gainers: [...instruments]
+        crypto: allInstruments.filter(i => i.type === 'CRYPTO'),
+        forex: allInstruments.filter(i => i.type === 'FIAT' || i.type === 'FOREX'),
+        commodity: allInstruments.filter(i => i.type === 'COMMODITY'),
+        indices: allInstruments.filter(i => i.type === 'INDEX'),
+        gainers: [...allInstruments]
             .filter(i => (i.change24h ?? 0) > 0)
             .sort((a, b) => (b.change24h ?? 0) - (a.change24h ?? 0))
             .slice(0, 10),
-        losers: [...instruments]
+        losers: [...allInstruments]
             .filter(i => (i.change24h ?? 0) < 0)
             .sort((a, b) => (a.change24h ?? 0) - (b.change24h ?? 0))
             .slice(0, 10),
-    }), [instruments]);
+    }), [allInstruments]);
 
     const tabCls = 'text-label pb-2 border-b-2 border-transparent rounded-none data-[state=active]:border-primary data-[state=active]:text-foreground text-muted-foreground';
 
@@ -53,7 +77,7 @@ const MarketPage = () => {
             </div>
 
             {/* Table with underline tabs */}
-            <Tabs defaultValue="all" className="w-full">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
                 <div className="border-b border-border pb-0 mb-0" style={{ overflowX: 'auto' }}>
                     <TabsList className="bg-transparent p-0 h-auto gap-4 rounded-none" style={{ flexWrap: 'nowrap', minWidth: 'max-content' }}>
                         <TabsTrigger value="all" className={tabCls}>Tümü</TabsTrigger>
@@ -61,22 +85,37 @@ const MarketPage = () => {
                         <TabsTrigger value="forex" className={tabCls}>Döviz</TabsTrigger>
                         <TabsTrigger value="commodity" className={tabCls}>Emtia</TabsTrigger>
                         <TabsTrigger value="indices" className={tabCls}>Endeks</TabsTrigger>
-                        <TabsTrigger value="gainers" className={tabCls} style={{ color: isLoading ? undefined : '#10b981' }}>
+                        <TabsTrigger value="gainers" className={tabCls} style={{ color: allLoading ? undefined : '#10b981' }}>
                             En Çok Artanlar
                         </TabsTrigger>
-                        <TabsTrigger value="losers" className={tabCls} style={{ color: isLoading ? undefined : '#ef4444' }}>
+                        <TabsTrigger value="losers" className={tabCls} style={{ color: allLoading ? undefined : '#ef4444' }}>
                             En Çok Düşenler
                         </TabsTrigger>
                     </TabsList>
                 </div>
 
-                {(['all', 'crypto', 'forex', 'commodity', 'indices', 'gainers', 'losers'] as const).map(key => (
+                {/* "Tümü" tab — uses server-side pagination */}
+                <TabsContent value="all" className="mt-0 outline-none pt-0">
+                    <InstrumentsTable
+                        instruments={pagedData?.content ?? []}
+                        selectedSymbol={selectedSymbol}
+                        onSelectSymbol={setSelectedSymbol}
+                        isLoading={pagedLoading}
+                        page={page}
+                        totalPages={pagedData?.totalPages ?? 0}
+                        totalElements={pagedData?.totalElements ?? 0}
+                        onPageChange={setPage}
+                    />
+                </TabsContent>
+
+                {/* Category tabs — client-side filtering */}
+                {(['crypto', 'forex', 'commodity', 'indices', 'gainers', 'losers'] as const).map(key => (
                     <TabsContent key={key} value={key} className="mt-0 outline-none pt-0">
                         <InstrumentsTable
                             instruments={grouped[key]}
                             selectedSymbol={selectedSymbol}
                             onSelectSymbol={setSelectedSymbol}
-                            isLoading={isLoading}
+                            isLoading={allLoading}
                         />
                     </TabsContent>
                 ))}
