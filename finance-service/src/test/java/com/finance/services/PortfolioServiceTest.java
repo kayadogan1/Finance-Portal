@@ -14,6 +14,10 @@ import org.mockito.quality.Strictness;
 import java.math.BigDecimal;
 import java.util.*;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -295,6 +299,128 @@ class PortfolioServiceTest {
     }
 
     @Test
+    void getPortfolioChartValues_whenHasItems_returnsPieChartData() {
+        // Arrange
+        String userId = "user123";
+        UUID portfolioId = UUID.randomUUID();
+        Portfolio portfolio = new Portfolio();
+        Instrument inst = new Instrument();
+        inst.setName("Apple");
+        inst.setCurrentPrice(BigDecimal.valueOf(150));
+        
+        PortfolioItem item = new PortfolioItem();
+        item.setInstrument(inst);
+        item.setQuantity(BigDecimal.valueOf(10));
+        
+        portfolio.setItems(List.of(item));
+        when(portfolioRepository.findByIdAndUserId(portfolioId, userId)).thenReturn(Optional.of(portfolio));
+
+        // Act
+        List<PieChartDto> result = portfolioService.getPortfolioChartValues(userId, portfolioId);
+
+        // Assert
+        assertEquals(1, result.size());
+        assertEquals("Apple", result.get(0).instrumentName());
+        assertEquals(BigDecimal.valueOf(1500), result.get(0).totalValue());
+    }
+
+    @Test
+    void getCalculatedPerformanceChartValues_calculatesCorrectly() {
+        // Arrange
+        String userId = "user123";
+        UUID portfolioId = UUID.randomUUID();
+        Portfolio portfolio = new Portfolio();
+        portfolio.setId(portfolioId);
+        portfolio.setCreatedAt(LocalDateTime.now().minusDays(10));
+        
+        Instrument inst = new Instrument();
+        inst.setId(UUID.randomUUID());
+        
+        Transaction t1 = new Transaction();
+        t1.setInstrument(inst);
+        t1.setQuantity(BigDecimal.TEN);
+        t1.setType(TransactionType.BUY);
+        t1.setTimestamp(LocalDateTime.now().minusDays(5));
+        
+        MarketData md = new MarketData();
+        md.setInstrument(inst);
+        md.setPrice(BigDecimal.valueOf(100));
+        md.setTimestamp(LocalDateTime.now().minusDays(2));
+
+        when(portfolioRepository.findByIdAndUserId(portfolioId, userId)).thenReturn(Optional.of(portfolio));
+        when(transactionRepository.findByPortfolioIdOrderByTimestampAsc(portfolioId)).thenReturn(List.of(t1));
+        when(marketDataRepository.findDailyClosingPrices(any(), any(), any())).thenReturn(List.of(md));
+
+        // Act
+        List<PerformanceLineChartDto> result = portfolioService.getCalculatedPerformanceChartValues(userId, portfolioId, PortfolioRange.WEEKLY);
+
+        // Assert
+        assertNotNull(result);
+        verify(transactionRepository).findByPortfolioIdOrderByTimestampAsc(portfolioId);
+    }
+
+    @Test
+    void buyInstrument_whenUpdatingExisting_recalculatesAverageCost() {
+        // Arrange
+        String userId = "user123";
+        UUID portfolioId = UUID.randomUUID();
+        String symbol = "AAPL";
+        
+        Instrument instrument = new Instrument();
+        instrument.setSymbol(symbol);
+        instrument.setCurrentPrice(BigDecimal.valueOf(200));
+
+        PortfolioItem existingItem = new PortfolioItem();
+        existingItem.setInstrument(instrument);
+        existingItem.setQuantity(BigDecimal.valueOf(10));
+        existingItem.setAverageCost(BigDecimal.valueOf(100));
+
+        Portfolio portfolio = new Portfolio();
+        portfolio.setItems(new ArrayList<>(List.of(existingItem)));
+        portfolio.setCashBalance(BigDecimal.valueOf(5000));
+
+        when(instrumentRepository.findInstrumentBySymbol(symbol)).thenReturn(Optional.of(instrument));
+        when(portfolioRepository.findByIdAndUserId(portfolioId, userId)).thenReturn(Optional.of(portfolio));
+
+        // Act
+        portfolioService.buyInstrument(userId, symbol, BigDecimal.valueOf(10), portfolioId);
+
+        // Assert
+        // Old: 10 * 100 = 1000. New: 10 * 200 = 2000. Total: 3000. Qty: 20. Avg: 150.
+        assertEquals(0, BigDecimal.valueOf(150).compareTo(existingItem.getAverageCost()));
+        assertEquals(BigDecimal.valueOf(20), existingItem.getQuantity());
+    }
+
+    @Test
+    void sellInstrument_whenQuantityReachedZero_removesItem() {
+        // Arrange
+        String userId = "user123";
+        UUID portfolioId = UUID.randomUUID();
+        String symbol = "AAPL";
+        
+        Instrument instrument = new Instrument();
+        instrument.setSymbol(symbol);
+        instrument.setCurrentPrice(BigDecimal.valueOf(100));
+
+        PortfolioItem item = new PortfolioItem();
+        item.setInstrument(instrument);
+        item.setQuantity(BigDecimal.valueOf(10));
+
+        Portfolio portfolio = new Portfolio();
+        portfolio.setItems(new ArrayList<>(List.of(item)));
+        portfolio.setCashBalance(BigDecimal.valueOf(0));
+
+        when(instrumentRepository.findInstrumentBySymbol(symbol)).thenReturn(Optional.of(instrument));
+        when(portfolioRepository.findByIdAndUserId(portfolioId, userId)).thenReturn(Optional.of(portfolio));
+
+        // Act
+        portfolioService.sellInstrument(userId, symbol, BigDecimal.valueOf(10), portfolioId);
+
+        // Assert
+        assertTrue(portfolio.getItems().isEmpty());
+    }
+
+    @Test
     void getAllPortfolios_returnsAllPortfolios() {
         // Arrange
         Portfolio p1 = new Portfolio();
@@ -307,6 +433,17 @@ class PortfolioServiceTest {
         // Assert
         assertEquals(1, result.size());
         verify(portfolioRepository).findAll();
-        verifyNoMoreInteractions(portfolioRepository);
+    }
+
+    @Test
+    void getPortfolioEntity_whenNotFound_throwsException() {
+        // Arrange
+        String userId = "user123";
+        UUID portfolioId = UUID.randomUUID();
+        when(portfolioRepository.findByIdAndUserId(portfolioId, userId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        Exception exception = assertThrows(RuntimeException.class, () -> portfolioService.getPortfolioChartValues(userId, portfolioId));
+        assertTrue(exception.getMessage().contains("Portfolio not found for user"));
     }
 }

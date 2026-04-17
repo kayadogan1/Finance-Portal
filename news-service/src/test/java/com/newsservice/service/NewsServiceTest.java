@@ -13,7 +13,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.client.RestClient;
+import org.springframework.test.util.ReflectionTestUtils;
+import io.micrometer.tracing.TraceContext;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -41,6 +44,30 @@ class NewsServiceTest {
 
     @InjectMocks
     private NewsService newsService;
+
+    @Mock
+    private RestClient.RequestHeadersUriSpec requestHeadersUriSpec;
+
+    @Mock
+    private RestClient.ResponseSpec responseSpec;
+
+    @BeforeEach
+    void setUp() {
+        ReflectionTestUtils.setField(newsService, "API_URL", "http://newsapi.org");
+        ReflectionTestUtils.setField(newsService, "API_KEY", "test-key");
+        
+        // Setup tracing mocks
+        Span span = mock(Span.class);
+        when(tracer.nextSpan()).thenReturn(span);
+        when(span.name(anyString())).thenReturn(span);
+        when(span.start()).thenReturn(span);
+        when(tracer.withSpan(any())).thenReturn(mock(Tracer.SpanInScope.class));
+        
+        io.micrometer.tracing.CurrentTraceContext currentTraceContext = mock(io.micrometer.tracing.CurrentTraceContext.class);
+        when(tracer.currentTraceContext()).thenReturn(currentTraceContext);
+        when(currentTraceContext.wrap(any(Runnable.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(currentTraceContext.wrap(any(java.util.concurrent.Callable.class))).thenAnswer(inv -> inv.getArgument(0));
+    }
 
     private NewsArticle createMockArticle() {
         return NewsArticle.builder()
@@ -187,5 +214,47 @@ class NewsServiceTest {
         // Assert
         assertEquals(1, result.size());
         verify(newsArticleRepository).findByTopicAndCountry(topic, country);
+    }
+
+    @Test
+    void getAllArticles_whenApiReturnsData_savesNewArticles() {
+        // Arrange
+        when(restClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(anyString(), any(java.util.function.Function.class))).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.accept(any())).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
+        
+        ArticleDto articleDto = new ArticleDto(
+            null, "Author", "Title", "Desc", "Content", "https://news.com", "img", "2024-04-17T12:00:00Z"
+        );
+        NewsResponseDto response = new NewsResponseDto("ok", 1, List.of(articleDto));
+        when(responseSpec.body(NewsResponseDto.class)).thenReturn(response);
+        when(newsArticleRepository.existsByUrl(anyString())).thenReturn(false);
+
+        // Act
+        newsService.getAllArticles();
+
+        // Assert
+        verify(newsArticleRepository, atLeastOnce()).save(any(NewsArticle.class));
+    }
+
+    @Test
+    void fetchArticlesFromAPI_whenApiFails_returnsEmptyList() {
+        // Arrange
+        when(restClient.get()).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.uri(anyString(), any(java.util.function.Function.class))).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.accept(any())).thenReturn(requestHeadersUriSpec);
+        when(requestHeadersUriSpec.retrieve()).thenReturn(responseSpec);
+        when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
+        when(responseSpec.body(NewsResponseDto.class)).thenThrow(new RuntimeException("API Down"));
+
+        // Act
+        // Access private method via reflection or just call a public method that uses it
+        // newsService.getAllArticles() calls it internally.
+        newsService.getAllArticles();
+
+        // Assert
+        verify(newsArticleRepository, never()).save(any());
     }
 }
