@@ -4,7 +4,9 @@ import {
     ArrowRight,
     Clock,
     ExternalLink,
+    Star,
 } from 'lucide-react';
+import { useFavorites } from '../hooks/useFavorites';
 import { getMarketInstruments, type MarketInstrument } from '../services/marketService';
 import { getNews, type FilteredArticleDto } from '../services/newsService';
 
@@ -173,8 +175,15 @@ const DashboardPage = () => {
         queryFn: () => getNews(),
         staleTime: 1000 * 60 * 3,
     });
+    
+    const { favorites } = useFavorites();
 
     /* ─── Derived data ─── */
+    
+    // User favorites
+    const favoriteInstruments = favorites
+        .map(sym => instruments.find(i => i.symbol === sym))
+        .filter(Boolean) as MarketInstrument[];
 
     // Market overview — specific assets
     const overviewAssets = [
@@ -283,6 +292,69 @@ const DashboardPage = () => {
                         })}
                 </div>
             </div>
+
+            {/* ─── My Favorites (Dynamic) ─── */}
+            {favoriteInstruments.length > 0 && (
+                <div>
+                    <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                            <Star size={14} className="text-yellow-500 fill-yellow-500/20" />
+                            <span className="text-label">Favorilerim</span>
+                        </div>
+                        <NavLink to="/profile" className="text-[12px] font-medium text-subtle hover:text-foreground flex items-center gap-1 transition-colors">
+                            Yönet <ArrowRight size={11} />
+                        </NavLink>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        {favoriteInstruments.map((inst) => {
+                            const isPositive = (inst.change24h ?? 0) >= 0;
+                            return (
+                                <div
+                                    key={inst.symbol}
+                                    style={{
+                                        background: '#111118',
+                                        borderRadius: 12,
+                                        padding: '20px',
+                                        border: '1px solid rgba(255,255,255,0.06)',
+                                        boxShadow: '0 0 0 1px rgba(255,255,255,0.06)',
+                                        transition: 'all 0.2s',
+                                        cursor: 'default',
+                                    }}
+                                    className="hover:translate-y-[-2px]"
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.boxShadow = `0 4px 20px rgba(0,0,0,0.3), 0 0 0 1px ${isPositive ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}`;
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.boxShadow = '0 0 0 1px rgba(255,255,255,0.06)';
+                                    }}
+                                >
+                                    <div className="flex items-center justify-between mb-3">
+                                        <span style={{ fontSize: 12, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                                            {inst.symbol}
+                                        </span>
+                                        <MiniSparkline positive={isPositive} />
+                                    </div>
+                                    <div style={{ fontSize: 22, fontWeight: 700, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px' }}>
+                                        {(inst.currentPrice ?? 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </div>
+                                    <div className="flex items-center gap-2 mt-1.5">
+                                        <span
+                                            style={{
+                                                fontSize: 12,
+                                                fontWeight: 600,
+                                                color: isPositive ? '#10b981' : '#ef4444',
+                                                fontVariantNumeric: 'tabular-nums',
+                                            }}
+                                        >
+                                            {isPositive ? '+' : ''}{(inst.change24h ?? 0).toFixed(2)}%
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
 
             {/* ─── Top Movers ─── */}
             <div>
