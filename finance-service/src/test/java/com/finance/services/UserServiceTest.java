@@ -2,12 +2,15 @@ package com.finance.services;
 
 import com.finance.models.User;
 import com.finance.repositories.UserRepository;
+import com.finance.shared.RiskTolerance;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.util.Optional;
@@ -17,7 +20,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class UserServiceTest {
+@MockitoSettings(strictness = Strictness.LENIENT)
+class UserServiceTest {
 
     @Mock
     private UserRepository userRepository;
@@ -28,83 +32,120 @@ public class UserServiceTest {
     @InjectMocks
     private UserService userService;
 
+    private final String userId = "user123";
+    private final String name = "Test Name";
+    private final String email = "test@example.com";
+
     @BeforeEach
     void setUp() {
-        when(jwt.getSubject()).thenReturn("user-123");
-        when(jwt.getClaim("email")).thenReturn("test@email.com");
-        when(jwt.getClaim("name")).thenReturn("test user");
+        when(jwt.getSubject()).thenReturn(userId);
+        when(jwt.<String>getClaim("email")).thenReturn(email);
+        when(jwt.<String>getClaim("name")).thenReturn(name);
+        when(jwt.<RiskTolerance>getClaim("riskTolerance")).thenReturn(RiskTolerance.MODERATE);
+
+        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
     }
 
     @Test
-    void getOrCreateUser_whenUserDoesNotExist_createsAndReturnsNewUser() {
-        // ARRANGE
-        when(userRepository.findById("user-123"))
-                .thenReturn(Optional.empty());
-        when(userRepository.save(any(User.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
+    void getOrCreateUser_whenUserNotFound_createsAndSavesUser() {
+        // Arrange
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
-        // ACT
+        // Act
         User result = userService.getOrCreateUser(jwt);
 
-        // ASSERT
+        // Assert
         assertNotNull(result);
-        assertEquals("user-123",       result.getId());
-        assertEquals("test@email.com", result.getEmail());
-        assertEquals("test user",      result.getName());
-        assertEquals("TRY",            result.getPreferredCurrency());
+        assertEquals(userId, result.getId());
+        assertEquals(email, result.getEmail());
+        assertEquals(name, result.getName());
+        assertEquals(RiskTolerance.MODERATE, result.getRiskTolerance());
         assertFalse(result.isFrozen());
+        assertEquals("TRY", result.getPreferredCurrency());
 
-        verify(userRepository, times(1)).save(any(User.class));
+        verify(userRepository).findById(userId);
+        verify(userRepository).save(any(User.class));
     }
 
     @Test
-    void getOrCreateUser_whenUserExistsAndGmailChanged_updatesAndSaveUser(){
-        User existingUser = User.builder()
-                .id("user-123")
-                .email("eski@gmail.com")
-                .name("test user")
-                .build();
-        when(userRepository.findById("user-123")).thenReturn(Optional.of(existingUser));
-        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+    void getOrCreateUser_whenUserExistsWithDifferentFields_updatesAndSaves() {
+        // Arrange
+        User existingUser = new User();
+        existingUser.setId(userId);
+        existingUser.setEmail("old@example.com");
+        existingUser.setName("Old Name");
+        when(userRepository.findById(userId)).thenReturn(Optional.of(existingUser));
 
+        // Act
         User result = userService.getOrCreateUser(jwt);
 
-        assertEquals("test@email.com", result.getEmail());
-        verify(userRepository, times(1)).save(any(User.class));
+        // Assert
+        assertEquals(userId, result.getId());
+        assertEquals(email, result.getEmail());
+        assertEquals(name, result.getName());
 
+        verify(userRepository).findById(userId);
+        verify(userRepository).save(existingUser);
     }
 
     @Test
-    void getOrCreateUser_whenUserExistsAndNameChanged_updatesAndSaveUser(){
-        User existingUser = User.builder()
-                .id("user-123")
-                .email("test@email.com")
-                .name("eski isim")
-                .build();
-        when(userRepository.findById("user-123")).thenReturn(Optional.of(existingUser));
-        when(userRepository.save(any(User.class))).thenAnswer(inv -> inv.getArgument(0));
+    void getOrCreateUser_whenUserExistsButOnlyDetailsChanged_updatesAndSaves() {
+        // Arrange
+        User existingUser = new User();
+        existingUser.setId(userId);
+        existingUser.setEmail(email);
+        existingUser.setName("Old Name");
+        when(userRepository.findById(userId)).thenReturn(Optional.of(existingUser));
 
+        // Act
         User result = userService.getOrCreateUser(jwt);
 
-        assertEquals("test user", result.getName());
-        verify(userRepository, times(1)).save(any(User.class));
+        // Assert
+        assertEquals(email, result.getEmail());
+        assertEquals(name, result.getName());
+        verify(userRepository).save(existingUser);
     }
-
+    
     @Test
-    void getOrCreateUser_whenNothingChanged_doesNotSave(){
-        User existingUser = User.builder()
-                .id("user-123")
-                .email("test@email.com")
-                .name("test user")
-                .build();
-        when(userRepository.findById("user-123")).thenReturn(Optional.of(existingUser));
+    void getOrCreateUser_whenUserExistsWithSameFields_returnsUserWithoutSave() {
+        // Arrange
+        User existingUser = new User();
+        existingUser.setId(userId);
+        existingUser.setEmail(email);
+        existingUser.setName(name);
+        // Note: riskTolerance is not actually checked during updateUser in the source, just email and name.
+        when(userRepository.findById(userId)).thenReturn(Optional.of(existingUser));
 
+        // Act
         User result = userService.getOrCreateUser(jwt);
 
-        assertEquals(existingUser, result);
-        verify(userRepository, never()).save(any());
-        verifyNoMoreInteractions(userRepository);
+        // Assert
+        assertEquals(userId, result.getId());
+        assertEquals(email, result.getEmail());
+        assertEquals(name, result.getName());
 
+        verify(userRepository).findById(userId);
+        verify(userRepository, never()).save(any(User.class));
+    }
+    
+    @Test
+    void getOrCreateUser_whenClaimsAreNull_doesNotFailToUpdate() {
+        // Arrange
+        when(jwt.<String>getClaim("email")).thenReturn(null);
+        when(jwt.<String>getClaim("name")).thenReturn(null);
+        
+        User existingUser = new User();
+        existingUser.setId(userId);
+        existingUser.setEmail("old@example.com");
+        existingUser.setName("Old Name");
+        when(userRepository.findById(userId)).thenReturn(Optional.of(existingUser));
 
+        // Act
+        User result = userService.getOrCreateUser(jwt);
+
+        // Assert
+        assertEquals("old@example.com", result.getEmail());
+        assertEquals("Old Name", result.getName());
+        verify(userRepository, never()).save(any(User.class));
     }
 }
