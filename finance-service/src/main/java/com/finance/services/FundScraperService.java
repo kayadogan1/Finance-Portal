@@ -1,0 +1,123 @@
+package com.finance.services;
+
+import com.finance.config.InstrumentPropertiesConfig;
+import com.finance.repositories.InstrumentRepository;
+import com.finance.repositories.MarketDataRepository;
+import com.finance.shared.FundHistoryResponse;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
+
+@Service
+public class FundScraperService {
+    private final Logger logger = LogManager.getLogger(FundScraperService.class);
+    private final Map<String, String> funds;
+    private final Map<String, String> viops;
+    private final MarketDataPersistenceService marketDataPersistenceService;
+    private final InstrumentRepository instrumentRepository;
+    private final MarketDataRepository marketDataRepository;
+    private final RestClient restClient;
+
+    @Value("${finance.FINTABLES.API_URL}")
+    private String API_URL;
+
+    private static final int MAX_CONCURRENT_REQUESTS = 5;
+    private static final int DELAY_BETWEEN_REQUESTS_MS = 200;
+
+    public FundScraperService(MarketDataPersistenceService marketDataPersistenceService,
+                              RestClient restClient,
+                              InstrumentPropertiesConfig instrumentPropertiesConfig,MarketDataRepository marketDataRepository,InstrumentRepository instrumentRepository) {
+        this.restClient = restClient;
+        this.marketDataRepository = marketDataRepository;
+        this.marketDataPersistenceService = marketDataPersistenceService;
+        this.instrumentRepository = instrumentRepository;
+        this.funds = instrumentPropertiesConfig.getFund();
+        this.viops = instrumentPropertiesConfig.getViop();
+    }
+
+    @Scheduled(cron = "0 0 18 * * *")
+    public void scrapeFunds() {
+        logger.info("Starting one-time scrape for Funds and VIOPs...");
+
+        try (ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
+            Semaphore rateLimitSemaphore = new Semaphore(MAX_CONCURRENT_REQUESTS);
+
+            funds.keySet().forEach(key -> submitTask(executorService, rateLimitSemaphore, key));
+            viops.keySet().forEach(key -> submitTask(executorService, rateLimitSemaphore, key));
+
+        } catch (Exception e) {
+            logger.error("Error during data scraping process", e);
+        }
+        logger.info("All scraping tasks completed.");
+    }
+
+    private void submitTask(ExecutorService executor, Semaphore semaphore, String instrumentName) {
+        executor.submit(() -> {
+            try {
+                semaphore.acquire();
+                fetchAndProcess(instrumentName);
+                TimeUnit.MILLISECONDS.sleep(DELAY_BETWEEN_REQUESTS_MS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                logger.error("Task interrupted for instrument: {}", instrumentName);
+            } finally {
+                semaphore.release();
+            }
+        });
+    }
+
+    private void fetchAndProcess(String instrumentName) {
+        logger.info("Fetching data for instrument: {}", instrumentName);
+
+        try {
+            var instrumentOpt = instrumentRepository.findInstrumentBySymbol(instrumentName);
+            if (instrumentOpt.isEmpty()) {
+                logger.warn("Instrument not found in DB: {}", instrumentName);
+                return;
+            }
+            var instrument = instrumentOpt.get();
+
+            long fromUnix = marketDataRepository.findFirstByInstrumentOrderByTimestampDesc(instrument)
+                    .map(md -> md.getTimestamp().plusDays(1).atZone(ZoneId.of("Europe/Istanbul")).toEpochSecond())
+                    .orElseGet(() -> LocalDate.now().minusYears(2).atStartOfDay(ZoneId.of("Europe/Istanbul")).toEpochSecond());
+
+            long toUnix = LocalDate.now().plusDays(1).atStartOfDay(ZoneId.of("Europe/Istanbul")).toEpochSecond();
+
+            if (fromUnix >= toUnix) {
+                logger.info("Data for {} is already strictly up to date. Skipping API call.", instrumentName);
+                return;
+            }
+
+            FundHistoryResponse response = restClient.get()
+                    .uri(API_URL + "?symbol={symbol}&resolution=D&from={from}&to={to}", instrumentName, fromUnix, toUnix)
+                    .header("Accept", "application/json")
+                    .retrieve()
+                    .body(FundHistoryResponse.class);
+
+            if (response != null && "ok".equalsIgnoreCase(response.status())) {
+                if (response.timestamps() != null && !response.timestamps().isEmpty()) {
+                    marketDataPersistenceService.saveHistoricalDataBatch(instrumentName, response.closes(), response.timestamps());
+                    logger.info("Successfully fetched and inserted new records for: {}", instrumentName);
+                } else {
+                    logger.info("API returned 'ok' but no new data arrays for: {}", instrumentName);
+                }
+            } else {
+                logger.error("Invalid response or no data for: {}", instrumentName);
+            }
+        } catch (Exception e) {
+            logger.error("HTTP error for {}: {}", instrumentName, e.getMessage());
+        }
+    }
+
+}

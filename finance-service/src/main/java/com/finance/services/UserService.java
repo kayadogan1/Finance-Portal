@@ -47,7 +47,6 @@ public class UserService {
             user.setName(name);
             changed = true;
         }
-
         if (changed) {
             return userRepository.save(user);
         }
