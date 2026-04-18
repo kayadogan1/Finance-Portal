@@ -31,6 +31,8 @@ public interface MarketDataRepository extends JpaRepository<MarketData, UUID> {
             @Param("instrumentId") UUID instrumentId,
             @Param("queryDate") LocalDate queryDate
     );
+
+
     @Query(
             value = """
         SELECT md.id, md.instrument_id, md.price, md.timestamp

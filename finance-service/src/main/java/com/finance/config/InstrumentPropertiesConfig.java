@@ -21,5 +21,7 @@ public class InstrumentPropertiesConfig {
     private Map<String, String> index;
     private Map<String, String> bond;
     private Map<String, String> fiat;
+    private Map<String,String> fund;
+    private Map<String,String> viop;
 
 }
