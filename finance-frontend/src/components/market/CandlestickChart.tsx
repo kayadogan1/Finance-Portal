@@ -110,6 +110,7 @@ interface ChartRendererProps {
 
 function ChartRenderer({ ohlcData, lineData, mode, overlays }: ChartRendererProps) {
     const containerRef = useRef<HTMLDivElement>(null);
+    const tooltipRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
 
     const buildChart = useCallback(() => {
@@ -148,6 +149,11 @@ function ChartRenderer({ ohlcData, lineData, mode, overlays }: ChartRendererProp
                 borderColor: '#1e293b',
                 timeVisible: true,
                 secondsVisible: false,
+                barSpacing: 10,
+                minBarSpacing: 3,
+                rightOffset: 10,
+                fixLeftEdge: false,
+                fixRightEdge: false,
             },
         });
 
@@ -190,6 +196,76 @@ function ChartRenderer({ ohlcData, lineData, mode, overlays }: ChartRendererProp
             overlaySeries.setData(overlay.data as Parameters<typeof overlaySeries.setData>[0]);
         }
 
+        // Tooltip logic
+        const toolTipWidth = 120;
+        const toolTipHeight = 110;
+        const toolTipMargin = 15;
+
+        chart.subscribeCrosshairMove(param => {
+            if (
+                param.point === undefined ||
+                !param.time ||
+                param.point.x < 0 ||
+                param.point.x > el.clientWidth ||
+                param.point.y < 0 ||
+                param.point.y > el.clientHeight ||
+                !tooltipRef.current
+            ) {
+                if (tooltipRef.current) tooltipRef.current.style.display = 'none';
+                return;
+            }
+
+            const data = param.seriesData.get(series);
+            if (!data) return;
+
+            let text = '';
+            // Since time is UNIX seconds or business day, we convert roughly. 
+            // In Lightweight charts, if time is a number, it usually means UNIX timestamp in seconds if it's > 2000000000 or it's a daily value.
+            let dateStr = '';
+            if (typeof param.time === 'number') {
+                 // Lightweight charts Unix timestamp is in seconds
+                dateStr = new Date(param.time * 1000).toLocaleString('tr-TR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            } else if (typeof param.time === 'object') {
+                dateStr = `${param.time.year}-${param.time.month}-${param.time.day}`;
+            }
+
+            if (mode === 'candle') {
+                const d = data as any;
+                const isGreen = d.close >= d.open;
+                const color = isGreen ? '#10b981' : '#ef4444';
+                const precision = d.close < 1 ? 6 : 2;
+                text = `
+                    <div style="font-size: 11px; margin-bottom: 8px; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">${dateStr}</div>
+                    <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>Açılış:</span> <span style="font-weight: 600; color: #f1f5f9" class="font-mono">${d.open.toFixed(precision)}</span></div>
+                    <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>Yüksek:</span> <span style="font-weight: 600; color: #f1f5f9" class="font-mono">${d.high.toFixed(precision)}</span></div>
+                    <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>Düşük:</span> <span style="font-weight: 600; color: #f1f5f9" class="font-mono">${d.low.toFixed(precision)}</span></div>
+                    <div style="display: flex; justify-content: space-between; gap: 16px;"><span>Kapanış:</span> <span style="font-weight: 700; color: ${color}" class="font-mono">${d.close.toFixed(precision)}</span></div>
+                `;
+            } else {
+                const d = data as any;
+                const precision = d.value < 1 ? 6 : 2;
+                text = `
+                    <div style="font-size: 11px; margin-bottom: 8px; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">${dateStr}</div>
+                    <div style="display: flex; justify-content: space-between; gap: 16px;"><span>Fiyat:</span> <span style="font-weight: 700; color: #10b981" class="font-mono">${d.value.toFixed(precision)}</span></div>
+                `;
+            }
+
+            tooltipRef.current.innerHTML = text;
+            tooltipRef.current.style.display = 'block';
+
+            const coordinate = series.priceToCoordinate(mode === 'candle' ? (data as any).close : (data as any).value);
+            let shiftedCoordinate = param.point.x;
+            if (coordinate === null) return;
+            
+            shiftedCoordinate = Math.max(0, Math.min(el.clientWidth - toolTipWidth, shiftedCoordinate));
+            const yOffset = param.point.y - toolTipHeight - toolTipMargin > 0 
+                ? param.point.y - toolTipHeight - toolTipMargin 
+                : Math.max(0, Math.min(el.clientHeight - toolTipHeight, param.point.y + toolTipMargin));
+
+            tooltipRef.current.style.left = shiftedCoordinate + 'px';
+            tooltipRef.current.style.top = yOffset + 'px';
+        });
+
         chart.timeScale().fitContent();
 
         const ro = new ResizeObserver((entries) => {
@@ -216,11 +292,37 @@ function ChartRenderer({ ohlcData, lineData, mode, overlays }: ChartRendererProp
     }, [buildChart]);
 
     return (
-        <div
-            ref={containerRef}
-            className="w-full rounded-xl overflow-hidden"
-            style={{ minHeight: 420 }}
-        />
+        <div className="relative w-full rounded-xl overflow-hidden" style={{ minHeight: 420 }}>
+            <div
+                ref={containerRef}
+                className="absolute inset-0"
+            />
+            {/* Watermark Background */}
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-center opacity-[0.03] select-none">
+                <span className="text-8xl font-black tracking-tighter uppercase italic">Antigravity</span>
+            </div>
+            {/* Tooltip Overlay */}
+            <div
+                ref={tooltipRef}
+                style={{
+                    display: 'none',
+                    position: 'absolute',
+                    zIndex: 20,
+                    width: 140,
+                    padding: '12px',
+                    boxSizing: 'border-box',
+                    fontSize: '12px',
+                    color: '#cbd5e1',
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    backdropFilter: 'blur(8px)',
+                    border: '1px solid rgba(255,255,255,0.1)',
+                    borderRadius: '8px',
+                    pointerEvents: 'none',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
+                    transition: 'left 0.1s ease, top 0.1s ease',
+                }}
+            />
+        </div>
     );
 }
 

@@ -1,3 +1,4 @@
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { NavLink } from 'react-router-dom';
 import {
@@ -9,6 +10,15 @@ import {
 import { useFavorites } from '../hooks/useFavorites';
 import { getMarketInstruments, type MarketInstrument } from '../services/marketService';
 import { getNews, type FilteredArticleDto } from '../services/newsService';
+import { formatMarketPrice } from '../utils/currency';
+import { Globe2, MapPin } from 'lucide-react';
+
+// Heuristics for region filtering (keep consistent with MarketPage)
+const KNOWN_US_SYMBOLS = ['AAPL', 'TSLA', 'MSFT', 'AMZN', 'GOOGL', 'SPX', 'META', 'NFLX', 'DJI', 'IXIC', 'EURUSD', 'GBPUSD'];
+const KNOWN_TR_SYMBOLS = ['THYAO', 'SASA', 'XU100', 'GARAN', 'AKBNK', 'TUPRS', 'EREGL', 'SISE', 'KCHOL', 'USDTRY', 'EURTRY'];
+
+const isUS = (symbol: string) => KNOWN_US_SYMBOLS.includes(symbol.toUpperCase());
+const isTR = (symbol: string) => KNOWN_TR_SYMBOLS.includes(symbol.toUpperCase());
 
 /* ─── Helpers ─── */
 
@@ -139,7 +149,7 @@ const MoverRow = ({ inst, rank }: { inst: MarketInstrument; rank: number }) => {
             </div>
             <div style={{ textAlign: 'right', flexShrink: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 600, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums' }}>
-                    {(inst.currentPrice ?? 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    {formatMarketPrice(inst.currentPrice ?? 0, inst.symbol)}
                 </div>
             </div>
             <span
@@ -165,10 +175,16 @@ const MoverRow = ({ inst, rank }: { inst: MarketInstrument; rank: number }) => {
    ═══════════════════════════════════════════ */
 
 const DashboardPage = () => {
-    const { data: instruments = [], isLoading: instsLoading } = useQuery({
-        queryKey: ['market-instruments'],
-        queryFn: getMarketInstruments,
-    });
+    const [instruments, setInstruments] = useState<MarketInstrument[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [region, setRegion] = useState<'TR' | 'US'>('TR');
+
+    useEffect(() => {
+        getMarketInstruments().then(data => {
+            setInstruments(data);
+            setIsLoading(false);
+        });
+    }, []);
 
     const { data: news = [], isLoading: newsLoading } = useQuery({
         queryKey: ['news', 'all'],
@@ -180,31 +196,42 @@ const DashboardPage = () => {
 
     /* ─── Derived data ─── */
     
-    // User favorites
+    // Global filtering based on region
+    const regionalInstruments = useMemo(() => {
+        return instruments.filter(i => {
+            if (i.type === 'CRYPTO') return true; // Crypto is global
+            if (region === 'TR') return !isUS(i.symbol);
+            if (region === 'US') return !isTR(i.symbol);
+            return true;
+        });
+    }, [instruments, region]);
+
+    // User favorites (unfiltered by region, but formatted)
     const favoriteInstruments = favorites
         .map(sym => instruments.find(i => i.symbol === sym))
         .filter(Boolean) as MarketInstrument[];
 
-    // Market overview — specific assets
-    const overviewAssets = [
-        findInstrument(instruments, 'BTC', 'BITCOIN'),
-        findInstrument(instruments, 'SPX', 'SP500', 'BIST', 'XU100'),
-        findInstrument(instruments, 'GOLD', 'XAU', 'ALTIN'),
-        findInstrument(instruments, 'EURUSD', 'EUR'),
-    ].filter(Boolean) as MarketInstrument[];
+    // Market overview — specific assets based on region
+    const overviewAssets = useMemo(() => {
+        const usTargets = ['BTC', 'SPX', 'GOLD', 'EURUSD'];
+        const trTargets = ['BTC', 'XU100', 'ALTIN', 'USDTRY'];
+        const targets = region === 'US' ? usTargets : trTargets;
+        
+        return targets.map(sym => findInstrument(regionalInstruments, sym)).filter(Boolean) as MarketInstrument[];
+    }, [regionalInstruments, region]);
 
-    // Top movers by absolute change
-    const topMovers = [...instruments]
+    // Top movers by absolute change in the region
+    const topMovers = [...regionalInstruments]
         .sort((a, b) => Math.abs(b.change24h ?? 0) - Math.abs(a.change24h ?? 0))
         .slice(0, 4);
 
-    // Gainers and losers
-    const gainers = [...instruments]
+    // Gainers and losers in the region
+    const gainers = [...regionalInstruments]
         .filter((i) => (i.change24h ?? 0) > 0)
         .sort((a, b) => (b.change24h ?? 0) - (a.change24h ?? 0))
         .slice(0, 3);
 
-    const losers = [...instruments]
+    const losers = [...regionalInstruments]
         .filter((i) => (i.change24h ?? 0) < 0)
         .sort((a, b) => (a.change24h ?? 0) - (b.change24h ?? 0))
         .slice(0, 3);
@@ -225,11 +252,33 @@ const DashboardPage = () => {
     return (
         <div className="space-y-8">
             {/* Header */}
-            <div>
-                <h2 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-1px', color: 'hsl(var(--foreground))' }}>
-                    Genel Bakış
-                </h2>
-                <p className="text-meta mt-1">Piyasa özeti ve güncel gelişmeler</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 style={{ fontSize: '2.5rem', fontWeight: 800, letterSpacing: '-1px', color: 'hsl(var(--foreground))' }}>
+                        Genel Bakış
+                    </h2>
+                    <p className="text-meta mt-1">Piyasa özeti ve güncel gelişmeler ({region})</p>
+                </div>
+
+                {/* Region Toggle */}
+                <div className="flex bg-[#111118] border border-border p-1 rounded-xl w-fit">
+                    <button
+                        onClick={() => setRegion('TR')}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                            region === 'TR' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                        }`}
+                    >
+                        <MapPin size={16} /> TR Piyasası
+                    </button>
+                    <button
+                        onClick={() => setRegion('US')}
+                        className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+                            region === 'US' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
+                        }`}
+                    >
+                        <Globe2 size={16} /> US Piyasası
+                    </button>
+                </div>
             </div>
 
             {/* ─── Market Overview Strip ─── */}
@@ -241,7 +290,7 @@ const DashboardPage = () => {
                     </NavLink>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {instsLoading
+                    {isLoading
                         ? Array.from({ length: 4 }).map((_, i) => <OverviewSkeleton key={i} />)
                         : overviewAssets.map((inst) => {
                             const isPositive = (inst.change24h ?? 0) >= 0;
@@ -272,7 +321,7 @@ const DashboardPage = () => {
                                         <MiniSparkline positive={isPositive} />
                                     </div>
                                     <div style={{ fontSize: 22, fontWeight: 700, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px' }}>
-                                        {(inst.currentPrice ?? 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        {formatMarketPrice(inst.currentPrice ?? 0, inst.symbol)}
                                     </div>
                                     <div className="flex items-center gap-2 mt-1.5">
                                         <span
@@ -335,7 +384,7 @@ const DashboardPage = () => {
                                         <MiniSparkline positive={isPositive} />
                                     </div>
                                     <div style={{ fontSize: 22, fontWeight: 700, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.5px' }}>
-                                        {(inst.currentPrice ?? 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        {formatMarketPrice(inst.currentPrice ?? 0, inst.symbol)}
                                     </div>
                                     <div className="flex items-center gap-2 mt-1.5">
                                         <span
@@ -362,7 +411,7 @@ const DashboardPage = () => {
                     <span className="text-label">En Hareketli Varlıklar</span>
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {instsLoading
+                    {isLoading
                         ? Array.from({ length: 4 }).map((_, i) => <TickerSkeleton key={i} />)
                         : topMovers.map((inst) => {
                             const isPositive = (inst.change24h ?? 0) >= 0;
@@ -408,7 +457,7 @@ const DashboardPage = () => {
                                         </span>
                                     </div>
                                     <p style={{ fontSize: 20, fontWeight: 700, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums', marginTop: 12, letterSpacing: '-0.3px' }}>
-                                        {(inst.currentPrice ?? 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        {formatMarketPrice(inst.currentPrice ?? 0, inst.symbol)}
                                     </p>
                                 </div>
                             );
@@ -424,12 +473,12 @@ const DashboardPage = () => {
                         <span className="text-label" style={{ color: '#10b981' }}>En Çok Artanlar</span>
                     </div>
                     <div className="space-y-2">
-                        {instsLoading
+                        {isLoading
                             ? Array.from({ length: 3 }).map((_, i) => <TickerSkeleton key={i} />)
                             : gainers.map((inst, idx) => (
                                 <MoverRow key={inst.symbol} inst={inst} rank={idx + 1} />
                             ))}
-                        {!instsLoading && gainers.length === 0 && (
+                        {!isLoading && gainers.length === 0 && (
                             <p style={{ fontSize: 13, color: '#64748b', textAlign: 'center', padding: 24 }}>Veri bulunamadı</p>
                         )}
                     </div>
@@ -441,12 +490,12 @@ const DashboardPage = () => {
                         <span className="text-label" style={{ color: '#ef4444' }}>En Çok Düşenler</span>
                     </div>
                     <div className="space-y-2">
-                        {instsLoading
+                        {isLoading
                             ? Array.from({ length: 3 }).map((_, i) => <TickerSkeleton key={i} />)
                             : losers.map((inst, idx) => (
                                 <MoverRow key={inst.symbol} inst={inst} rank={idx + 1} />
                             ))}
-                        {!instsLoading && losers.length === 0 && (
+                        {!isLoading && losers.length === 0 && (
                             <p style={{ fontSize: 13, color: '#64748b', textAlign: 'center', padding: 24 }}>Veri bulunamadı</p>
                         )}
                     </div>
