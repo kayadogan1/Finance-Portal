@@ -1,5 +1,7 @@
 package com.finance.services;
 
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
 import com.finance.config.InstrumentPropertiesConfig;
 import com.finance.shared.Currency;
 import io.micrometer.tracing.CurrentTraceContext;
@@ -19,42 +21,27 @@ import java.math.BigDecimal;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class FetchMarketDataServiceTest {
 
-    @Mock
-    private InstrumentPropertiesConfig instrumentProperties;
-
-    @Mock
-    private MarketDataPersistenceService persistenceService;
-
-    @Mock
-    private RestClient restClient;
-
+    @Mock private InstrumentPropertiesConfig instrumentProperties;
+    @Mock private MarketDataPersistenceService persistenceService;
+    @Mock private RestClient restClient;
     @SuppressWarnings("rawtypes")
-    @Mock
-    private RestClient.RequestHeadersUriSpec requestHeadersUriSpec;
-
-    @Mock
-    private RestClient.ResponseSpec responseSpec;
-
-    @Mock
-    private Tracer tracer;
-    
-    @Mock
-    private CurrentTraceContext currentTraceContext;
-
-    @Mock
-    private FetchMarketDataService selfMock;
+    @Mock private RestClient.RequestHeadersUriSpec requestHeadersUriSpec;
+    @Mock private RestClient.ResponseSpec responseSpec;
+    @Mock private Tracer tracer;
+    @Mock private CurrentTraceContext currentTraceContext;
+    @Mock private FetchMarketDataService selfMock;
 
     @InjectMocks
     private FetchMarketDataService fetchMarketDataService;
+
+    private final JsonMapper jsonMapper = JsonMapper.builder().build();
 
     @SuppressWarnings("unchecked")
     @BeforeEach
@@ -64,65 +51,61 @@ class FetchMarketDataServiceTest {
 
         when(tracer.currentTraceContext()).thenReturn(currentTraceContext);
         when(currentTraceContext.wrap(any(Runnable.class))).thenAnswer(inv -> inv.getArgument(0));
-        
+
         when(restClient.get()).thenReturn(requestHeadersUriSpec);
         when(requestHeadersUriSpec.uri(anyString())).thenReturn(requestHeadersUriSpec);
         when(requestHeadersUriSpec.header(anyString(), anyString())).thenReturn(requestHeadersUriSpec);
         when(requestHeadersUriSpec.retrieve()).thenReturn(responseSpec);
     }
 
-    @Test
-    void updateAllMarketData_whenConfigHasData_submitsTasksToSelf() {
-        // Arrange
-        when(instrumentProperties.getStock()).thenReturn(Map.of("BIST", Map.of("THYAO", "THYAO.IS")));
-        when(instrumentProperties.getForex()).thenReturn(Map.of("EURUSD", "EUR/USD"));
-        
-        // Act
-        fetchMarketDataService.updateAllMarketData();
-
-        // Assert
-        verify(selfMock).fetchAndSave("THYAO", "STOCK", Currency.TRY);
-        verify(selfMock).fetchAndSave("EURUSD", "FOREX", null);
-        verify(instrumentProperties, atLeastOnce()).getStock();
-        verify(instrumentProperties, atLeastOnce()).getForex();
+    private JsonNode toJson(String raw) throws Exception {
+        return jsonMapper.readTree(raw);
     }
 
     @Test
-    void fetchAndSave_whenApiReturnsValidData_savesPrice() {
-        // Arrange
-        String jsonResponse = "{ \"chart\": { \"result\": [ { \"meta\": { \"regularMarketPrice\": 150.5 } } ] } }";
-        when(responseSpec.body(String.class)).thenReturn(jsonResponse);
+    void updateAllMarketData_whenConfigHasData_submitsTasksToSelf() {
+        when(instrumentProperties.getStock()).thenReturn(Map.of("BIST", Map.of("THYAO", "THYAO.IS")));
+        when(instrumentProperties.getForex()).thenReturn(Map.of("EURUSD", "EUR/USD"));
+        when(instrumentProperties.getIndex()).thenReturn(Map.of());
+        when(instrumentProperties.getCommodity()).thenReturn(Map.of());
+        when(instrumentProperties.getBond()).thenReturn(Map.of());
+        when(instrumentProperties.getFiat()).thenReturn(Map.of());
 
-        // Act
+        fetchMarketDataService.updateAllMarketData();
+
+        verify(selfMock).fetchAndSave("THYAO", "STOCK", Currency.TRY);
+        verify(selfMock).fetchAndSave("EURUSD", "FOREX", null);
+    }
+
+    @Test
+    void fetchAndSave_whenApiReturnsValidData_savesPrice() throws Exception {
+        JsonNode body = toJson(
+                "{ \"chart\": { \"result\": [ { \"meta\": { \"regularMarketPrice\": 150.5 } } ] } }");
+        when(responseSpec.body(JsonNode.class)).thenReturn(body);
+
         fetchMarketDataService.fetchAndSave("AAPL", "STOCK", Currency.USD);
 
-        // Assert
-        verify(requestHeadersUriSpec).uri(eq("http://yahoo.com/AAPL"));
+        verify(requestHeadersUriSpec).uri("http://yahoo.com/AAPL");
         verify(persistenceService).saveMarketData("AAPL", new BigDecimal("150.5"));
     }
 
     @Test
-    void fetchAndSave_whenApiReturnsInvalidData_doesNotSavePrice() {
-        // Arrange
-        String jsonResponse = "{ \"chart\": { \"result\": [ { \"meta\": { } } ] } }";
-        when(responseSpec.body(String.class)).thenReturn(jsonResponse);
+    void fetchAndSave_whenApiReturnsNoPrice_doesNotSave() throws Exception {
+        JsonNode body = toJson(
+                "{ \"chart\": { \"result\": [ { \"meta\": { } } ] } }");
+        when(responseSpec.body(JsonNode.class)).thenReturn(body);
 
-        // Act
         fetchMarketDataService.fetchAndSave("AAPL", "STOCK", Currency.USD);
 
-        // Assert
         verify(persistenceService, never()).saveMarketData(anyString(), any(BigDecimal.class));
     }
 
     @Test
     void fetchAndSave_whenApiThrowsException_catchesException() {
-        // Arrange
-        when(responseSpec.body(String.class)).thenThrow(new RuntimeException("API error"));
+        when(responseSpec.body(JsonNode.class)).thenThrow(new RuntimeException("API error"));
 
-        // Act
         fetchMarketDataService.fetchAndSave("AAPL", "STOCK", Currency.USD);
 
-        // Assert
         verify(persistenceService, never()).saveMarketData(anyString(), any(BigDecimal.class));
     }
 
@@ -141,17 +124,35 @@ class FetchMarketDataServiceTest {
     }
 
     @Test
-    void parseYahooPrice_whenValidJson_returnsPrice() {
-        String json = "{ \"chart\": { \"result\": [ { \"meta\": { \"regularMarketPrice\": 150.5 } } ] } }";
+    void parseYahooPrice_whenValidJson_returnsPrice() throws Exception {
+        JsonNode json = toJson(
+                "{ \"chart\": { \"result\": [ { \"meta\": { \"regularMarketPrice\": 150.5 } } ] } }");
+
         BigDecimal price = fetchMarketDataService.parseYahooPrice(json);
+
         assertEquals(new BigDecimal("150.5"), price);
     }
-    
+
     @Test
-    void parseYahooPrice_whenInvalidJson_returnsNull() {
-        String json = "{ \"invalid\": \"json\" }";
-        BigDecimal price = fetchMarketDataService.parseYahooPrice(json);
-        assertNull(price);
+    void parseYahooPrice_whenMissingResultArray_returnsNull() throws Exception {
+        JsonNode json = toJson("{ \"invalid\": \"json\" }");
+
+        assertNull(fetchMarketDataService.parseYahooPrice(json));
+    }
+
+    @Test
+    void parseYahooPrice_whenEmptyResultArray_returnsNull() throws Exception {
+        JsonNode json = toJson("{ \"chart\": { \"result\": [] } }");
+
+        assertNull(fetchMarketDataService.parseYahooPrice(json));
+    }
+
+    @Test
+    void parseYahooPrice_whenMissingRegularMarketPrice_returnsNull() throws Exception {
+        JsonNode json = toJson(
+                "{ \"chart\": { \"result\": [ { \"meta\": { } } ] } }");
+
+        assertNull(fetchMarketDataService.parseYahooPrice(json));
     }
 
     @Test
@@ -159,10 +160,10 @@ class FetchMarketDataServiceTest {
         assertEquals("SI=F", fetchMarketDataService.getCommodityCode("SILVER"));
         assertEquals("CL=F", fetchMarketDataService.getCommodityCode("OIL"));
         assertEquals("UNKNOWN=F", fetchMarketDataService.getCommodityCode("UNKNOWN"));
-        
+
         assertEquals("^DJI", fetchMarketDataService.getIndexCode("DJI"));
         assertEquals("UNKNOWN", fetchMarketDataService.getIndexCode("UNKNOWN"));
-        
+
         assertEquals("^TYX", fetchMarketDataService.getBondCode("US30Y"));
         assertEquals("UNKNOWN", fetchMarketDataService.getBondCode("UNKNOWN"));
     }

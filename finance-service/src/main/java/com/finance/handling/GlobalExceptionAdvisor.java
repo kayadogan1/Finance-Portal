@@ -39,5 +39,10 @@ public class GlobalExceptionAdvisor {
     public ApiResult<String> handleMethodNotAllowedException(MethodNotAllowedException exception) {
         return new ApiResult<>(false, null, exception.getMessage(), 405, LocalDateTime.now());
     }
+    @ExceptionHandler(YahooFetchException.class)
+    @ResponseStatus(HttpStatus.TOO_MANY_REQUESTS)
+    public ApiResult<String> handleYahooFetchException(YahooFetchException exception) {
+        return new ApiResult<>(false, null, exception.getMessage(), 500, LocalDateTime.now());
+    }
 
 }

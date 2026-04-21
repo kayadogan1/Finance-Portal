@@ -17,7 +17,7 @@ public class MarketDataSyncScheduler {
     private final InstrumentRepository instrumentRepository;
     private final FetchFilteredInstrumentService fetchFilteredInstrumentService;
     private final Logger logger = LogManager.getLogger(this.getClass());
-    @Scheduled(cron = "0 0 14 * * MON-FRI", zone = "Europe/Istanbul")
+    @Scheduled(cron = "0 10 15 * * MON-FRI", zone = "Europe/Istanbul")
     public void syncAllInstrumentsDaily() {
         logger.info("Starting daily market data sync job...");
         List<Instrument> instruments = instrumentRepository.findAll();
@@ -25,7 +25,7 @@ public class MarketDataSyncScheduler {
         for (Instrument instrument : instruments) {
             try {
                 fetchFilteredInstrumentService.fetchInstrumentClosePricesSinceLastDate(instrument);
-                Thread.sleep(2000);
+                Thread.sleep(200);
             } catch (Exception e) {
                 logger.error("Failed to sync data for {}: {}", instrument.getSymbol(), e.getMessage());
             }

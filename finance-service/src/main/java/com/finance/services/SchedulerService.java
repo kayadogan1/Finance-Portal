@@ -22,13 +22,13 @@ public class SchedulerService {
         this.config = config;
         this.tracer = tracer;
     }
-    @Scheduled(initialDelay = 0, fixedRate = 300000)
+    @Scheduled(initialDelay = 0, fixedRate = 3000000)
     public void updateGeneralMarkets() {
         logger.info("Updating general market data (stocks, forex, indices) from Yahoo...");
         yahooService.updateAllMarketData();
     }
 
-    @Scheduled(initialDelay = 0, fixedRate = 300000)
+   @Scheduled(initialDelay = 0, fixedRate = 3000000)
     public void updateBinanceCryptoData() {
 
         if (config.getCrypto().isEmpty()) {
