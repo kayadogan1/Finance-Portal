@@ -69,6 +69,7 @@ export interface InstrumentDto {
     name: string;
     instrumentType: 'CRYPTO' | 'FIAT' | 'COMMODITY' | 'INDEX' | 'STOCK' | 'FOREX' | 'BOND';
     currentPrice: number;
+    baseCurrency: string;
 }
 
 /** Matches `com.finance.models.Instrument` JPA entity (single-instrument endpoint) */
@@ -99,6 +100,7 @@ export interface MarketInstrument {
     type: string;
     currentPrice: number;
     change24h: number;
+    baseCurrency: string;
 }
 
 /** Spring Boot Page<T> response shape */
@@ -245,7 +247,7 @@ export const getMarketInstrumentsPaged = async (
         }
     }
 
-    const enriched: MarketInstrument[] = pageData.content.map((inst) => {
+    const enriched: MarketInstrument[] = pageData.content.map((inst: any) => {
         const current = Number(inst.currentPrice) || 0;
         const old = oldPriceMap.get(inst.symbol);
         const change24h = old && old !== 0
@@ -254,9 +256,10 @@ export const getMarketInstrumentsPaged = async (
         return {
             symbol: inst.symbol,
             name: inst.name,
-            type: inst.instrumentType,  // map instrumentType → type
+            type: inst.type || inst.instrumentType,  // Support both 'type' and 'instrumentType'
             currentPrice: current,
             change24h,
+            baseCurrency: inst.baseCurrency ?? 'USD',
         };
     });
 

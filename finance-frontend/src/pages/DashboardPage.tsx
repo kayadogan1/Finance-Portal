@@ -163,14 +163,17 @@ const DashboardPage = () => {
     const regionalInstruments = useMemo(() => {
         return instruments.filter(i => {
             if (i.type === 'CRYPTO') return true;
+            
+            const isTurkishAsset = i.symbol.endsWith('.IS') || i.symbol.startsWith('XU') || isTRCurrency(i.baseCurrency) || i.symbol === 'USDTRY';
+            const isUsAsset = !isTurkishAsset && (isUSCurrency(i.baseCurrency) || i.symbol === 'DXY');
+
             if (region === 'TR') {
-                // To display stocks in TR view, include items that are not explicitly US currency.
-                if (isUSCurrency(i.baseCurrency)) return false;
+                if (isTurkishAsset) return true;
+                if (isUsAsset) return false;
                 return true;
             }
             if (region === 'US') {
-                // To display US items, include if it is US currency.
-                if (isTRCurrency(i.baseCurrency)) return false;
+                if (isTurkishAsset) return false;
                 return true;
             }
             return true;
@@ -200,6 +203,8 @@ const DashboardPage = () => {
 
     const goToInstrument = (symbol: string) => navigate(`/instrument/${symbol}`);
 
+    return (
+        <div className="space-y-10 mb-20">
             {/* ─── Header & Region Toggle ─── */}
             <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-6 border-b border-white/5">
                 <div>
