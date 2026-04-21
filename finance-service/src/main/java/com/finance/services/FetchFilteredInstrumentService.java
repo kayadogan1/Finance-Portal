@@ -78,7 +78,7 @@ public class FetchFilteredInstrumentService {
             period1 = Instant.now()
                     .atZone(ZoneOffset.UTC)
                     .minusYears(10)
-                    .toEpochSecond();
+                    .toEpochSecond() + 1;
         }
 
         String url = yahooApiUrl

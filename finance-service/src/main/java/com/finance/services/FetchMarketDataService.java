@@ -1,8 +1,9 @@
 package com.finance.services;
 
 import com.finance.config.InstrumentPropertiesConfig;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.finance.shared.FetchTask;
+import org.springframework.resilience.annotation.Retryable;
+import tools.jackson.databind.JsonNode;
 import com.finance.shared.Currency;
 import io.micrometer.observation.annotation.Observed;
 import io.micrometer.tracing.Tracer;
@@ -11,10 +12,13 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.resilience.annotation.ConcurrencyLimit;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
@@ -24,7 +28,6 @@ public class FetchMarketDataService {
     private final InstrumentPropertiesConfig instrumentProperties;
     private final MarketDataPersistenceService persistenceService;
     private final RestClient restClient;
-    private final ObjectMapper objectMapper;
     private final Tracer tracer;
     @Autowired
     @Lazy
@@ -41,35 +44,50 @@ public class FetchMarketDataService {
         this.persistenceService = persistenceService;
         this.restClient = restClient;
         this.tracer = tracer;
-        this.objectMapper = new ObjectMapper();
     }
+    private List<List<FetchTask>> partitionMarketData(){
+        List<FetchTask> allTasks = new ArrayList<>();
+
+        instrumentProperties.getStock().forEach( (exchange,symbolsMap)->{
+            Currency currency = "BIST".equalsIgnoreCase(exchange) ? Currency.TRY : Currency.USD;
+            symbolsMap.keySet().forEach(dbSymbol ->
+                    allTasks.add(new FetchTask(dbSymbol, "STOCK", currency)));
+        });
+        Map.of(
+                "FOREX",     instrumentProperties.getForex(),
+                "INDEX",     instrumentProperties.getIndex(),
+                "COMMODITY", instrumentProperties.getCommodity()
+        ).forEach((category, instruments) -> {
+            if (instruments != null) {
+                instruments.keySet().forEach(dbSymbol ->
+                        allTasks.add(new FetchTask(dbSymbol, category, null))
+                );
+            }
+        });
+        List<List<FetchTask>> chunks = new ArrayList<>();
+        for (int i = 0; i < allTasks.size(); i += 50) {
+            chunks.add(allTasks.subList(i, Math.min(i + 50, allTasks.size())));
+        }
+        return chunks;
+    }
+
     @Observed()
     public void updateAllMarketData() {
         logger.info("Starting GLOBAL market data update from YAHOO FINANCE...");
+        List<List<FetchTask>> chunks = partitionMarketData();
+        logger.info("Total chunks: {}, tasks: {}",
+                chunks.size(),
+                chunks.stream().mapToInt(List::size).sum()
+        );
+
         if (!instrumentProperties.getStock().isEmpty()) {
             try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
 
-                instrumentProperties.getStock().forEach((exchange, symbolsMap) -> {
-                        Currency currency = "BIST".equalsIgnoreCase(exchange) ? Currency.TRY : Currency.USD;
-                        symbolsMap.keySet().forEach(dbSymbol ->
-                                executor.submit(tracer.currentTraceContext().wrap(() ->self.fetchAndSave(dbSymbol, "STOCK", currency)))
-                        );
-                });
+                for(List<FetchTask> chunk : chunks){
+                    executor.submit(tracer.currentTraceContext().wrap(() -> chunk.forEach(task ->
+                            self.fetchAndSave(task.dbSymbol(),task.category(),task.currency()))));
+                }
 
-
-                Map.of(
-                        "FOREX",     instrumentProperties.getForex(),
-                        "INDEX",     instrumentProperties.getIndex(),
-                        "COMMODITY", instrumentProperties.getCommodity(),
-                        "BOND",      instrumentProperties.getBond(),
-                        "FIAT",      instrumentProperties.getFiat()
-                ).forEach((category, instruments) -> {
-                    if (instruments != null) {
-                        instruments.keySet().forEach(dbSymbol ->
-                                executor.submit(tracer.currentTraceContext().wrap(() -> self.fetchAndSave(dbSymbol, category, null)))
-                        );
-                    }
-                });
 
             }
         }
@@ -77,10 +95,12 @@ public class FetchMarketDataService {
         logger.info("GLOBAL market data update completed.");
     }
 
-
-
-
     @Observed
+    @ConcurrencyLimit(limit = 10)
+    @Retryable(
+            multiplier = 2.0,
+            delay = 2
+    )
     public void fetchAndSave(String dbSymbol, String category, Currency  baseCurrency) {
         try {
             String yahooSymbol = convertToYahooFormat(dbSymbol, category, baseCurrency);
@@ -88,11 +108,11 @@ public class FetchMarketDataService {
 
             logger.debug("Fetching {} -> {} URL: {}", dbSymbol, yahooSymbol, finalUrl);
 
-            String jsonResponse = restClient.get()
+            JsonNode jsonResponse = restClient.get()
                     .uri(finalUrl)
                     .header("User-Agent", "Mozilla/5.0")
                     .retrieve()
-                    .body(String.class);
+                    .body(JsonNode.class);
 
             BigDecimal price = parseYahooPrice(jsonResponse);
 
@@ -129,10 +149,16 @@ public class FetchMarketDataService {
         };
     }
 
-    public BigDecimal parseYahooPrice(String jsonResponse) {
+    public BigDecimal parseYahooPrice(JsonNode root) {
         try {
-            JsonNode root = objectMapper.readTree(jsonResponse);
-            JsonNode meta = root.path("chart").path("result").get(0).path("meta");
+            JsonNode result = root.path("chart").path("result");
+
+            if (result.isMissingNode() || !result.isArray() || result.isEmpty()) {
+                logger.warn("Yahoo response has no result array");
+                return null;
+            }
+
+            JsonNode meta = result.get(0).path("meta");
 
             if (meta.has("regularMarketPrice")) {
                 return meta.get("regularMarketPrice").decimalValue();
