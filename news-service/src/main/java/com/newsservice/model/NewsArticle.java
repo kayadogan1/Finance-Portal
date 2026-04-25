@@ -7,6 +7,8 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -43,11 +45,12 @@ public class NewsArticle {
     private String urlToImage;
     @Column(name = "published_date")
     private LocalDateTime publishedDate;
+    @Column(name = "model_name")
+    private String modelName;
+    @Column(name = "instrument_symbol")
+    private String instrumentSymbol;
 
-
-
-
-
-
-
+    @Builder.Default
+    @OneToMany(mappedBy = "newsArticle", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<NewsArticleInstrument> instruments = new ArrayList<>();
 }

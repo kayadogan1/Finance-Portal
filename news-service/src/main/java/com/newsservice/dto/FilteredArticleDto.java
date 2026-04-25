@@ -1,5 +1,7 @@
 package com.newsservice.dto;
 
+import java.util.List;
+
 public record FilteredArticleDto(
         Source source,
         String author,
@@ -10,6 +12,9 @@ public record FilteredArticleDto(
         String content,
         String url,
         String urlToImage,
-        String publishedAt
+        String publishedAt,
+        String modelName,
+        String instrumentSymbol,
+        List<NewsInstrumentDto> instruments
 ) {
 }
