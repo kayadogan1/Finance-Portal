@@ -19,6 +19,7 @@
         <module>api-gateway</module>
         <module>finance-service</module>
         <module>news-service</module>
+        <module>classification-api</module>
     </modules>
 
     <properties>

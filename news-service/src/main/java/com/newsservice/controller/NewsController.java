@@ -4,7 +4,7 @@ import com.newsservice.dto.FilteredArticleDto;
 import com.newsservice.dto.NewsCountry;
 import com.newsservice.dto.NewsTopic;
 import com.newsservice.handling.ApiResult;
-import com.newsservice.service.NewsService;
+import com.newsservice.service.NewsRssService;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.http.ResponseEntity;
@@ -20,10 +20,10 @@ import java.util.List;
 @RequestMapping("/api/news")
 public class NewsController {
 
-    private final NewsService newsService;
+    private final NewsRssService newsRssService;
     private final static Logger logger = LogManager.getLogger(NewsController.class);
-    public NewsController(NewsService newsService) {
-        this.newsService = newsService;
+    public NewsController(NewsRssService newsRssService) {
+        this.newsRssService = newsRssService;
     }
 
     @GetMapping
@@ -36,13 +36,13 @@ public class NewsController {
         List<FilteredArticleDto> articles;
 
         if (topic != null && country != null) {
-            articles = newsService.getArticlesByTopicAndCountryAfterDate(topic,country, LocalDate.now().minusWeeks(1));
+            articles = newsRssService.getArticlesByTopicAndCountryAfterDate(topic,country, LocalDate.now().minusWeeks(1));
         } else if (topic != null) {
-            articles = newsService.getArticlesByTopicAfterDate(topic, LocalDate.now().minusWeeks(1));
+            articles = newsRssService.getArticlesByTopicAfterDate(topic, LocalDate.now().minusWeeks(1));
         } else if (country != null) {
-            articles = newsService.getArticlesByCountryAfterDate(country, LocalDate.now().minusWeeks(1));
+            articles = newsRssService.getArticlesByCountryAfterDate(country, LocalDate.now().minusWeeks(1));
         } else {
-            articles = newsService.getAllArticlesAfterDate(LocalDate.now().minusWeeks(1));
+            articles = newsRssService.getAllArticlesAfterDate(LocalDate.now().minusWeeks(1));
         }
         return ResponseEntity.ok(ApiResult.success(articles,"all news articles fetched",200));
     }
@@ -51,7 +51,7 @@ public class NewsController {
     public ResponseEntity<ApiResult<Void>> refreshNews() {
 
         logger.info("Received request to refresh news articles");
-        newsService.refresh();
+        newsRssService.refresh();
         return ResponseEntity.ok(ApiResult.success("all news updating from provider",200));
     }
 
