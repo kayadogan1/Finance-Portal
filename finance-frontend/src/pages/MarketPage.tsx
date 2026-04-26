@@ -9,10 +9,19 @@ import { useFavorites } from '../hooks/useFavorites';
 
 /* ─── Region filtering ─── */
 const belongsToRegion = (inst: MarketInstrument, region: 'TR' | 'US'): boolean => {
-    const cur = inst.baseCurrency?.toUpperCase() ?? 'USD';
+    /* Crypto is global — show in both regions */
     if (inst.type === 'CRYPTO') return true;
-    if (region === 'TR') return isTRCurrency(cur);
-    if (region === 'US') return isUSCurrency(cur);
+
+    /* Turkish assets: TRY currency OR BIST symbols (.IS suffix, XU prefix) */
+    const isTurkish = isTRCurrency(inst.baseCurrency) ||
+        inst.symbol.endsWith('.IS') ||
+        inst.symbol.startsWith('XU');
+
+    /* US/Global assets: USD-based that are NOT Turkish */
+    const isUS = !isTurkish && (isUSCurrency(inst.baseCurrency) || inst.symbol === 'DXY');
+
+    if (region === 'TR') return isTurkish;
+    if (region === 'US') return isUS;
     return true;
 };
 
@@ -286,12 +295,14 @@ const MarketPage = () => {
         queryKey: ['market-instruments-paged', page],
         queryFn: () => getMarketInstrumentsPaged(page, PAGE_SIZE),
         enabled: activeTab === 'all',
+        staleTime: 1000 * 60 * 5,
     });
 
     const { data: allInstruments = [], isLoading: allLoading } = useQuery({
         queryKey: ['market-instruments'],
         queryFn: getMarketInstruments,
         enabled: activeTab !== 'all',
+        staleTime: 1000 * 60 * 5,
     });
 
     const isLoading = activeTab === 'all' ? pagedLoading : allLoading;

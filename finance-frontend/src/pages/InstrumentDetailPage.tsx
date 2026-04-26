@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
     ArrowLeft,
@@ -7,18 +7,18 @@ import {
     TrendingUp,
     TrendingDown,
     Activity,
-    Sparkles,
     Newspaper,
     ExternalLink,
     RefreshCw,
+    Clock,
 } from 'lucide-react';
 import CandlestickChart from '../components/market/CandlestickChart';
-import AIAnalysisCard from '../components/market/AIAnalysisCard';
 import TradeWidget from '../components/trade/TradeWidget';
-import NewsGrid from '../components/news/NewsGrid';
 import { getMarketInstruments, type MarketInstrument } from '../services/marketService';
+import { getNews, TOPIC_LABELS, ASSET_TYPE_COLORS, type FilteredArticleDto } from '../services/newsService';
 import { formatMarketPrice } from '../utils/currency';
 import { useFavorites } from '../hooks/useFavorites';
+import { getSourceColor } from '../components/news/SourceAvatar';
 
 /* ─── Instrument type → news topic mapping ─── */
 const typeToNewsTopic: Record<string, string> = {
@@ -58,6 +58,21 @@ const StatPill = ({ label, value, highlight }: { label: string; value: string; h
     </div>
 );
 
+/* ─── timeAgo helper ─── */
+function timeAgo(dateStr: string): string {
+    const now = new Date();
+    const then = new Date(dateStr);
+    const diffMs = now.getTime() - then.getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return 'Az önce';
+    if (mins < 60) return `${mins} dk önce`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours} saat önce`;
+    const days = Math.floor(hours / 24);
+    if (days < 7) return `${days} gün önce`;
+    return then.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
+}
+
 /* ════════════════════════════════════════
    Instrument Detail Page
    ════════════════════════════════════════ */
@@ -67,23 +82,49 @@ const InstrumentDetailPage = () => {
     const navigate = useNavigate();
     const { isFavorite, toggleFavorite } = useFavorites();
 
-    const [instrument, setInstrument] = useState<MarketInstrument | null>(null);
-    const [loading, setLoading] = useState(true);
-
-    /* Fetch all instruments and find this one */
-    const { data: allInstruments = [] } = useQuery({
+    /* Use cached instruments — same queryKey as Dashboard/MarketPage */
+    const { data: allInstruments = [], isLoading: loading } = useQuery({
         queryKey: ['market-instruments'],
         queryFn: getMarketInstruments,
         staleTime: 1000 * 60 * 5,
     });
 
-    useEffect(() => {
-        if (allInstruments.length > 0) {
-            const found = allInstruments.find(i => i.symbol === symbol);
-            setInstrument(found ?? null);
-            setLoading(false);
-        }
+    const instrument: MarketInstrument | null = useMemo(() => {
+        return allInstruments.find(i => i.symbol === symbol) ?? null;
     }, [allInstruments, symbol]);
+
+    /* News topic from instrument type */
+    const newsTopic = instrument ? typeToNewsTopic[instrument.type] ?? undefined : undefined;
+
+    /* Fetch all news (by topic) and filter by instrument symbol on frontend */
+    const { data: allNews = [], isLoading: newsLoading } = useQuery({
+        queryKey: ['news', newsTopic ?? 'all', 'all'],
+        queryFn: () => getNews(newsTopic),
+        staleTime: 1000 * 60 * 3,
+        enabled: !!symbol,
+    });
+
+    /* Filter news: articles that mention this instrument symbol in their instruments list */
+    const relatedNews = useMemo(() => {
+        if (!symbol || allNews.length === 0) return [];
+
+        /* Primary: articles that have this symbol in their AI-detected instruments */
+        const byInstrument = allNews.filter(a =>
+            a.instrumentSymbol === symbol ||
+            (a.instruments && a.instruments.some(inst => inst.symbol === symbol))
+        );
+
+        /* If we have enough by direct match, use those */
+        if (byInstrument.length >= 3) return byInstrument.slice(0, 9);
+
+        /* Fallback: merge with topic-based news, deduplicate */
+        const seen = new Set(byInstrument.map(a => a.url));
+        const topicFallback = allNews
+            .filter(a => !seen.has(a.url))
+            .slice(0, 9 - byInstrument.length);
+
+        return [...byInstrument, ...topicFallback];
+    }, [allNews, symbol]);
 
     if (!symbol) {
         navigate('/market');
@@ -94,9 +135,6 @@ const InstrumentDetailPage = () => {
     const changeColor = isPositive ? '#10b981' : '#ef4444';
     const ChangIcon = isPositive ? TrendingUp : TrendingDown;
     const fav = isFavorite(symbol);
-
-    /* News topic from instrument type */
-    const newsTopic = instrument ? typeToNewsTopic[instrument.type] ?? undefined : undefined;
 
     return (
         <div className="space-y-6 pb-10">
@@ -264,16 +302,7 @@ const InstrumentDetailPage = () => {
                 </div>
             </div>
 
-            {/* ─── AI Analysis ─── */}
-            <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                    <Sparkles size={15} style={{ color: '#6366f1' }} />
-                    <span style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9' }}>Yapay Zeka Analizi</span>
-                </div>
-                <AIAnalysisCard symbol={symbol} />
-            </div>
-
-            {/* ─── Related News ─── */}
+            {/* ─── Related News — filtered by instrument symbol ─── */}
             <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
                     <Newspaper size={15} style={{ color: '#6366f1' }} />
@@ -284,7 +313,7 @@ const InstrumentDetailPage = () => {
                             letterSpacing: 0.5, padding: '2px 8px', borderRadius: 4,
                             background: 'rgba(99,102,241,0.1)', color: '#818cf8',
                         }}>
-                            {newsTopic}
+                            {TOPIC_LABELS[newsTopic] || newsTopic}
                         </span>
                     )}
                     <a
@@ -300,13 +329,111 @@ const InstrumentDetailPage = () => {
                         Tüm haberler <ExternalLink size={11} />
                     </a>
                 </div>
-                <NewsGrid
-                    key={`news-${newsTopic ?? 'all'}`}
-                    topic={newsTopic}
-                    columns={3}
-                    maxItems={6}
-                    title=""
-                />
+
+                {/* News loading skeleton */}
+                {newsLoading && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+                        {Array.from({ length: 3 }).map((_, i) => (
+                            <div key={i} className="animate-pulse" style={{
+                                background: '#111118', borderRadius: 12, padding: 16,
+                                border: '1px solid rgba(255,255,255,0.04)',
+                            }}>
+                                <div style={{ display: 'flex', gap: 12 }}>
+                                    <div style={{ width: 64, height: 64, borderRadius: 8, background: 'rgba(255,255,255,0.05)', flexShrink: 0 }} />
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        <div style={{ height: 14, width: '90%', background: 'rgba(255,255,255,0.05)', borderRadius: 4 }} />
+                                        <div style={{ height: 14, width: '60%', background: 'rgba(255,255,255,0.05)', borderRadius: 4 }} />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* No related news */}
+                {!newsLoading && relatedNews.length === 0 && (
+                    <div className="text-center py-10">
+                        <Newspaper className="mx-auto mb-2 text-ghost" size={24} />
+                        <p className="text-meta">Bu enstrümana ait haber bulunamadı.</p>
+                    </div>
+                )}
+
+                {/* Related news grid */}
+                {relatedNews.length > 0 && (
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
+                        {relatedNews.map((article, idx) => {
+                            const articleInstruments = (article.instruments || []).slice(0, 3);
+                            const sourceBadgeColor = article.source?.name ? getSourceColor(article.source.name) : '#64748b';
+                            return (
+                                <a
+                                    key={`${article.url}-${idx}`}
+                                    href={article.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="group"
+                                    style={{
+                                        display: 'flex', gap: 14, background: '#111118', borderRadius: 12, padding: 16,
+                                        border: '1px solid rgba(255,255,255,0.04)', transition: 'all 0.2s', textDecoration: 'none',
+                                    }}
+                                    onMouseEnter={e => {
+                                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                                        e.currentTarget.style.transform = 'translateY(-1px)';
+                                    }}
+                                    onMouseLeave={e => {
+                                        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)';
+                                        e.currentTarget.style.transform = 'translateY(0)';
+                                    }}
+                                >
+                                    {article.urlToImage && (
+                                        <img
+                                            src={article.urlToImage} alt=""
+                                            style={{ width: 68, height: 68, objectFit: 'cover', borderRadius: 8, background: '#0a0a0f', flexShrink: 0 }}
+                                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                        />
+                                    )}
+                                    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+                                        <h4 style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', lineHeight: 1.4, marginBottom: 6 }} className="line-clamp-2">
+                                            {article.title}
+                                        </h4>
+
+                                        {/* Instrument tags */}
+                                        {articleInstruments.length > 0 && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: 6 }}>
+                                                {articleInstruments.map(inst => {
+                                                    const color = ASSET_TYPE_COLORS[inst.assetType] || '#6366f1';
+                                                    const isCurrentSymbol = inst.symbol === symbol;
+                                                    return (
+                                                        <span
+                                                            key={`${inst.symbol}-${inst.rankOrder}`}
+                                                            style={{
+                                                                padding: '1px 5px', fontSize: 9, fontWeight: 600, borderRadius: 3,
+                                                                background: isCurrentSymbol ? `${color}30` : `${color}14`,
+                                                                color,
+                                                                border: `1px solid ${isCurrentSymbol ? `${color}50` : `${color}25`}`,
+                                                                lineHeight: '16px', letterSpacing: '0.2px',
+                                                            }}
+                                                        >
+                                                            {inst.symbol}
+                                                        </span>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
+                                            <span style={{ fontSize: 10, fontWeight: 600, color: sourceBadgeColor, textTransform: 'uppercase' }}>
+                                                {article.source?.name || ''}
+                                            </span>
+                                            <span style={{ fontSize: 10, color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                                <Clock size={10} />{timeAgo(article.publishedAt)}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </a>
+                            );
+                        })}
+                    </div>
+                )}
             </div>
         </div>
     );

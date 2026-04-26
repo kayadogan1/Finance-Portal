@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Star } from 'lucide-react';
 import type { MarketInstrument } from '@/services/marketService';
-import { InstrumentCard } from './InstrumentCard';
+import { useFavorites } from '@/hooks/useFavorites';
 
 interface InstrumentsGridProps {
     instruments: MarketInstrument[];
@@ -12,23 +12,119 @@ interface InstrumentsGridProps {
     totalPages?: number;
     totalElements?: number;
     onPageChange?: (page: number) => void;
-    formatPrice: (price: number, symbol: string) => string;
+    formatPrice: (price: number, baseCurrency: string) => string;
 }
 
-const SkeletonCard = () => (
-    <div className="animate-pulse" style={{ background: '#111118', borderRadius: 12, padding: 16, border: '1px solid rgba(255,255,255,0.06)', height: 124 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <div>
-                <div style={{ height: 16, width: 60, background: 'rgba(255,255,255,0.05)', borderRadius: 4, marginBottom: 8 }} />
-                <div style={{ height: 12, width: 100, background: 'rgba(255,255,255,0.03)', borderRadius: 4 }} />
-            </div>
-        </div>
-        <div style={{ marginTop: 20 }}>
-            <div style={{ height: 20, width: 80, background: 'rgba(255,255,255,0.05)', borderRadius: 4, marginBottom: 8 }} />
-            <div style={{ height: 18, width: 50, background: 'rgba(255,255,255,0.03)', borderRadius: 4 }} />
-        </div>
+/* ─── Skeleton row ─── */
+const SkeletonRow = () => (
+    <div className="animate-pulse flex items-center gap-3 px-4" style={{ height: 44, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        <div style={{ width: 14 }} />
+        <div style={{ height: 12, width: 52, background: 'rgba(255,255,255,0.05)', borderRadius: 3 }} />
+        <div style={{ flex: 1 }} />
+        <div style={{ height: 12, width: 72, background: 'rgba(255,255,255,0.05)', borderRadius: 3 }} />
+        <div style={{ height: 12, width: 56, background: 'rgba(255,255,255,0.03)', borderRadius: 3 }} />
     </div>
 );
+
+/* ─── Table row ─── */
+const InstrumentRow = ({
+    inst, isSelected, onSelect, formatPrice
+}: {
+    inst: MarketInstrument;
+    isSelected: boolean;
+    onSelect: (s: string) => void;
+    formatPrice: (price: number, baseCurrency: string) => string;
+}) => {
+    const { isFavorite, toggleFavorite } = useFavorites();
+    const isPositive = (inst.change24h ?? 0) >= 0;
+    const fav = isFavorite(inst.symbol);
+
+    return (
+        <div
+            onClick={() => onSelect(inst.symbol)}
+            style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0,
+                height: 44,
+                padding: '0 16px',
+                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                background: isSelected ? 'rgba(99,102,241,0.06)' : 'transparent',
+                cursor: 'pointer',
+                transition: 'background 0.12s',
+            }}
+            onMouseEnter={(e) => {
+                if (!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,0.02)';
+            }}
+            onMouseLeave={(e) => {
+                if (!isSelected) e.currentTarget.style.background = 'transparent';
+            }}
+        >
+            {/* Fav star */}
+            <button
+                onClick={(e) => { e.stopPropagation(); toggleFavorite(inst.symbol); }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 8px 0 0', display: 'flex', alignItems: 'center' }}
+            >
+                <Star size={12} fill={fav ? '#eab308' : 'none'} color={fav ? '#eab308' : '#334155'} style={{ transition: 'all 0.15s' }} />
+            </button>
+
+            {/* Symbol + change indicator */}
+            <div style={{ width: 96, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{
+                    width: 3, height: 14, borderRadius: 1, flexShrink: 0,
+                    background: isPositive ? '#10b981' : '#ef4444',
+                }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.2px' }}>
+                    {inst.symbol}
+                </span>
+            </div>
+
+            {/* Name */}
+            <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
+                <span style={{
+                    fontSize: 12, color: '#64748b',
+                    whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block',
+                }}>
+                    {inst.name}
+                </span>
+            </div>
+
+            {/* Type badge */}
+            <div style={{ width: 64, flexShrink: 0, textAlign: 'center' }}>
+                <span style={{
+                    fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5,
+                    padding: '2px 6px', borderRadius: 3,
+                    background: 'rgba(255,255,255,0.04)', color: '#475569',
+                }}>
+                    {inst.type}
+                </span>
+            </div>
+
+            {/* Price */}
+            <div style={{ width: 120, flexShrink: 0, textAlign: 'right' }}>
+                <span style={{
+                    fontSize: 13, fontWeight: 600, color: '#f1f5f9',
+                    fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.2px',
+                }}>
+                    {formatPrice(inst.currentPrice ?? 0, inst.baseCurrency)}
+                </span>
+            </div>
+
+            {/* Change % */}
+            <div style={{ width: 80, flexShrink: 0, textAlign: 'right' }}>
+                <span style={{
+                    fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums',
+                    padding: '2px 8px', borderRadius: 4,
+                    background: isPositive ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+                    color: isPositive ? '#10b981' : '#ef4444',
+                }}>
+                    {isPositive ? '+' : ''}{(inst.change24h ?? 0).toFixed(2)}%
+                </span>
+            </div>
+        </div>
+    );
+};
+
 
 export function InstrumentsGrid({
     instruments, onSelectSymbol, selectedSymbol, isLoading,
@@ -59,13 +155,11 @@ export function InstrumentsGrid({
 
     if (isLoading) {
         return (
-            <div>
-                <div style={{ padding: '16px 0 16px' }}>
-                    <div className="animate-pulse" style={{ height: 40, borderRadius: 8, background: 'rgba(255,255,255,0.03)', maxWidth: 320 }} />
+            <div style={{ background: '#111118', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div className="animate-pulse" style={{ height: 32, borderRadius: 6, background: 'rgba(255,255,255,0.03)', maxWidth: 280 }} />
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                    {Array.from({ length: 10 }).map((_, i) => <SkeletonCard key={i} />)}
-                </div>
+                {Array.from({ length: 12 }).map((_, i) => <SkeletonRow key={i} />)}
             </div>
         );
     }
@@ -85,33 +179,50 @@ export function InstrumentsGrid({
     });
 
     return (
-        <div>
-            {/* Search */}
-            <div style={{ padding: '16px 0 16px' }}>
-                <div style={{ position: 'relative', maxWidth: 320 }}>
-                    <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#475569', pointerEvents: 'none' }} />
+        <div style={{ background: '#111118', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+            {/* Search + header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ position: 'relative', width: 280 }}>
+                    <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#475569', pointerEvents: 'none' }} />
                     <input
                         type="text"
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
                         placeholder="Sembol veya isim ara..."
                         style={{
-                            width: '100%', height: 40, paddingLeft: 36, paddingRight: 12, fontSize: 13, fontWeight: 500,
-                            background: '#111118', border: '1px solid rgba(255,255,255,0.08)', borderRadius: 8,
+                            width: '100%', height: 32, paddingLeft: 32, paddingRight: 10, fontSize: 12, fontWeight: 500,
+                            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 6,
                             color: '#f1f5f9', outline: 'none', transition: 'border-color 0.15s',
                         }}
-                        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.5)'; }}
-                        onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                        onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)'; }}
+                        onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; }}
                     />
                 </div>
+                <span style={{ fontSize: 11, color: '#475569' }}>
+                    {processed.length} enstrüman
+                </span>
             </div>
 
-            {/* Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            {/* Table header */}
+            <div style={{
+                display: 'flex', alignItems: 'center', height: 32, padding: '0 16px',
+                borderBottom: '1px solid rgba(255,255,255,0.06)',
+                background: 'rgba(255,255,255,0.015)',
+            }}>
+                <div style={{ width: 20 }} />
+                <div style={{ width: 96, fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5 }}>Sembol</div>
+                <div style={{ flex: 1, fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5 }}>Ad</div>
+                <div style={{ width: 64, fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' }}>Tip</div>
+                <div style={{ width: 120, fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Fiyat</div>
+                <div style={{ width: 80, fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Değişim</div>
+            </div>
+
+            {/* Rows */}
+            <div>
                 {processed.map((inst) => (
-                    <InstrumentCard
+                    <InstrumentRow
                         key={inst.symbol}
-                        instrument={inst}
+                        inst={inst}
                         isSelected={selectedSymbol === inst.symbol}
                         onSelect={onSelectSymbol || (() => {})}
                         formatPrice={formatPrice}
@@ -121,8 +232,8 @@ export function InstrumentsGrid({
 
             {/* Pagination / Row count */}
             {hasPagination ? (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0 8px', flexWrap: 'wrap', gap: 8 }}>
-                    <span style={{ fontSize: 12, color: '#64748b' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap', gap: 8 }}>
+                    <span style={{ fontSize: 11, color: '#64748b' }}>
                         Toplam {totalElements ?? 0} enstrüman
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -149,11 +260,7 @@ export function InstrumentsGrid({
                         </button>
                     </div>
                 </div>
-            ) : (
-                <div style={{ textAlign: 'center', padding: '16px 0 8px', fontSize: 11, color: '#475569' }}>
-                    {processed.length} enstrüman
-                </div>
-            )}
+            ) : null}
         </div>
     );
 }

@@ -8,7 +8,6 @@ const COUNTRIES = [
     { key: '', label: 'Tümü', flag: '🌍' },
     { key: 'TR', label: 'Türkiye', flag: '🇹🇷' },
     { key: 'US', label: 'ABD', flag: '🇺🇸' },
-    { key: 'UK', label: 'İngiltere', flag: '🇬🇧' },
 ] as const;
 
 const NewsPage = () => {

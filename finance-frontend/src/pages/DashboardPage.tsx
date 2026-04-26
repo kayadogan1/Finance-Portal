@@ -1,18 +1,16 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-    ArrowRight,
     Clock,
-    ExternalLink,
+    Crosshair,
     Globe2,
     MapPin,
 } from 'lucide-react';
-import { useFavorites } from '../hooks/useFavorites';
 import { getMarketInstruments, type MarketInstrument } from '../services/marketService';
-import { getNews, type FilteredArticleDto } from '../services/newsService';
+import { getNews, ASSET_TYPE_COLORS, type FilteredArticleDto } from '../services/newsService';
 import { formatMarketPrice, isTRCurrency, isUSCurrency } from '../utils/currency';
-import SourceAvatar, { getSourceColor } from '../components/news/SourceAvatar';
+import { getSourceColor } from '../components/news/SourceAvatar';
 
 function timeAgo(dateStr: string): string {
     const now = new Date();
@@ -140,16 +138,14 @@ const ListWidget = ({
    ════════════════════════════════════════ */
 const DashboardPage = () => {
     const navigate = useNavigate();
-    const [instruments, setInstruments] = useState<MarketInstrument[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
     const [region, setRegion] = useState<'TR' | 'US'>('TR');
 
-    useEffect(() => {
-        getMarketInstruments().then(data => {
-            setInstruments(data);
-            setIsLoading(false);
-        });
-    }, []);
+    /* Cache instruments globally — 5min staleTime prevents refetch on every page visit */
+    const { data: instruments = [], isLoading } = useQuery({
+        queryKey: ['market-instruments'],
+        queryFn: getMarketInstruments,
+        staleTime: 1000 * 60 * 5,
+    });
 
     const { data: news = [], isLoading: newsLoading } = useQuery({
         queryKey: ['news', 'all'],
@@ -159,23 +155,22 @@ const DashboardPage = () => {
 
     const sourceBadgeColor = getSourceColor;
 
-    /* ─── Derived data ─── */
+    /* ─── Region filtering ─── */
     const regionalInstruments = useMemo(() => {
         return instruments.filter(i => {
+            /* Crypto is global — show in both regions */
             if (i.type === 'CRYPTO') return true;
-            
-            const isTurkishAsset = i.symbol.endsWith('.IS') || i.symbol.startsWith('XU') || isTRCurrency(i.baseCurrency) || i.symbol === 'USDTRY';
-            const isUsAsset = !isTurkishAsset && (isUSCurrency(i.baseCurrency) || i.symbol === 'DXY');
 
-            if (region === 'TR') {
-                if (isTurkishAsset) return true;
-                if (isUsAsset) return false;
-                return true;
-            }
-            if (region === 'US') {
-                if (isTurkishAsset) return false;
-                return true;
-            }
+            /* Turkish assets: TRY currency OR BIST symbols (.IS suffix, XU prefix) */
+            const isTurkish = isTRCurrency(i.baseCurrency) ||
+                i.symbol.endsWith('.IS') ||
+                i.symbol.startsWith('XU');
+
+            /* US/Global assets: USD-based that are NOT Turkish */
+            const isUS = !isTurkish && (isUSCurrency(i.baseCurrency) || i.symbol === 'DXY');
+
+            if (region === 'TR') return isTurkish;
+            if (region === 'US') return isUS;
             return true;
         });
     }, [instruments, region]);
@@ -185,7 +180,7 @@ const DashboardPage = () => {
     const indices = useMemo(() => regionalInstruments.filter(i => i.type === 'INDEX').slice(0, 6), [regionalInstruments]);
     const commodities = useMemo(() => regionalInstruments.filter(i => i.type === 'COMMODITY' || i.type === 'FIAT' || i.type === 'FOREX').slice(0, 6), [regionalInstruments]);
 
-    const topMovers = [...regionalInstruments]
+    const _topMovers = [...regionalInstruments]
         .sort((a, b) => Math.abs(b.change24h ?? 0) - Math.abs(a.change24h ?? 0))
         .slice(0, 6);
 
@@ -276,7 +271,9 @@ const DashboardPage = () => {
                                 </div>
                             </div>
                         ))
-                        : latestNews.map((article, idx) => (
+                        : latestNews.map((article, idx) => {
+                            const instruments = (article.instruments || []).slice(0, 3);
+                            return (
                             <a
                                 key={`${article.url}-${idx}`}
                                 href={article.url}
@@ -304,9 +301,35 @@ const DashboardPage = () => {
                                     />
                                 )}
                                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                                    <h4 style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', lineHeight: 1.4, marginBottom: 8 }} className="line-clamp-3">
+                                    <h4 style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', lineHeight: 1.4, marginBottom: 6 }} className="line-clamp-2">
                                         {article.title}
                                     </h4>
+
+                                    {/* Enstrüman tag'leri */}
+                                    {instruments.length > 0 && (
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 6 }}>
+                                            {instruments.map((inst) => {
+                                                const color = ASSET_TYPE_COLORS[inst.assetType] || '#6366f1';
+                                                return (
+                                                    <button
+                                                        key={`${inst.symbol}-${inst.rankOrder}`}
+                                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); navigate(`/instrument/${inst.symbol}`); }}
+                                                        style={{
+                                                            padding: '1px 5px', fontSize: 9, fontWeight: 600, borderRadius: 3,
+                                                            background: `${color}14`, color, border: `1px solid ${color}25`,
+                                                            cursor: 'pointer', lineHeight: '16px', letterSpacing: '0.2px',
+                                                            display: 'inline-flex', alignItems: 'center', gap: 3,
+                                                        }}
+                                                        title={`${inst.symbol} — ${inst.assetType}`}
+                                                    >
+                                                        {inst.primaryMatch && <Crosshair size={7} style={{ opacity: 0.7 }} />}
+                                                        {inst.symbol}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto' }}>
                                         {article.source?.name ? (
                                             <span style={{ fontSize: 10, fontWeight: 600, color: sourceBadgeColor(article.source.name), textTransform: 'uppercase' }}>
@@ -319,7 +342,8 @@ const DashboardPage = () => {
                                     </div>
                                 </div>
                             </a>
-                        ))}
+                            );
+                        })}
                 </div>
             </div>
         </div>

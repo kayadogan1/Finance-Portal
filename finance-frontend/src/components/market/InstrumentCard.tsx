@@ -6,7 +6,7 @@ interface InstrumentCardProps {
     instrument: MarketInstrument;
     isSelected: boolean;
     onSelect: (symbol: string) => void;
-    formatPrice: (price: number, symbol: string) => string;
+    formatPrice: (price: number, baseCurrency: string) => string;
 }
 
 export function InstrumentCard({ instrument, isSelected, onSelect, formatPrice }: InstrumentCardProps) {
@@ -68,7 +68,7 @@ export function InstrumentCard({ instrument, isSelected, onSelect, formatPrice }
             
             <div className="mt-4 flex flex-col gap-1">
                 <div style={{ fontSize: 20, fontWeight: 700, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.3px' }}>
-                    {formatPrice(instrument.currentPrice ?? 0, instrument.symbol)}
+                    {formatPrice(instrument.currentPrice ?? 0, instrument.baseCurrency)}
                 </div>
                 <div>
                     <span

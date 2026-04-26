@@ -58,7 +58,19 @@ export default function NewsGrid({ topic, country, title = 'Son Haberler', maxIt
             {articles && articles.length > 0 && (
                 <div className={`grid ${gridCols} gap-3.5`}>
                     {articles.slice(0, maxItems).map((a, i) => (
-                        <NewsCard key={`${a.url}-${i}`} title={a.title} description={a.description} url={a.url} urlToImage={a.urlToImage} sourceName={a.source?.name} publishedAt={a.publishedAt} category={a.category} />
+                        <NewsCard
+                            key={`${a.url}-${i}`}
+                            title={a.title}
+                            description={a.description}
+                            url={a.url}
+                            urlToImage={a.urlToImage}
+                            sourceName={a.source?.name}
+                            publishedAt={a.publishedAt}
+                            category={a.category}
+                            modelName={a.modelName}
+                            instrumentSymbol={a.instrumentSymbol}
+                            instruments={a.instruments}
+                        />
                     ))}
                 </div>
             )}

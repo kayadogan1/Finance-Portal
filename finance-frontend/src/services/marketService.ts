@@ -1,5 +1,5 @@
 import { publicApi } from './api';
-import type { OHLCData, AIInsight } from '../types';
+import type { OHLCData } from '../types';
 
 /* ═══════════════════════════════════════════════════════════════════════
    BACKEND ENDPOINT MAP  (MarketController)
@@ -77,7 +77,7 @@ export interface BackendInstrument {
     id: string;
     symbol: string;
     name: string;
-    type: 'CRYPTO' | 'FIAT' | 'COMMODITY' | 'INDEX';
+    type: 'CRYPTO' | 'FIAT' | 'COMMODITY' | 'INDEX' | 'STOCK' | 'FOREX' | 'BOND';
     currentPrice: number;
     baseCurrency: string;
     lastUpdateTime: string;
@@ -297,12 +297,3 @@ export const getInstrumentBySymbol = async (symbol: string): Promise<BackendInst
     return data;
 };
 
-/* ═══════════════════════════════════════════════════════════════════════
-   5. AI INSIGHT
-   Endpoint: GET /api/market/ai-insight/{symbol}
-   ═══════════════════════════════════════════════════════════════════════ */
-
-export const getAIInsight = async (symbol: string): Promise<AIInsight> => {
-    const { data } = await publicApi.get<AIInsight>(`/api/market/ai-insight/${symbol}`);
-    return data;
-};
