@@ -17,6 +17,12 @@ import java.util.UUID;
 @Repository
 public interface MarketDataRepository extends JpaRepository<MarketData, UUID> {
 
+
+    Optional<MarketData> findFirstByInstrumentAndTimestampBetweenOrderByTimestampAsc(Instrument instrument, LocalDateTime from, LocalDateTime to);
+    Optional<MarketData> findFirstByInstrumentAndTimestampBeforeOrderByTimestampDesc(
+            Instrument instrument,
+            LocalDateTime before
+    );
     List<MarketData> findByInstrumentSymbolAndTimestampAfterOrderByTimestampAsc(String symbol, LocalDateTime timestamp);
     Optional<MarketData> findFirstByInstrumentOrderByTimestampDesc(Instrument instrument);
     @Query(

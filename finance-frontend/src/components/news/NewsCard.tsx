@@ -61,7 +61,7 @@ function InstrumentTag({ instrument, onClick }: { instrument: NewsInstrumentDto;
 
 export default function NewsCard({
     title, description, url, urlToImage, sourceName, publishedAt, category,
-    modelName: _modelName, instrumentSymbol: _instrumentSymbol, instruments,
+    instruments,
 }: NewsCardProps) {
     const navigate = useNavigate();
     const visibleInstruments = (instruments || []).slice(0, 4);

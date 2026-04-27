@@ -25,14 +25,14 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
     ETH: 'Ξ',
 };
 
-const TRY_CURRENCIES = new Set(['TRY']);
+const TRY_CURRENCIES = new Set(['TRY', 'TL']);
 
 /**
  * Format a market price using the actual baseCurrency from the API.
  * No more heuristic guessing — the backend tells us the currency.
  */
 export const formatMarketPrice = (price: number, baseCurrency?: string): string => {
-    const cur = (baseCurrency ?? 'USD').toUpperCase();
+    const cur = (baseCurrency && baseCurrency.toUpperCase() === 'TL' ? 'TRY' : baseCurrency ?? 'USD').toUpperCase();
     const symbol = CURRENCY_SYMBOLS[cur] ?? `${cur} `;
     const isTR = TRY_CURRENCIES.has(cur);
 
@@ -48,7 +48,7 @@ export const formatMarketPrice = (price: number, baseCurrency?: string): string 
  * Determine if an instrument belongs to TR region based on its baseCurrency.
  */
 export const isTRCurrency = (baseCurrency?: string): boolean => {
-    return (baseCurrency ?? '').toUpperCase() === 'TRY';
+    return TRY_CURRENCIES.has((baseCurrency ?? '').toUpperCase());
 };
 
 /**

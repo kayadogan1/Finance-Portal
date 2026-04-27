@@ -96,7 +96,7 @@ export default function SourceAvatar({ name, size = 'md', className = '' }: Sour
                 flexShrink: 0,
                 overflow: 'hidden',
                 background: logoUrl ? '#1a1a24' : `${color}18`,
-                border: `1px solid ${logoUrl ? 'rgba(255,255,255,0.08)' : `${color}30`}`,
+                border: `1px solid ${logoUrl ? 'hsl(var(--border))' : `${color}30`}`,
                 transition: 'all 0.2s ease',
             }}
         >
@@ -138,6 +138,7 @@ export default function SourceAvatar({ name, size = 'md', className = '' }: Sour
 }
 
 /* ─── Re-export source badge color helper ─── */
+// eslint-disable-next-line react-refresh/only-export-components
 export function getSourceColor(name: string): string {
     return AVATAR_COLORS[hashString(name) % AVATAR_COLORS.length];
 }

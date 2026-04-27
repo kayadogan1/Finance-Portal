@@ -30,6 +30,8 @@ public class Instrument {
 
     private BigDecimal currentPrice;
 
+    private BigDecimal previousPrice;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "base_currency", nullable = false)
     private Currency baseCurrency;

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { AxiosError } from "axios";
 import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import {
@@ -35,7 +36,7 @@ export function CreatePortfolioModal({ isOpen, onClose }: CreatePortfolioModalPr
             queryClient.invalidateQueries({ queryKey: ["portfolio-history"] });
             onClose(); reset();
         },
-        onError: (error: any) => { setErrorText(error.response?.data?.message || "Portföy oluşturulamadı."); },
+        onError: (error: AxiosError<{ message?: string }>) => { setErrorText(error.response?.data?.message || "Portföy oluşturulamadı."); },
     });
 
     const onSubmit = (data: CreatePortfolioFormValues) => { setErrorText(null); mutation.mutate(data); };

@@ -1,40 +1,22 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Globe2, Search, ChevronLeft, ChevronRight, Star, ArrowUpRight } from 'lucide-react';
-import { getMarketInstruments, getMarketInstrumentsPaged, type MarketInstrument } from '../services/marketService';
+import { belongsToMarket, formatChangePercent, getMarketInstruments, hasChange, type MarketInstrument } from '../services/marketService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatMarketPrice, isTRCurrency, isUSCurrency } from '../utils/currency';
+import { formatMarketPrice } from '../utils/currency';
 import { useFavorites } from '../hooks/useFavorites';
-
-/* ─── Region filtering ─── */
-const belongsToRegion = (inst: MarketInstrument, region: 'TR' | 'US'): boolean => {
-    /* Crypto is global — show in both regions */
-    if (inst.type === 'CRYPTO') return true;
-
-    /* Turkish assets: TRY currency OR BIST symbols (.IS suffix, XU prefix) */
-    const isTurkish = isTRCurrency(inst.baseCurrency) ||
-        inst.symbol.endsWith('.IS') ||
-        inst.symbol.startsWith('XU');
-
-    /* US/Global assets: USD-based that are NOT Turkish */
-    const isUS = !isTurkish && (isUSCurrency(inst.baseCurrency) || inst.symbol === 'DXY');
-
-    if (region === 'TR') return isTurkish;
-    if (region === 'US') return isUS;
-    return true;
-};
 
 const PAGE_SIZE = 20;
 
 /* ─── Skeleton row ─── */
 const SkeletonRow = () => (
-    <div className="animate-pulse flex items-center gap-3 px-4" style={{ height: 44, borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+    <div className="animate-pulse flex items-center gap-3 px-4" style={{ height: 44, borderBottom: '1px solid hsl(var(--border-subtle))' }}>
         <div style={{ width: 14 }} />
         <div style={{ height: 12, width: 52, background: 'rgba(255,255,255,0.05)', borderRadius: 3 }} />
         <div style={{ flex: 1 }} />
         <div style={{ height: 12, width: 72, background: 'rgba(255,255,255,0.05)', borderRadius: 3 }} />
-        <div style={{ height: 12, width: 56, background: 'rgba(255,255,255,0.03)', borderRadius: 3 }} />
+        <div style={{ height: 12, width: 56, background: 'hsl(var(--background-subtle))', borderRadius: 3 }} />
     </div>
 );
 
@@ -47,7 +29,8 @@ const InstrumentRow = ({
     formatPrice: (price: number, baseCurrency: string) => string;
 }) => {
     const { isFavorite, toggleFavorite } = useFavorites();
-    const isPositive = (inst.change24h ?? 0) >= 0;
+    const hasChangeValue = hasChange(inst);
+    const isPositive = hasChangeValue && inst.change24h >= 0;
     const fav = isFavorite(inst.symbol);
 
     return (
@@ -59,7 +42,7 @@ const InstrumentRow = ({
                 gap: 0,
                 height: 46,
                 padding: '0 16px',
-                borderBottom: '1px solid rgba(255,255,255,0.04)',
+                borderBottom: '1px solid hsl(var(--border-subtle))',
                 background: 'transparent',
                 cursor: 'pointer',
                 transition: 'background 0.12s',
@@ -72,16 +55,16 @@ const InstrumentRow = ({
                 onClick={e => { e.stopPropagation(); toggleFavorite(inst.symbol); }}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 8px 0 0', display: 'flex', alignItems: 'center' }}
             >
-                <Star size={12} fill={fav ? '#eab308' : 'none'} color={fav ? '#eab308' : '#334155'} style={{ transition: 'all 0.15s' }} />
+                <Star size={12} fill={fav ? '#eab308' : 'none'} color={fav ? '#eab308' : 'hsl(var(--ghost-foreground))'} style={{ transition: 'all 0.15s' }} />
             </button>
 
             {/* Symbol + change indicator */}
             <div style={{ width: 96, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{
                     width: 3, height: 14, borderRadius: 1, flexShrink: 0,
-                    background: isPositive ? '#10b981' : '#ef4444',
+                    background: !hasChangeValue ? 'hsl(var(--muted-foreground))' : isPositive ? '#10b981' : '#ef4444',
                 }} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.2px' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: 'hsl(var(--foreground))', letterSpacing: '-0.2px' }}>
                     {inst.symbol}
                 </span>
             </div>
@@ -89,7 +72,7 @@ const InstrumentRow = ({
             {/* Name */}
             <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
                 <span style={{
-                    fontSize: 12, color: '#64748b',
+                    fontSize: 12, color: 'hsl(var(--muted-foreground))',
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block',
                 }}>
                     {inst.name}
@@ -101,7 +84,7 @@ const InstrumentRow = ({
                 <span style={{
                     fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5,
                     padding: '2px 6px', borderRadius: 3,
-                    background: 'rgba(255,255,255,0.04)', color: '#475569',
+                    background: 'hsl(var(--border-subtle))', color: 'hsl(var(--subtle-foreground))',
                 }}>
                     {inst.type}
                 </span>
@@ -110,7 +93,7 @@ const InstrumentRow = ({
             {/* Price */}
             <div style={{ width: 120, flexShrink: 0, textAlign: 'right' }}>
                 <span style={{
-                    fontSize: 13, fontWeight: 600, color: '#f1f5f9',
+                    fontSize: 13, fontWeight: 600, color: 'hsl(var(--foreground))',
                     fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.2px',
                 }}>
                     {formatPrice(inst.currentPrice ?? 0, inst.baseCurrency)}
@@ -122,16 +105,16 @@ const InstrumentRow = ({
                 <span style={{
                     fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums',
                     padding: '2px 8px', borderRadius: 4,
-                    background: isPositive ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
-                    color: isPositive ? '#10b981' : '#ef4444',
+                    background: !hasChangeValue ? 'rgba(148,163,184,0.08)' : isPositive ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+                    color: !hasChangeValue ? 'hsl(var(--muted-foreground))' : isPositive ? '#10b981' : '#ef4444',
                 }}>
-                    {isPositive ? '+' : ''}{(inst.change24h ?? 0).toFixed(2)}%
+                    {formatChangePercent(inst.change24h)}
                 </span>
             </div>
 
             {/* Arrow hint */}
             <div style={{ width: 28, flexShrink: 0, textAlign: 'right', paddingLeft: 8 }}>
-                <ArrowUpRight size={12} style={{ color: '#334155' }} />
+                <ArrowUpRight size={12} style={{ color: 'hsl(var(--ghost-foreground))' }} />
             </div>
         </div>
     );
@@ -173,18 +156,18 @@ function InstrumentList({
     const paginationBtnStyle = (active: boolean, disabled?: boolean): React.CSSProperties => ({
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         minWidth: 32, height: 32, padding: '0 8px', borderRadius: 6, fontSize: 12, fontWeight: 600,
-        border: active ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.08)',
+        border: active ? '1px solid rgba(99,102,241,0.4)' : '1px solid hsl(var(--border))',
         background: active ? 'rgba(99,102,241,0.1)' : 'transparent',
-        color: disabled ? '#334155' : active ? '#818cf8' : '#94a3b8',
+        color: disabled ? 'hsl(var(--ghost-foreground))' : active ? '#818cf8' : 'hsl(var(--muted-foreground))',
         cursor: disabled ? 'not-allowed' : 'pointer',
         transition: 'all 0.15s', pointerEvents: disabled ? 'none' : 'auto',
     });
 
     if (isLoading) {
         return (
-            <div style={{ background: '#111118', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div className="animate-pulse" style={{ height: 32, borderRadius: 6, background: 'rgba(255,255,255,0.03)', maxWidth: 280 }} />
+            <div style={{ background: 'hsl(var(--card))', borderRadius: 12, border: '1px solid hsl(var(--border))', overflow: 'hidden' }}>
+                <div style={{ padding: '12px 16px', borderBottom: '1px solid hsl(var(--border))' }}>
+                    <div className="animate-pulse" style={{ height: 32, borderRadius: 6, background: 'hsl(var(--background-subtle))', maxWidth: 280 }} />
                 </div>
                 {Array.from({ length: 12 }).map((_, i) => <SkeletonRow key={i} />)}
             </div>
@@ -192,15 +175,15 @@ function InstrumentList({
     }
 
     if (!instruments.length) {
-        return <div style={{ textAlign: 'center', padding: 48, fontSize: 13, color: '#64748b' }}>Bu kategoride enstrüman bulunamadı.</div>;
+        return <div style={{ textAlign: 'center', padding: 48, fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>Bu kategoride enstrüman bulunamadı.</div>;
     }
 
     return (
-        <div style={{ background: '#111118', borderRadius: 12, border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+        <div style={{ background: 'hsl(var(--card))', borderRadius: 12, border: '1px solid hsl(var(--border))', overflow: 'hidden' }}>
             {/* Search + count */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: '1px solid hsl(var(--border))' }}>
                 <div style={{ position: 'relative', width: 280 }}>
-                    <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#475569', pointerEvents: 'none' }} />
+                    <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--subtle-foreground))', pointerEvents: 'none' }} />
                     <input
                         type="text"
                         value={search}
@@ -208,14 +191,14 @@ function InstrumentList({
                         placeholder="Sembol veya isim ara..."
                         style={{
                             width: '100%', height: 32, paddingLeft: 32, paddingRight: 10, fontSize: 12, fontWeight: 500,
-                            background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 6,
-                            color: '#f1f5f9', outline: 'none', transition: 'border-color 0.15s',
+                            background: 'hsl(var(--background-subtle))', border: '1px solid hsl(var(--border))', borderRadius: 6,
+                            color: 'hsl(var(--foreground))', outline: 'none', transition: 'border-color 0.15s',
                         }}
                         onFocus={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)'; }}
-                        onBlur={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; }}
+                        onBlur={e => { e.currentTarget.style.borderColor = 'hsl(var(--border))'; }}
                     />
                 </div>
-                <span style={{ fontSize: 11, color: '#475569' }}>
+                <span style={{ fontSize: 11, color: 'hsl(var(--subtle-foreground))' }}>
                     {processed.length} enstrüman — Detaylar için tıklayın
                 </span>
             </div>
@@ -223,15 +206,15 @@ function InstrumentList({
             {/* Table header */}
             <div style={{
                 display: 'flex', alignItems: 'center', height: 32, padding: '0 16px',
-                borderBottom: '1px solid rgba(255,255,255,0.06)',
+                borderBottom: '1px solid hsl(var(--border))',
                 background: 'rgba(255,255,255,0.015)',
             }}>
                 <div style={{ width: 20 }} />
-                <div style={{ width: 96, fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5 }}>Sembol</div>
-                <div style={{ flex: 1, fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5 }}>Ad</div>
-                <div style={{ width: 64, fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' }}>Tip</div>
-                <div style={{ width: 120, fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Fiyat</div>
-                <div style={{ width: 80, fontSize: 10, fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Değişim</div>
+                <div style={{ width: 96, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5 }}>Sembol</div>
+                <div style={{ flex: 1, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5 }}>Ad</div>
+                <div style={{ width: 64, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' }}>Tip</div>
+                <div style={{ width: 120, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Fiyat</div>
+                <div style={{ width: 80, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Değişim</div>
                 <div style={{ width: 28 }} />
             </div>
 
@@ -249,8 +232,8 @@ function InstrumentList({
 
             {/* Pagination */}
             {hasPagination && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderTop: '1px solid rgba(255,255,255,0.06)', flexWrap: 'wrap', gap: 8 }}>
-                    <span style={{ fontSize: 11, color: '#64748b' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderTop: '1px solid hsl(var(--border))', flexWrap: 'wrap', gap: 8 }}>
+                    <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>
                         Toplam {totalElements ?? 0} enstrüman
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -260,7 +243,7 @@ function InstrumentList({
                         {pageNumbers[0] > 0 && (
                             <>
                                 <button style={paginationBtnStyle(page === 0)} onClick={() => onPageChange!(0)}>1</button>
-                                {pageNumbers[0] > 1 && <span style={{ color: '#475569', fontSize: 12, padding: '0 4px' }}>…</span>}
+                                {pageNumbers[0] > 1 && <span style={{ color: 'hsl(var(--subtle-foreground))', fontSize: 12, padding: '0 4px' }}>…</span>}
                             </>
                         )}
                         {pageNumbers.map(n => (
@@ -268,7 +251,7 @@ function InstrumentList({
                         ))}
                         {pageNumbers[pageNumbers.length - 1] < totalPages! - 1 && (
                             <>
-                                {pageNumbers[pageNumbers.length - 1] < totalPages! - 2 && <span style={{ color: '#475569', fontSize: 12, padding: '0 4px' }}>…</span>}
+                                {pageNumbers[pageNumbers.length - 1] < totalPages! - 2 && <span style={{ color: 'hsl(var(--subtle-foreground))', fontSize: 12, padding: '0 4px' }}>…</span>}
                                 <button style={paginationBtnStyle(page === totalPages! - 1)} onClick={() => onPageChange!(totalPages! - 1)}>{totalPages}</button>
                             </>
                         )}
@@ -291,46 +274,44 @@ const MarketPage = () => {
     const [page, setPage] = useState(0);
     const [region, setRegion] = useState<'TR' | 'US'>('TR');
 
-    const { data: pagedData, isLoading: pagedLoading } = useQuery({
-        queryKey: ['market-instruments-paged', page],
-        queryFn: () => getMarketInstrumentsPaged(page, PAGE_SIZE),
-        enabled: activeTab === 'all',
-        staleTime: 1000 * 60 * 5,
-    });
-
     const { data: allInstruments = [], isLoading: allLoading } = useQuery({
         queryKey: ['market-instruments'],
         queryFn: getMarketInstruments,
-        enabled: activeTab !== 'all',
-        staleTime: 1000 * 60 * 5,
+        staleTime: 1000 * 60 * 15,
+        gcTime: 1000 * 60 * 45,
     });
 
-    const isLoading = activeTab === 'all' ? pagedLoading : allLoading;
-
-    // Reset page on tab change
-    useEffect(() => { setPage(0); }, [activeTab]);
+    const isLoading = allLoading;
 
     const formatPrice = (price: number, baseCurrency: string) => formatMarketPrice(price, baseCurrency);
 
     const grouped = useMemo(() => {
-        const regional = allInstruments.filter(i => belongsToRegion(i, region));
+        const regional = allInstruments.filter(i => belongsToMarket(i, region));
         return {
+            all: regional,
             crypto: regional.filter(i => i.type === 'CRYPTO'),
             forex: regional.filter(i => i.type === 'FIAT' || i.type === 'FOREX'),
             commodity: regional.filter(i => i.type === 'COMMODITY'),
             indices: regional.filter(i => i.type === 'INDEX'),
-            stock: regional.filter(i => i.type === 'STOCK'),
-            bond: regional.filter(i => i.type === 'BOND'),
+            stock: regional.filter(i => i.type === 'STOCK' || i.type === 'VIOP'),
+            bond: regional.filter(i => i.type === 'BOND' || i.type === 'FUND'),
             gainers: [...regional]
-                .filter(i => (i.change24h ?? 0) > 0)
-                .sort((a, b) => (b.change24h ?? 0) - (a.change24h ?? 0))
+                .filter(i => hasChange(i) && i.change24h > 0)
+                .sort((a, b) => (b.change24h ?? Number.NEGATIVE_INFINITY) - (a.change24h ?? Number.NEGATIVE_INFINITY))
                 .slice(0, 20),
             losers: [...regional]
-                .filter(i => (i.change24h ?? 0) < 0)
-                .sort((a, b) => (a.change24h ?? 0) - (b.change24h ?? 0))
+                .filter(i => hasChange(i) && i.change24h < 0)
+                .sort((a, b) => (a.change24h ?? Number.POSITIVE_INFINITY) - (b.change24h ?? Number.POSITIVE_INFINITY))
                 .slice(0, 20),
         };
     }, [allInstruments, region]);
+
+    const allPage = useMemo(() => {
+        const start = page * PAGE_SIZE;
+        return grouped.all.slice(start, start + PAGE_SIZE);
+    }, [grouped.all, page]);
+
+    const totalPages = Math.max(1, Math.ceil(grouped.all.length / PAGE_SIZE));
 
     const handleNavigate = (symbol: string) => {
         navigate(`/instrument/${symbol}`);
@@ -352,9 +333,9 @@ const MarketPage = () => {
                 </div>
 
                 {/* Region Toggle */}
-                <div className="flex bg-[#111118] border border-border p-0.5 rounded-lg w-fit">
+                <div className="flex bg-[hsl(var(--card))] border border-border p-0.5 rounded-lg w-fit">
                     <button
-                        onClick={() => setRegion('TR')}
+                        onClick={() => { setRegion('TR'); setPage(0); }}
                         className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
                             region === 'TR' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
                         }`}
@@ -362,7 +343,7 @@ const MarketPage = () => {
                         <MapPin size={12} /> TR
                     </button>
                     <button
-                        onClick={() => setRegion('US')}
+                        onClick={() => { setRegion('US'); setPage(0); }}
                         className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
                             region === 'US' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-white/5'
                         }`}
@@ -373,7 +354,7 @@ const MarketPage = () => {
             </div>
 
             {/* Tabs + Table */}
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value); setPage(0); }} className="w-full">
                 <div className="border-b border-border pb-0 mb-0" style={{ overflowX: 'auto' }}>
                     <TabsList className="bg-transparent p-0 h-auto gap-4 rounded-none" style={{ flexWrap: 'nowrap', minWidth: 'max-content' }}>
                         <TabsTrigger value="all" className={tabCls}>Tümü</TabsTrigger>
@@ -395,11 +376,11 @@ const MarketPage = () => {
                 {/* "Tümü" tab */}
                 <TabsContent value="all" className="mt-0 outline-none pt-0">
                     <InstrumentList
-                        instruments={pagedData?.content ?? []}
-                        isLoading={pagedLoading}
+                        instruments={allPage}
+                        isLoading={isLoading}
                         page={page}
-                        totalPages={pagedData?.totalPages ?? 0}
-                        totalElements={pagedData?.totalElements ?? 0}
+                        totalPages={totalPages}
+                        totalElements={grouped.all.length}
                         onPageChange={setPage}
                         formatPrice={formatPrice}
                         onNavigate={handleNavigate}

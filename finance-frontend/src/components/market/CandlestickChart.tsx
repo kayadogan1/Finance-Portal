@@ -5,9 +5,12 @@ import {
     CandlestickSeries,
     LineSeries,
     type IChartApi,
+    type ISeriesApi,
+    type SeriesType,
 } from 'lightweight-charts';
 import type { OHLCData } from '../../types';
 import { getCandleData, getLineData, type TimeSlot } from '../../services/marketService';
+import { formatMarketPrice } from '../../utils/currency';
 import { CandlestickChart as CandlestickIcon, LineChart as LineChartIcon, RefreshCw, TrendingUp } from 'lucide-react';
 import { calculateSMA, calculateEMA, calculateRSI, type IndicatorPoint } from '../../utils/indicators';
 
@@ -106,9 +109,18 @@ interface ChartRendererProps {
     lineData: LinePoint[];
     mode: ChartMode;
     overlays: { id: string; data: IndicatorPoint[]; color: string }[];
+    priceFormatter: (value: number) => string;
 }
 
-function ChartRenderer({ ohlcData, lineData, mode, overlays }: ChartRendererProps) {
+interface TooltipData {
+    open?: number;
+    high?: number;
+    low?: number;
+    close?: number;
+    value?: number;
+}
+
+function ChartRenderer({ ohlcData, lineData, mode, overlays, priceFormatter }: ChartRendererProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const tooltipRef = useRef<HTMLDivElement>(null);
     const chartRef = useRef<IChartApi | null>(null);
@@ -130,7 +142,7 @@ function ChartRenderer({ ohlcData, lineData, mode, overlays }: ChartRendererProp
             height: 420,
             layout: {
                 background: { color: 'transparent' },
-                textColor: '#94a3b8',
+                textColor: 'hsl(var(--muted-foreground))',
                 fontFamily: '"SF Mono", "Fira Code", monospace',
             },
             grid: {
@@ -138,8 +150,8 @@ function ChartRenderer({ ohlcData, lineData, mode, overlays }: ChartRendererProp
                 horzLines: { color: '#1e293b' },
             },
             crosshair: {
-                vertLine: { color: '#475569', labelBackgroundColor: '#334155' },
-                horzLine: { color: '#475569', labelBackgroundColor: '#334155' },
+                vertLine: { color: 'hsl(var(--subtle-foreground))', labelBackgroundColor: 'hsl(var(--ghost-foreground))' },
+                horzLine: { color: 'hsl(var(--subtle-foreground))', labelBackgroundColor: 'hsl(var(--ghost-foreground))' },
             },
             rightPriceScale: {
                 borderColor: '#1e293b',
@@ -159,8 +171,10 @@ function ChartRenderer({ ohlcData, lineData, mode, overlays }: ChartRendererProp
 
         chartRef.current = chart;
 
+        let mainSeries: ISeriesApi<SeriesType>;
+
         if (mode === 'candle') {
-            const series = chart.addSeries(CandlestickSeries, {
+            mainSeries = chart.addSeries(CandlestickSeries, {
                 upColor: '#10b981',
                 downColor: '#ef4444',
                 borderDownColor: '#ef4444',
@@ -168,9 +182,9 @@ function ChartRenderer({ ohlcData, lineData, mode, overlays }: ChartRendererProp
                 wickDownColor: '#ef4444',
                 wickUpColor: '#10b981',
             });
-            series.setData(ohlcData as Parameters<typeof series.setData>[0]);
+            mainSeries.setData(ohlcData as Parameters<typeof mainSeries.setData>[0]);
         } else {
-            const series = chart.addSeries(LineSeries, {
+            mainSeries = chart.addSeries(LineSeries, {
                 color: '#10b981',
                 lineWidth: 2,
                 crosshairMarkerVisible: true,
@@ -180,7 +194,7 @@ function ChartRenderer({ ohlcData, lineData, mode, overlays }: ChartRendererProp
                 priceLineVisible: false,
                 lineType: 0,
             });
-            series.setData(lineData as Parameters<typeof series.setData>[0]);
+            mainSeries.setData(lineData as Parameters<typeof mainSeries.setData>[0]);
         }
 
         // Add indicator overlays (SMA, EMA lines)
@@ -215,7 +229,7 @@ function ChartRenderer({ ohlcData, lineData, mode, overlays }: ChartRendererProp
                 return;
             }
 
-            const data = param.seriesData.get(series);
+            const data = param.seriesData.get(mainSeries);
             if (!data) return;
 
             let text = '';
@@ -230,31 +244,34 @@ function ChartRenderer({ ohlcData, lineData, mode, overlays }: ChartRendererProp
             }
 
             if (mode === 'candle') {
-                const d = data as any;
+                const d = data as TooltipData;
+                if (d.open === undefined || d.high === undefined || d.low === undefined || d.close === undefined) return;
                 const isGreen = d.close >= d.open;
                 const color = isGreen ? '#10b981' : '#ef4444';
-                const precision = d.close < 1 ? 6 : 2;
                 text = `
-                    <div style="font-size: 11px; margin-bottom: 8px; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">${dateStr}</div>
-                    <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>Açılış:</span> <span style="font-weight: 600; color: #f1f5f9" class="font-mono">${d.open.toFixed(precision)}</span></div>
-                    <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>Yüksek:</span> <span style="font-weight: 600; color: #f1f5f9" class="font-mono">${d.high.toFixed(precision)}</span></div>
-                    <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>Düşük:</span> <span style="font-weight: 600; color: #f1f5f9" class="font-mono">${d.low.toFixed(precision)}</span></div>
-                    <div style="display: flex; justify-content: space-between; gap: 16px;"><span>Kapanış:</span> <span style="font-weight: 700; color: ${color}" class="font-mono">${d.close.toFixed(precision)}</span></div>
+                    <div style="font-size: 11px; margin-bottom: 8px; color: hsl(var(--muted-foreground)); border-bottom: 1px solid hsl(var(--border)); padding-bottom: 4px;">${dateStr}</div>
+                    <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>Açılış:</span> <span style="font-weight: 600; color: hsl(var(--foreground))" class="font-mono">${priceFormatter(d.open)}</span></div>
+                    <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>Yüksek:</span> <span style="font-weight: 600; color: hsl(var(--foreground))" class="font-mono">${priceFormatter(d.high)}</span></div>
+                    <div style="display: flex; justify-content: space-between; gap: 16px; margin-bottom: 2px;"><span>Düşük:</span> <span style="font-weight: 600; color: hsl(var(--foreground))" class="font-mono">${priceFormatter(d.low)}</span></div>
+                    <div style="display: flex; justify-content: space-between; gap: 16px;"><span>Kapanış:</span> <span style="font-weight: 700; color: ${color}" class="font-mono">${priceFormatter(d.close)}</span></div>
                 `;
             } else {
-                const d = data as any;
-                const precision = d.value < 1 ? 6 : 2;
+                const d = data as TooltipData;
+                if (d.value === undefined) return;
                 text = `
-                    <div style="font-size: 11px; margin-bottom: 8px; color: #94a3b8; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 4px;">${dateStr}</div>
-                    <div style="display: flex; justify-content: space-between; gap: 16px;"><span>Fiyat:</span> <span style="font-weight: 700; color: #10b981" class="font-mono">${d.value.toFixed(precision)}</span></div>
+                    <div style="font-size: 11px; margin-bottom: 8px; color: hsl(var(--muted-foreground)); border-bottom: 1px solid hsl(var(--border)); padding-bottom: 4px;">${dateStr}</div>
+                    <div style="display: flex; justify-content: space-between; gap: 16px;"><span>Fiyat:</span> <span style="font-weight: 700; color: #10b981" class="font-mono">${priceFormatter(d.value)}</span></div>
                 `;
             }
 
             tooltipRef.current.innerHTML = text;
             tooltipRef.current.style.display = 'block';
 
-            const coordinate = series.priceToCoordinate(mode === 'candle' ? (data as any).close : (data as any).value);
-            let shiftedCoordinate = param.point.x;
+            const d = data as TooltipData;
+            const price = mode === 'candle' ? d.close : d.value;
+            if (price === undefined) return;
+            const coordinate = mainSeries.priceToCoordinate(price);
+            let shiftedCoordinate: number = Number(param.point.x);
             if (coordinate === null) return;
             
             shiftedCoordinate = Math.max(0, Math.min(el.clientWidth - toolTipWidth, shiftedCoordinate));
@@ -284,7 +301,7 @@ function ChartRenderer({ ohlcData, lineData, mode, overlays }: ChartRendererProp
                 chartRef.current = null;
             }
         };
-    }, [ohlcData, lineData, mode, overlays]);
+    }, [ohlcData, lineData, mode, overlays, priceFormatter]);
 
     useEffect(() => {
         const cleanup = buildChart();
@@ -315,7 +332,7 @@ function ChartRenderer({ ohlcData, lineData, mode, overlays }: ChartRendererProp
                     color: '#cbd5e1',
                     backgroundColor: 'rgba(15, 23, 42, 0.95)',
                     backdropFilter: 'blur(8px)',
-                    border: '1px solid rgba(255,255,255,0.1)',
+                    border: '1px solid hsl(var(--border))',
                     borderRadius: '8px',
                     pointerEvents: 'none',
                     boxShadow: '0 4px 20px rgba(0,0,0,0.5)',
@@ -346,7 +363,7 @@ function RSIPanel({ data }: { data: IndicatorPoint[] }) {
             height: 120,
             layout: {
                 background: { color: 'transparent' },
-                textColor: '#94a3b8',
+                textColor: 'hsl(var(--muted-foreground))',
                 fontFamily: '"SF Mono", "Fira Code", monospace',
             },
             grid: {
@@ -354,8 +371,8 @@ function RSIPanel({ data }: { data: IndicatorPoint[] }) {
                 horzLines: { color: '#1e293b' },
             },
             crosshair: {
-                vertLine: { color: '#475569', labelBackgroundColor: '#334155' },
-                horzLine: { color: '#475569', labelBackgroundColor: '#334155' },
+                vertLine: { color: 'hsl(var(--subtle-foreground))', labelBackgroundColor: 'hsl(var(--ghost-foreground))' },
+                horzLine: { color: 'hsl(var(--subtle-foreground))', labelBackgroundColor: 'hsl(var(--ghost-foreground))' },
             },
             rightPriceScale: {
                 borderColor: '#1e293b',
@@ -383,7 +400,7 @@ function RSIPanel({ data }: { data: IndicatorPoint[] }) {
         // Overbought / Oversold lines
         rsiSeries.createPriceLine({ price: 70, color: '#ef444480', lineWidth: 1, lineStyle: 2, title: '70' });
         rsiSeries.createPriceLine({ price: 30, color: '#10b98180', lineWidth: 1, lineStyle: 2, title: '30' });
-        rsiSeries.createPriceLine({ price: 50, color: '#475569',   lineWidth: 1, lineStyle: 1, title: '' });
+        rsiSeries.createPriceLine({ price: 50, color: 'hsl(var(--subtle-foreground))',   lineWidth: 1, lineStyle: 1, title: '' });
 
         chart.timeScale().fitContent();
 
@@ -430,6 +447,7 @@ interface CandlestickChartProps {
     defaultRange?: DateRange;
     /** Show chart mode toggle (Mum/Çizgi) — default true */
     showModeToggle?: boolean;
+    baseCurrency?: string;
 }
 
 const CandlestickChart = ({
@@ -438,6 +456,7 @@ const CandlestickChart = ({
     defaultSlot = 'W1',
     defaultRange = '1H',
     showModeToggle = true,
+    baseCurrency,
 }: CandlestickChartProps) => {
     const [slot, setSlot] = useState<TimeSlot>(defaultSlot);
     const [mode, setMode] = useState<ChartMode>('candle');
@@ -534,6 +553,7 @@ const CandlestickChart = ({
     const loading = !!symbol && isLoading;
 
     const hasData = mode === 'candle' ? candleData.length > 0 : lineChartData.length > 0;
+    const priceFormatter = useCallback((value: number) => formatMarketPrice(value, baseCurrency), [baseCurrency]);
 
     // Empty fallback
     if (!loading && !hasData && !isError) {
@@ -543,8 +563,8 @@ const CandlestickChart = ({
                 style={{ minHeight: 420 }}
             >
                 <div className="text-center">
-                    <p className="text-[13px] text-muted-foreground">Grafik verisi bulunamadı.</p>
-                    <p className="text-meta mt-1">Bu enstrüman için seçilen zaman aralığında veri yok.</p>
+                    <p className="text-[13px] text-muted-foreground">Bu aralık için yeterli veri yok.</p>
+                    <p className="text-meta mt-1">Mum grafiği çizmek için geçerli OHLC verisi bulunamadı.</p>
                 </div>
             </div>
         );
@@ -652,7 +672,7 @@ const CandlestickChart = ({
             {/* Chart */}
             {!loading && hasData && (
                 <>
-                    <ChartRenderer ohlcData={candleData} lineData={lineChartData} mode={mode} overlays={indicatorOverlays} />
+                    <ChartRenderer ohlcData={candleData} lineData={lineChartData} mode={mode} overlays={indicatorOverlays} priceFormatter={priceFormatter} />
 
                     {/* Indicator legend */}
                     {indicatorOverlays.length > 0 && (

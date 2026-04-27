@@ -11,6 +11,10 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 30,
+      refetchOnMount: false,
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
       retry: 1,
     },
   },
@@ -34,8 +38,8 @@ const renderApp = () => {
             toastOptions={{
               style: {
                 background: '#1e293b',
-                color: '#e2e8f0',
-                border: '1px solid #334155',
+                color: 'hsl(var(--foreground))',
+                border: '1px solid hsl(var(--ghost-foreground))',
               },
               success: {
                 iconTheme: { primary: '#10b981', secondary: '#1e293b' },

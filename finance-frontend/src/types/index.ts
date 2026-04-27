@@ -45,12 +45,3 @@ export interface OHLCData {
     low: number;
     close: number;
 }
-
-export type Sentiment = 'BULLISH' | 'BEARISH' | 'NEUTRAL';
-
-export interface AIInsight {
-    symbol: string;
-    ai_summary: string;
-    sentiment: Sentiment;
-    disclaimer: string;
-}

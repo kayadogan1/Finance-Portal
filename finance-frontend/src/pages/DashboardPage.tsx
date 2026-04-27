@@ -7,9 +7,9 @@ import {
     Globe2,
     MapPin,
 } from 'lucide-react';
-import { getMarketInstruments, type MarketInstrument } from '../services/marketService';
+import { belongsToMarket, formatChangePercent, getMarketInstruments, hasChange, type MarketInstrument } from '../services/marketService';
 import { getNews, ASSET_TYPE_COLORS, type FilteredArticleDto } from '../services/newsService';
-import { formatMarketPrice, isTRCurrency, isUSCurrency } from '../utils/currency';
+import { formatMarketPrice } from '../utils/currency';
 import { getSourceColor } from '../components/news/SourceAvatar';
 
 function timeAgo(dateStr: string): string {
@@ -43,8 +43,8 @@ const ListWidget = ({
     return (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                <h3 style={{ fontSize: 20, fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.3px', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-                    {title} <span style={{ color: '#475569', fontSize: 18 }} className="font-light">›</span>
+                <h3 style={{ fontSize: 20, fontWeight: 700, color: 'hsl(var(--foreground))', letterSpacing: '-0.3px', margin: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    {title} <span style={{ color: 'hsl(var(--subtle-foreground))', fontSize: 18 }} className="font-light">›</span>
                 </h3>
                 {actionLink && (
                     <NavLink to={actionLink} style={{ fontSize: 13, color: '#6366f1', textDecoration: 'none', fontWeight: 600, transition: 'color 0.2s' }} className="hover:text-indigo-400">
@@ -54,7 +54,7 @@ const ListWidget = ({
             </div>
 
             {/* Table Header */}
-            <div style={{ display: 'flex', alignItems: 'center', fontSize: 10, color: '#64748b', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, paddingBottom: 10, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', fontSize: 10, color: 'hsl(var(--muted-foreground))', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, paddingBottom: 10, borderBottom: '1px solid hsl(var(--border))' }}>
                 <div style={{ flex: 1 }}>Sembol</div>
                 <div style={{ textAlign: 'right', width: 90 }}>Fiyat</div>
                 <div style={{ textAlign: 'right', width: 70 }}>Değişim</div>
@@ -64,29 +64,30 @@ const ListWidget = ({
             <div style={{ display: 'flex', flexDirection: 'column' }}>
                 {isLoading ? (
                     Array.from({ length: 5 }).map((_, i) => (
-                        <div key={i} className="animate-pulse" style={{ display: 'flex', padding: '12px 0', borderBottom: '1px solid rgba(255,255,255,0.03)', gap: 12, alignItems: 'center' }}>
+                        <div key={i} className="animate-pulse" style={{ display: 'flex', padding: '12px 0', borderBottom: '1px solid hsl(var(--background-subtle))', gap: 12, alignItems: 'center' }}>
                             <div style={{ width: 28, height: 28, borderRadius: 14, background: 'rgba(255,255,255,0.05)' }} />
                             <div style={{ flex: 1 }}>
                                 <div style={{ height: 12, width: 80, background: 'rgba(255,255,255,0.05)', borderRadius: 4, marginBottom: 4 }} />
-                                <div style={{ height: 10, width: 40, background: 'rgba(255,255,255,0.03)', borderRadius: 4 }} />
+                                <div style={{ height: 10, width: 40, background: 'hsl(var(--background-subtle))', borderRadius: 4 }} />
                             </div>
                             <div style={{ height: 12, width: 60, background: 'rgba(255,255,255,0.05)', borderRadius: 4 }} />
                             <div style={{ height: 12, width: 45, background: 'rgba(255,255,255,0.05)', borderRadius: 4 }} />
                         </div>
                     ))
                 ) : items.length === 0 ? (
-                    <div style={{ padding: '32px 0', textAlign: 'center', fontSize: 13, color: '#475569' }}>Veri bulunamadı</div>
+                    <div style={{ padding: '32px 0', textAlign: 'center', fontSize: 13, color: 'hsl(var(--subtle-foreground))' }}>Veri bulunamadı</div>
                 ) : (
                     items.map((inst, index) => {
-                        const isPositive = (inst.change24h ?? 0) >= 0;
-                        const changeColor = isPositive ? '#10b981' : '#ef4444';
+                        const hasChangeValue = hasChange(inst);
+                        const isPositive = hasChangeValue && inst.change24h >= 0;
+                        const changeColor = !hasChangeValue ? 'hsl(var(--muted-foreground))' : isPositive ? '#10b981' : '#ef4444';
                         return (
                             <div
                                 key={inst.symbol}
                                 onClick={() => onClick(inst.symbol)}
                                 style={{
                                     display: 'flex', alignItems: 'center', padding: '12px 0',
-                                    borderBottom: index < items.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none',
+                                    borderBottom: index < items.length - 1 ? '1px solid hsl(var(--background-subtle))' : 'none',
                                     cursor: 'pointer', transition: 'background 0.2s',
                                     gap: 12
                                 }}
@@ -95,7 +96,7 @@ const ListWidget = ({
                                 {/* Icon / Avatar */}
                                 <div style={{
                                     width: 30, height: 30, borderRadius: 15,
-                                    background: isPositive ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                                    background: !hasChangeValue ? 'rgba(148,163,184,0.1)' : isPositive ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                                     fontSize: 10, fontWeight: 800, color: changeColor, flexShrink: 0
                                 }}>
@@ -103,25 +104,25 @@ const ListWidget = ({
                                 </div>
                                 {/* Name info */}
                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                    <div style={{ fontSize: 14, fontWeight: 600, color: '#f1f5f9', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    <div style={{ fontSize: 14, fontWeight: 600, color: 'hsl(var(--foreground))', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                         {inst.name || inst.symbol}
                                     </div>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-                                        <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b', background: 'rgba(255,255,255,0.04)', padding: '1px 6px', borderRadius: 4 }}>
+                                        <span style={{ fontSize: 11, fontWeight: 600, color: 'hsl(var(--muted-foreground))', background: 'hsl(var(--border-subtle))', padding: '1px 6px', borderRadius: 4 }}>
                                             {inst.symbol}
                                         </span>
                                     </div>
                                 </div>
                                 {/* Price */}
                                 <div style={{ textAlign: 'right', width: 90, flexShrink: 0 }}>
-                                    <div style={{ fontSize: 14, fontWeight: 600, color: '#f1f5f9', fontVariantNumeric: 'tabular-nums' }}>
+                                    <div style={{ fontSize: 14, fontWeight: 600, color: 'hsl(var(--foreground))', fontVariantNumeric: 'tabular-nums' }}>
                                         {formatMarketPrice(inst.currentPrice ?? 0, inst.baseCurrency)}
                                     </div>
                                 </div>
                                 {/* Change */}
                                 <div style={{ textAlign: 'right', width: 70, flexShrink: 0 }}>
                                     <div style={{ fontSize: 13, fontWeight: 600, color: changeColor, fontVariantNumeric: 'tabular-nums' }}>
-                                        {isPositive ? '+' : ''}{(inst.change24h ?? 0).toFixed(2)}%
+                                        {formatChangePercent(inst.change24h)}
                                     </div>
                                 </div>
                             </div>
@@ -144,7 +145,8 @@ const DashboardPage = () => {
     const { data: instruments = [], isLoading } = useQuery({
         queryKey: ['market-instruments'],
         queryFn: getMarketInstruments,
-        staleTime: 1000 * 60 * 5,
+        staleTime: 1000 * 60 * 15,
+        gcTime: 1000 * 60 * 45,
     });
 
     const { data: news = [], isLoading: newsLoading } = useQuery({
@@ -157,22 +159,7 @@ const DashboardPage = () => {
 
     /* ─── Region filtering ─── */
     const regionalInstruments = useMemo(() => {
-        return instruments.filter(i => {
-            /* Crypto is global — show in both regions */
-            if (i.type === 'CRYPTO') return true;
-
-            /* Turkish assets: TRY currency OR BIST symbols (.IS suffix, XU prefix) */
-            const isTurkish = isTRCurrency(i.baseCurrency) ||
-                i.symbol.endsWith('.IS') ||
-                i.symbol.startsWith('XU');
-
-            /* US/Global assets: USD-based that are NOT Turkish */
-            const isUS = !isTurkish && (isUSCurrency(i.baseCurrency) || i.symbol === 'DXY');
-
-            if (region === 'TR') return isTurkish;
-            if (region === 'US') return isUS;
-            return true;
-        });
+        return instruments.filter(i => belongsToMarket(i, region));
     }, [instruments, region]);
 
     const stocks = useMemo(() => regionalInstruments.filter(i => i.type === 'STOCK').slice(0, 6), [regionalInstruments]);
@@ -180,18 +167,14 @@ const DashboardPage = () => {
     const indices = useMemo(() => regionalInstruments.filter(i => i.type === 'INDEX').slice(0, 6), [regionalInstruments]);
     const commodities = useMemo(() => regionalInstruments.filter(i => i.type === 'COMMODITY' || i.type === 'FIAT' || i.type === 'FOREX').slice(0, 6), [regionalInstruments]);
 
-    const _topMovers = [...regionalInstruments]
-        .sort((a, b) => Math.abs(b.change24h ?? 0) - Math.abs(a.change24h ?? 0))
-        .slice(0, 6);
-
     const gainers = [...regionalInstruments]
-        .filter(i => (i.change24h ?? 0) > 0)
-        .sort((a, b) => (b.change24h ?? 0) - (a.change24h ?? 0))
+        .filter(i => hasChange(i) && i.change24h > 0)
+        .sort((a, b) => (b.change24h ?? Number.NEGATIVE_INFINITY) - (a.change24h ?? Number.NEGATIVE_INFINITY))
         .slice(0, 6);
 
     const losers = [...regionalInstruments]
-        .filter(i => (i.change24h ?? 0) < 0)
-        .sort((a, b) => (a.change24h ?? 0) - (b.change24h ?? 0))
+        .filter(i => hasChange(i) && i.change24h < 0)
+        .sort((a, b) => (a.change24h ?? Number.POSITIVE_INFINITY) - (b.change24h ?? Number.POSITIVE_INFINITY))
         .slice(0, 6);
 
     const latestNews: FilteredArticleDto[] = Array.isArray(news) ? news.slice(0, 6) : [];
@@ -212,7 +195,7 @@ const DashboardPage = () => {
                 </div>
 
                 {/* Region Toggle */}
-                <div className="flex bg-[#111118] border border-border p-1 rounded-xl w-fit shrink-0 shadow-sm">
+                <div className="flex bg-[hsl(var(--card))] border border-border p-1 rounded-xl w-fit shrink-0 shadow-sm">
                     <button
                         onClick={() => setRegion('TR')}
                         className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-all ${
@@ -247,9 +230,9 @@ const DashboardPage = () => {
             </div>
 
             {/* ─── News Feed (Grid layout to fit dense aesthetic) ─── */}
-            <div style={{ marginTop: 40, paddingTop: 40, borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ marginTop: 40, paddingTop: 40, borderTop: '1px solid hsl(var(--border))' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                    <h3 style={{ fontSize: 20, fontWeight: 700, color: '#f1f5f9', letterSpacing: '-0.3px', margin: 0 }}>
+                    <h3 style={{ fontSize: 20, fontWeight: 700, color: 'hsl(var(--foreground))', letterSpacing: '-0.3px', margin: 0 }}>
                         Finans Haberleri
                     </h3>
                     <NavLink to="/news" style={{ fontSize: 13, color: '#6366f1', textDecoration: 'none', fontWeight: 600 }}>
@@ -260,13 +243,13 @@ const DashboardPage = () => {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 20 }}>
                     {newsLoading
                         ? Array.from({ length: 3 }).map((_, i) => (
-                            <div key={i} className="animate-pulse" style={{ background: '#111118', borderRadius: 12, padding: 16, border: '1px solid rgba(255,255,255,0.04)' }}>
+                            <div key={i} className="animate-pulse" style={{ background: 'hsl(var(--card))', borderRadius: 12, padding: 16, border: '1px solid hsl(var(--border-subtle))' }}>
                                 <div style={{ display: 'flex', gap: 12 }}>
                                     <div style={{ width: 64, height: 64, borderRadius: 8, background: 'rgba(255,255,255,0.05)', flexShrink: 0 }} />
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
                                         <div style={{ height: 14, width: '90%', background: 'rgba(255,255,255,0.05)', borderRadius: 4 }} />
                                         <div style={{ height: 14, width: '60%', background: 'rgba(255,255,255,0.05)', borderRadius: 4 }} />
-                                        <div style={{ height: 10, width: 40, background: 'rgba(255,255,255,0.03)', borderRadius: 4, marginTop: 'auto' }} />
+                                        <div style={{ height: 10, width: 40, background: 'hsl(var(--background-subtle))', borderRadius: 4, marginTop: 'auto' }} />
                                     </div>
                                 </div>
                             </div>
@@ -281,27 +264,27 @@ const DashboardPage = () => {
                                 rel="noopener noreferrer"
                                 className="group"
                                 style={{
-                                    display: 'flex', gap: 16, background: '#111118', borderRadius: 12, padding: 16,
-                                    border: '1px solid rgba(255,255,255,0.04)', transition: 'all 0.2s', textDecoration: 'none'
+                                    display: 'flex', gap: 16, background: 'hsl(var(--card))', borderRadius: 12, padding: 16,
+                                    border: '1px solid hsl(var(--border-subtle))', transition: 'all 0.2s', textDecoration: 'none'
                                 }}
                                 onMouseEnter={e => {
-                                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
+                                    e.currentTarget.style.borderColor = 'hsl(var(--border))';
                                     e.currentTarget.style.transform = 'translateY(-2px)';
                                 }}
                                 onMouseLeave={e => {
-                                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.04)';
+                                    e.currentTarget.style.borderColor = 'hsl(var(--border-subtle))';
                                     e.currentTarget.style.transform = 'translateY(0)';
                                 }}
                             >
                                 {article.urlToImage && (
                                     <img
                                         src={article.urlToImage} alt=""
-                                        style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, background: '#0a0a0f', flexShrink: 0 }}
+                                        style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, background: 'hsl(var(--background))', flexShrink: 0 }}
                                         onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                     />
                                 )}
                                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                                    <h4 style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', lineHeight: 1.4, marginBottom: 6 }} className="line-clamp-2">
+                                    <h4 style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--foreground))', lineHeight: 1.4, marginBottom: 6 }} className="line-clamp-2">
                                         {article.title}
                                     </h4>
 
@@ -336,7 +319,7 @@ const DashboardPage = () => {
                                                 {article.source.name}
                                             </span>
                                         ) : <span />}
-                                        <span style={{ fontSize: 10, color: '#64748b', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                        <span style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))', display: 'flex', alignItems: 'center', gap: 4 }}>
                                             <Clock size={10} />{timeAgo(article.publishedAt)}
                                         </span>
                                     </div>

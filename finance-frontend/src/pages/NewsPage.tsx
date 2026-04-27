@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { Globe } from 'lucide-react';
 import NewsGrid from '../components/news/NewsGrid';
-import { getTopics, TOPIC_LABELS } from '../services/newsService';
+import { NEWS_CATEGORIES } from '../services/newsService';
 
 const COUNTRIES = [
     { key: '', label: 'Tümü', flag: '🌍' },
@@ -13,10 +12,7 @@ const COUNTRIES = [
 const NewsPage = () => {
     const [activeTopic, setActiveTopic] = useState('');
     const [activeCountry, setActiveCountry] = useState('');
-
-    const { data: topics = [] } = useQuery<string[]>({
-        queryKey: ['news-topics'], queryFn: getTopics, staleTime: 1000 * 60 * 60,
-    });
+    const activeCategory = NEWS_CATEGORIES.find(category => category.key === activeTopic) ?? NEWS_CATEGORIES[0];
 
     return (
         <div className="space-y-6">
@@ -35,11 +31,11 @@ const NewsPage = () => {
                         >
                             Tümü
                         </button>
-                        {Array.isArray(topics) && topics.map(t => (
-                            <button key={t} onClick={() => setActiveTopic(t)}
-                                className={`text-label pb-2 border-b-2 transition-colors whitespace-nowrap ${activeTopic === t ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
+                        {NEWS_CATEGORIES.filter(category => category.key).map(category => (
+                            <button key={category.key} onClick={() => setActiveTopic(category.key)}
+                                className={`text-label pb-2 border-b-2 transition-colors whitespace-nowrap ${activeTopic === category.key ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'}`}
                             >
-                                {TOPIC_LABELS[t] || t}
+                                {category.label}
                             </button>
                         ))}
                     </div>
@@ -66,9 +62,10 @@ const NewsPage = () => {
 
             <NewsGrid
                 key={`${activeTopic}-${activeCountry}`}
-                topic={activeTopic || undefined}
+                topic={activeCategory.serverTopic}
                 country={activeCountry || undefined}
-                title={activeTopic ? `${TOPIC_LABELS[activeTopic] || activeTopic} Haberleri` : 'Son Haberler'}
+                category={activeCategory.key || undefined}
+                title={activeCategory.key ? `${activeCategory.label} Haberleri` : 'Son Haberler'}
                 columns={3} maxItems={18}
             />
         </div>

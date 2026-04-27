@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import {
     getPortfolios, getPortfolioPieChart, getTransactions,
-    type PortfolioDto, type TransactionDto,
+    type PortfolioDto,
 } from '../services/portfolioService';
 import PortfolioPieChart from '../components/portfolio/PortfolioPieChart';
 import PerformanceAreaChart from '../components/portfolio/PerformanceAreaChart';

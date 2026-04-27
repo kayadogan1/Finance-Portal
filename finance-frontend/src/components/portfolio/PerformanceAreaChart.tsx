@@ -112,7 +112,7 @@ export default function PerformanceAreaChart({ portfolioId }: PerformanceAreaCha
     const isNeutral = change === 0;
 
     // Dynamic gradient color based on performance
-    const accentColor = isPositive ? '#10b981' : isNeutral ? '#64748b' : '#ef4444';
+    const accentColor = isPositive ? '#10b981' : isNeutral ? 'hsl(var(--muted-foreground))' : '#ef4444';
     const gradientId = `perfGradient-${portfolioId}`;
 
     return (
@@ -182,7 +182,7 @@ export default function PerformanceAreaChart({ portfolioId }: PerformanceAreaCha
 
                         <XAxis
                             dataKey="date"
-                            tick={{ fill: '#64748b', fontSize: 11, fontFamily: 'monospace' }}
+                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11, fontFamily: 'monospace' }}
                             axisLine={{ stroke: '#1e293b' }}
                             tickLine={false}
                             tickFormatter={formatDateShort}
@@ -191,7 +191,7 @@ export default function PerformanceAreaChart({ portfolioId }: PerformanceAreaCha
                         />
 
                         <YAxis
-                            tick={{ fill: '#64748b', fontSize: 11, fontFamily: 'monospace' }}
+                            tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11, fontFamily: 'monospace' }}
                             axisLine={false}
                             tickLine={false}
                             width={80}
@@ -208,7 +208,7 @@ export default function PerformanceAreaChart({ portfolioId }: PerformanceAreaCha
                         <Tooltip
                             content={<CustomTooltip />}
                             cursor={{
-                                stroke: '#475569',
+                                stroke: 'hsl(var(--subtle-foreground))',
                                 strokeWidth: 1,
                                 strokeDasharray: '4 4',
                             }}

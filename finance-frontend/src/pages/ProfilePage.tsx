@@ -7,8 +7,8 @@ import { NavLink } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 import useTheme from '../hooks/useTheme';
 import { useFavorites } from '../hooks/useFavorites';
-import { getMarketInstruments, type MarketInstrument } from '../services/marketService';
-import { getTransactions, type TransactionDto } from '../services/portfolioService';
+import { formatChangePercent, getMarketInstruments, hasChange, type MarketInstrument } from '../services/marketService';
+import { getTransactions } from '../services/portfolioService';
 import keycloak from '../utils/keycloak';
 
 /* ─── Helpers ─── */
@@ -51,9 +51,9 @@ const ProfilePage = () => {
     const email = keycloak.tokenParsed?.email ?? '';
 
     const cardStyle: React.CSSProperties = {
-        background: '#111118',
+        background: 'hsl(var(--card))',
         borderRadius: 12,
-        border: '1px solid rgba(255,255,255,0.06)',
+        border: '1px solid hsl(var(--border))',
         padding: 24,
     };
 
@@ -114,7 +114,7 @@ const ProfilePage = () => {
 
                     {/* Details */}
                     <div className="space-y-3">
-                        <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                        <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg" style={{ background: 'hsl(var(--card-hover))' }}>
                             <User size={14} className="text-subtle shrink-0" />
                             <div className="min-w-0">
                                 <p className="text-[10px] text-subtle uppercase tracking-wider">Kullanıcı Adı</p>
@@ -122,7 +122,7 @@ const ProfilePage = () => {
                             </div>
                         </div>
                         {email && (
-                            <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                            <div className="flex items-center gap-3 px-3 py-2.5 rounded-lg" style={{ background: 'hsl(var(--card-hover))' }}>
                                 <Mail size={14} className="text-subtle shrink-0" />
                                 <div className="min-w-0">
                                     <p className="text-[10px] text-subtle uppercase tracking-wider">E-posta</p>
@@ -148,9 +148,9 @@ const ProfilePage = () => {
                                     borderRadius: 8,
                                     fontSize: 13,
                                     fontWeight: 600,
-                                    border: !isDark ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                                    border: !isDark ? '1px solid rgba(99,102,241,0.4)' : '1px solid hsl(var(--border))',
                                     background: !isDark ? 'rgba(99,102,241,0.1)' : 'transparent',
-                                    color: !isDark ? '#818cf8' : '#64748b',
+                                    color: !isDark ? '#818cf8' : 'hsl(var(--muted-foreground))',
                                     cursor: 'pointer',
                                     transition: 'all 0.15s',
                                 }}
@@ -169,9 +169,9 @@ const ProfilePage = () => {
                                     borderRadius: 8,
                                     fontSize: 13,
                                     fontWeight: 600,
-                                    border: isDark ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.08)',
+                                    border: isDark ? '1px solid rgba(99,102,241,0.4)' : '1px solid hsl(var(--border))',
                                     background: isDark ? 'rgba(99,102,241,0.1)' : 'transparent',
-                                    color: isDark ? '#818cf8' : '#64748b',
+                                    color: isDark ? '#818cf8' : 'hsl(var(--muted-foreground))',
                                     cursor: 'pointer',
                                     transition: 'all 0.15s',
                                 }}
@@ -217,15 +217,16 @@ const ProfilePage = () => {
                         ) : (
                             <div className="space-y-2">
                                 {favoriteInstruments.map((inst) => {
-                                    const isPositive = (inst.change24h ?? 0) >= 0;
+                                    const hasChangeValue = hasChange(inst);
+                                    const isPositive = hasChangeValue && inst.change24h >= 0;
                                     return (
                                         <div
                                             key={inst.symbol}
                                             className="flex items-center gap-3 px-4 py-3 rounded-lg transition-all hover:translate-y-[-1px]"
                                             style={{
-                                                background: 'rgba(255,255,255,0.02)',
-                                                border: '1px solid rgba(255,255,255,0.04)',
-                                                borderLeft: `3px solid ${isPositive ? '#10b981' : '#ef4444'}`,
+                                                background: 'hsl(var(--card-hover))',
+                                                border: '1px solid hsl(var(--border-subtle))',
+                                                borderLeft: `3px solid ${!hasChangeValue ? 'hsl(var(--muted-foreground))' : isPositive ? '#10b981' : '#ef4444'}`,
                                             }}
                                         >
                                             <div className="flex-1 min-w-0">
@@ -240,11 +241,11 @@ const ProfilePage = () => {
                                                     className="inline-flex items-center gap-1"
                                                     style={{
                                                         fontSize: 11, fontWeight: 600, fontVariantNumeric: 'tabular-nums',
-                                                        color: isPositive ? '#10b981' : '#ef4444',
+                                                        color: !hasChangeValue ? 'hsl(var(--muted-foreground))' : isPositive ? '#10b981' : '#ef4444',
                                                     }}
                                                 >
-                                                    {isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                                                    {isPositive ? '+' : ''}{(inst.change24h ?? 0).toFixed(2)}%
+                                                    {hasChangeValue ? (isPositive ? <TrendingUp size={10} /> : <TrendingDown size={10} />) : null}
+                                                    {formatChangePercent(inst.change24h)}
                                                 </span>
                                             </div>
                                             <button
@@ -252,11 +253,11 @@ const ProfilePage = () => {
                                                 title="Favorilerden çıkar"
                                                 style={{
                                                     background: 'none', border: 'none', cursor: 'pointer', padding: 4,
-                                                    display: 'flex', color: '#475569',
+                                                    display: 'flex', color: 'hsl(var(--subtle-foreground))',
                                                     transition: 'color 0.15s',
                                                 }}
                                                 onMouseEnter={(e) => { e.currentTarget.style.color = '#ef4444'; }}
-                                                onMouseLeave={(e) => { e.currentTarget.style.color = '#475569'; }}
+                                                onMouseLeave={(e) => { e.currentTarget.style.color = 'hsl(var(--subtle-foreground))'; }}
                                             >
                                                 <Trash2 size={14} />
                                             </button>
@@ -270,13 +271,13 @@ const ProfilePage = () => {
                                         <div
                                             key={sym}
                                             className="flex items-center gap-3 px-4 py-3 rounded-lg"
-                                            style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}
+                                            style={{ background: 'hsl(var(--card-hover))', border: '1px solid hsl(var(--border-subtle))' }}
                                         >
                                             <span className="text-[13px] font-semibold text-foreground flex-1">{sym}</span>
                                             <span className="text-[11px] text-subtle">Fiyat bilgisi yükleniyor...</span>
                                             <button
                                                 onClick={() => removeFavorite(sym)}
-                                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: '#475569' }}
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex', color: 'hsl(var(--subtle-foreground))' }}
                                             >
                                                 <Trash2 size={14} />
                                             </button>

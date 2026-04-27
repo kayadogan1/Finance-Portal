@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Search, ChevronUp, ChevronDown, ChevronLeft, ChevronRight, Star } from 'lucide-react';
-import type { MarketInstrument } from '@/services/marketService';
+import { formatChangePercent, hasChange, type MarketInstrument } from '@/services/marketService';
 import { useFavorites } from '@/hooks/useFavorites';
 
 /* ─── Sort types ─── */
@@ -17,7 +17,7 @@ const SkeletonRow = () => (
                     style={{
                         height: 14,
                         borderRadius: 6,
-                        background: 'rgba(255,255,255,0.04)',
+                        background: 'hsl(var(--border-subtle))',
                         width: i === 0 ? 28 : i === 1 ? 60 : i === 2 ? 120 : i === 5 ? 50 : 80,
                     }}
                 />
@@ -101,7 +101,7 @@ export function InstrumentsTable({
                     cmp = (a.currentPrice ?? 0) - (b.currentPrice ?? 0);
                     break;
                 case 'change24h':
-                    cmp = (a.change24h ?? 0) - (b.change24h ?? 0);
+                    cmp = (a.change24h ?? Number.NEGATIVE_INFINITY) - (b.change24h ?? Number.NEGATIVE_INFINITY);
                     break;
             }
             return sortDir === 'desc' ? -cmp : cmp;
@@ -129,7 +129,7 @@ export function InstrumentsTable({
             <div>
                 {/* Search placeholder */}
                 <div style={{ padding: '16px 0 12px' }}>
-                    <div className="animate-pulse" style={{ height: 40, borderRadius: 8, background: 'rgba(255,255,255,0.03)', maxWidth: 320 }} />
+                    <div className="animate-pulse" style={{ height: 40, borderRadius: 8, background: 'hsl(var(--background-subtle))', maxWidth: 320 }} />
                 </div>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <tbody>
@@ -143,21 +143,21 @@ export function InstrumentsTable({
     }
 
     if (!instruments.length) {
-        return <div style={{ textAlign: 'center', padding: 48, fontSize: 13, color: '#64748b' }}>Bu kategoride enstrüman bulunamadı.</div>;
+        return <div style={{ textAlign: 'center', padding: 48, fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>Bu kategoride enstrüman bulunamadı.</div>;
     }
 
     const thStyle = (align: 'left' | 'right' = 'left'): React.CSSProperties => ({
         padding: '10px 12px',
         fontSize: 11,
         fontWeight: 600,
-        color: '#64748b',
+        color: 'hsl(var(--muted-foreground))',
         textTransform: 'uppercase',
         letterSpacing: 0.5,
         textAlign: align,
         cursor: 'pointer',
         userSelect: 'none',
         border: 'none',
-        borderBottom: '1px solid rgba(255,255,255,0.06)',
+        borderBottom: '1px solid hsl(var(--border))',
         whiteSpace: 'nowrap',
     });
 
@@ -171,9 +171,9 @@ export function InstrumentsTable({
         borderRadius: 6,
         fontSize: 12,
         fontWeight: 600,
-        border: active ? '1px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.08)',
+        border: active ? '1px solid rgba(99,102,241,0.4)' : '1px solid hsl(var(--border))',
         background: active ? 'rgba(99,102,241,0.1)' : 'transparent',
-        color: disabled ? '#334155' : active ? '#818cf8' : '#94a3b8',
+        color: disabled ? 'hsl(var(--ghost-foreground))' : active ? '#818cf8' : 'hsl(var(--muted-foreground))',
         cursor: disabled ? 'not-allowed' : 'pointer',
         transition: 'all 0.15s',
         pointerEvents: disabled ? 'none' : 'auto',
@@ -191,7 +191,7 @@ export function InstrumentsTable({
                             left: 12,
                             top: '50%',
                             transform: 'translateY(-50%)',
-                            color: '#475569',
+                            color: 'hsl(var(--subtle-foreground))',
                             pointerEvents: 'none',
                         }}
                     />
@@ -207,15 +207,15 @@ export function InstrumentsTable({
                             paddingRight: 12,
                             fontSize: 13,
                             fontWeight: 500,
-                            background: '#111118',
-                            border: '1px solid rgba(255,255,255,0.08)',
+                            background: 'hsl(var(--card))',
+                            border: '1px solid hsl(var(--border))',
                             borderRadius: 8,
-                            color: '#f1f5f9',
+                            color: 'hsl(var(--foreground))',
                             outline: 'none',
                             transition: 'border-color 0.15s',
                         }}
                         onFocus={(e) => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.5)'; }}
-                        onBlur={(e) => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; }}
+                        onBlur={(e) => { e.currentTarget.style.borderColor = 'hsl(var(--border))'; }}
                     />
                 </div>
             </div>
@@ -255,7 +255,8 @@ export function InstrumentsTable({
                     </thead>
                     <tbody>
                         {processed.map((inst) => {
-                            const isPositive = (inst.change24h || 0) >= 0;
+                            const hasChangeValue = hasChange(inst);
+                            const isPositive = hasChangeValue && inst.change24h >= 0;
                             const isSelected = selectedSymbol === inst.symbol;
                             const fav = isFavorite(inst.symbol);
                             return (
@@ -265,8 +266,8 @@ export function InstrumentsTable({
                                     style={{
                                         cursor: 'pointer',
                                         transition: 'background 0.15s',
-                                        background: isSelected ? 'rgba(255,255,255,0.03)' : 'transparent',
-                                        borderLeft: `3px solid ${isPositive ? '#10b981' : '#ef4444'}`,
+                                        background: isSelected ? 'hsl(var(--background-subtle))' : 'transparent',
+                                        borderLeft: `3px solid ${!hasChangeValue ? 'hsl(var(--muted-foreground))' : isPositive ? '#10b981' : '#ef4444'}`,
                                     }}
                                     onMouseEnter={(e) => {
                                         if (!isSelected) e.currentTarget.style.background = '#1a1a24';
@@ -285,18 +286,18 @@ export function InstrumentsTable({
                                             <Star
                                                 size={14}
                                                 fill={fav ? '#eab308' : 'none'}
-                                                color={fav ? '#eab308' : '#475569'}
+                                                color={fav ? '#eab308' : 'hsl(var(--subtle-foreground))'}
                                                 style={{ transition: 'all 0.15s' }}
                                             />
                                         </button>
                                     </td>
-                                    <td style={{ padding: '10px 12px', fontSize: 13, fontWeight: 600, color: '#f1f5f9', width: 100 }}>
+                                    <td style={{ padding: '10px 12px', fontSize: 13, fontWeight: 600, color: 'hsl(var(--foreground))', width: 100 }}>
                                         {inst.symbol}
                                     </td>
-                                    <td style={{ padding: '10px 12px', fontSize: 13, color: '#94a3b8', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                    <td style={{ padding: '10px 12px', fontSize: 13, color: 'hsl(var(--muted-foreground))', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                                         {inst.name}
                                     </td>
-                                    <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: '#f1f5f9' }}>
+                                    <td style={{ padding: '10px 12px', textAlign: 'right', fontSize: 13, fontWeight: 600, fontVariantNumeric: 'tabular-nums', color: 'hsl(var(--foreground))' }}>
                                         {(inst.currentPrice || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
                                     </td>
                                     <td style={{ padding: '10px 12px', textAlign: 'right' }}>
@@ -308,11 +309,11 @@ export function InstrumentsTable({
                                                 fontVariantNumeric: 'tabular-nums',
                                                 padding: '3px 10px',
                                                 borderRadius: 6,
-                                                background: isPositive ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-                                                color: isPositive ? '#10b981' : '#ef4444',
+                                                background: !hasChangeValue ? 'rgba(148,163,184,0.1)' : isPositive ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                                                color: !hasChangeValue ? 'hsl(var(--muted-foreground))' : isPositive ? '#10b981' : '#ef4444',
                                             }}
                                         >
-                                            {isPositive ? '+' : ''}{(inst.change24h || 0).toFixed(2)}%
+                                            {formatChangePercent(inst.change24h)}
                                         </span>
                                     </td>
                                     <td style={{ padding: '10px 12px', textAlign: 'right' }}>
@@ -323,20 +324,20 @@ export function InstrumentsTable({
                                                 fontWeight: 600,
                                                 padding: '4px 12px',
                                                 borderRadius: 6,
-                                                border: '1px solid rgba(255,255,255,0.1)',
+                                                border: '1px solid hsl(var(--border))',
                                                 background: 'transparent',
-                                                color: '#94a3b8',
+                                                color: 'hsl(var(--muted-foreground))',
                                                 cursor: 'pointer',
                                                 transition: 'all 0.15s',
                                                 whiteSpace: 'nowrap',
                                             }}
                                             onMouseEnter={(e) => {
                                                 e.currentTarget.style.borderColor = 'rgba(99,102,241,0.5)';
-                                                e.currentTarget.style.color = '#f1f5f9';
+                                                e.currentTarget.style.color = 'hsl(var(--foreground))';
                                             }}
                                             onMouseLeave={(e) => {
-                                                e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)';
-                                                e.currentTarget.style.color = '#94a3b8';
+                                                e.currentTarget.style.borderColor = 'hsl(var(--border))';
+                                                e.currentTarget.style.color = 'hsl(var(--muted-foreground))';
                                             }}
                                         >
                                             Detay →
@@ -355,7 +356,7 @@ export function InstrumentsTable({
                     display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                     padding: '12px 0 8px', flexWrap: 'wrap', gap: 8,
                 }}>
-                    <span style={{ fontSize: 12, color: '#64748b' }}>
+                    <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
                         Toplam {totalElements ?? 0} enstrüman
                     </span>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -371,7 +372,7 @@ export function InstrumentsTable({
                         {pageNumbers[0] > 0 && (
                             <>
                                 <button style={paginationBtnStyle(page === 0)} onClick={() => onPageChange!(0)}>1</button>
-                                {pageNumbers[0] > 1 && <span style={{ color: '#475569', fontSize: 12, padding: '0 4px' }}>…</span>}
+                                {pageNumbers[0] > 1 && <span style={{ color: 'hsl(var(--subtle-foreground))', fontSize: 12, padding: '0 4px' }}>…</span>}
                             </>
                         )}
                         {pageNumbers.map((n) => (
@@ -386,7 +387,7 @@ export function InstrumentsTable({
                         {pageNumbers[pageNumbers.length - 1] < totalPages! - 1 && (
                             <>
                                 {pageNumbers[pageNumbers.length - 1] < totalPages! - 2 && (
-                                    <span style={{ color: '#475569', fontSize: 12, padding: '0 4px' }}>…</span>
+                                    <span style={{ color: 'hsl(var(--subtle-foreground))', fontSize: 12, padding: '0 4px' }}>…</span>
                                 )}
                                 <button
                                     style={paginationBtnStyle(page === totalPages! - 1)}
@@ -407,7 +408,7 @@ export function InstrumentsTable({
                     </div>
                 </div>
             ) : (
-                <div style={{ textAlign: 'center', padding: '4px 0 8px', fontSize: 11, color: '#475569' }}>
+                <div style={{ textAlign: 'center', padding: '4px 0 8px', fontSize: 11, color: 'hsl(var(--subtle-foreground))' }}>
                     {processed.length} enstrüman
                 </div>
             )}

@@ -1,3 +1,0 @@
-ALTER TABLE news_articles ALTER COLUMN url TYPE TEXT;
-ALTER TABLE news_articles ALTER COLUMN url_to_image TYPE TEXT;
-ALTER TABLE news_articles ALTER COLUMN title TYPE TEXT;

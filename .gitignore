@@ -16,6 +16,7 @@ target/
 *.war
 *.ear
 *.log
+**/output/
 
 # --- Wrapper (Bunlar KALSIN, silme) ---
 # !.mvn/wrapper/maven-wrapper.jar

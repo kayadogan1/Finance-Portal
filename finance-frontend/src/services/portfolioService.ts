@@ -69,6 +69,16 @@ export interface PieChartDto {
     totalValue: number;
 }
 
+export interface DistributionData {
+    labels: string[];
+    series: number[];
+}
+
+export interface HistoryData {
+    timeline: string[];
+    totalValues: number[];
+}
+
 /** Matches `com.finance.shared.PortfolioRange` enum */
 export type PortfolioRange = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'THREE_MONTHS' | 'SIX_MONTHS' | 'YEARLY' | 'ALL';
 
@@ -181,4 +191,3 @@ export const getTransactions = async (startDate?: string): Promise<TransactionDt
     const { data } = await privateApi.get<TransactionDto[]>('/api/portfolio/transactions', { params });
     return Array.isArray(data) ? data : [];
 };
-

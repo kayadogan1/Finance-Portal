@@ -1,7 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { Activity, ArrowRight, TrendingUp, BarChart2 } from 'lucide-react';
-import { getMarketInstruments, type MarketInstrument } from '../services/marketService';
+import { formatChangePercent, getMarketInstruments, hasChange, type MarketInstrument } from '../services/marketService';
+import { formatMarketPrice } from '../utils/currency';
 import './LandingPage.css';
 
 /* ─── Ticker Strip ─── */
@@ -15,19 +16,16 @@ const TickerStrip = ({ instruments }: { instruments: MarketInstrument[] }) => {
         <div className="ticker-strip">
             <div className="ticker-track">
                 {doubled.map((inst, idx) => {
-                    const isPositive = (inst.change24h ?? 0) >= 0;
+                    const hasChangeValue = hasChange(inst);
+                    const isPositive = hasChangeValue && inst.change24h >= 0;
                     return (
                         <div key={`${inst.symbol}-${idx}`} className="ticker-item">
                             <span className="ticker-symbol">{inst.symbol}</span>
                             <span className="ticker-price">
-                                {(inst.currentPrice ?? 0).toLocaleString('tr-TR', {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2,
-                                })}
+                                {formatMarketPrice(inst.currentPrice ?? 0, inst.baseCurrency)}
                             </span>
-                            <span className={`ticker-change ${isPositive ? 'positive' : 'negative'}`}>
-                                {isPositive ? '+' : ''}
-                                {(inst.change24h ?? 0).toFixed(2)}%
+                            <span className={`ticker-change ${!hasChangeValue ? 'neutral' : isPositive ? 'positive' : 'negative'}`}>
+                                {formatChangePercent(inst.change24h)}
                             </span>
                         </div>
                     );
@@ -41,22 +39,16 @@ const TickerStrip = ({ instruments }: { instruments: MarketInstrument[] }) => {
 const FEATURES = [
     {
         name: 'Piyasa Takibi',
-        desc: 'Kripto, döviz, emtia ve endeksleri anlık izle',
+        desc: 'NASDAQ, NYSE, BIST, VİOP, fon, tahvil ve diğer piyasa enstrümanlarını takip edin.',
     },
     {
-        name: 'Yapay Zeka Analizi',
-        desc: 'Yapay zeka destekli piyasa içgörüleri',
+        name: 'Geniş Enstrüman Kapsamı',
+        desc: 'Döviz, emtia, kripto, endeks ve hisse verilerini tek ekranda karşılaştırın.',
     },
     {
         name: 'Finansal Haberler',
-        desc: 'Küresel piyasa haberlerini takip et',
+        desc: 'Türkiye ve ABD piyasalarına ait haberleri kategori ve enstrüman bazında izleyin.',
     },
-] as const;
-
-const STATS = [
-    { value: '50+', label: 'Varlık' },
-    { value: 'Gerçek Zamanlı', label: 'Fiyatlar' },
-    { value: 'Yapay Zeka', label: 'Analiz' },
 ] as const;
 
 /* ─── Landing Page ─── */
@@ -65,6 +57,12 @@ const LandingPage = () => {
         queryKey: ['market-instruments'],
         queryFn: getMarketInstruments,
     });
+
+    const stats = [
+        { value: instruments.length ? instruments.length.toLocaleString('tr-TR') : 'Çoklu', label: 'Enstrüman' },
+        { value: 'TR & ABD', label: 'Piyasa Ayrımı' },
+        { value: 'TRY / USD', label: 'Para Birimi' },
+    ] as const;
 
     return (
         <div className="landing-hero">
@@ -95,10 +93,10 @@ const LandingPage = () => {
                     </div>
                     <h1 className="hero-title">
                         Piyasaları Takip Et.{' '}
-                        <span className="gradient-text">Akıllıca Karar Ver.</span>
+                        <span className="gradient-text">Piyasayı Net Gör.</span>
                     </h1>
                     <p className="hero-sub">
-                        Kripto, hisse, döviz ve emtiayı tek platformda gerçek zamanlı izle.
+                        NASDAQ, NYSE ve diğer ABD piyasaları ile BIST, VİOP, fon, tahvil ve Türkiye piyasalarındaki enstrümanları tek platformda izleyin.
                     </p>
                     <div className="hero-actions">
                         <Link to="/market" className="btn-landing-primary">
@@ -116,7 +114,7 @@ const LandingPage = () => {
 
                 {/* ─── Stats ─── */}
                 <div className="stats-row">
-                    {STATS.map((s) => (
+                    {stats.map((s) => (
                         <div key={s.label} className="stat-item">
                             <span className="stat-value">{s.value}</span>
                             <span className="stat-label">{s.label}</span>

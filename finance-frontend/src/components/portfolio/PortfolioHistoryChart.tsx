@@ -39,7 +39,7 @@ const PortfolioHistoryChart = ({ data }: Props) => {
         xaxis: {
             categories: data.timeline,
             labels: {
-                style: { colors: '#64748b', fontSize: '12px' },
+                style: { colors: 'hsl(var(--muted-foreground))', fontSize: '12px' },
                 formatter: (val: string) => {
                     const d = new Date(val);
                     return `${d.getDate()} Şub`;
@@ -50,7 +50,7 @@ const PortfolioHistoryChart = ({ data }: Props) => {
         },
         yaxis: {
             labels: {
-                style: { colors: '#64748b', fontSize: '12px' },
+                style: { colors: 'hsl(var(--muted-foreground))', fontSize: '12px' },
                 formatter: (val: number) => `₺${(val / 1000).toFixed(0)}K`,
             },
         },

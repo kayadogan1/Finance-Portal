@@ -3,6 +3,7 @@ package com.finance.services;
 import com.finance.exceptions.InstrumentNotFoundException;
 import com.finance.models.Instrument;
 import com.finance.repositories.InstrumentRepository;
+import com.finance.shared.Currency;
 import com.finance.shared.InstrumentDto;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -51,6 +52,6 @@ public class InstrumentService {
     }
 
     public InstrumentDto toInstrumentDto(Instrument instrument) {
-        return new InstrumentDto(instrument.getSymbol(),instrument.getName(),instrument.getType(),instrument.getCurrentPrice());
+        return new InstrumentDto(instrument.getSymbol(),instrument.getName(),instrument.getType(),instrument.getCurrentPrice(),instrument.getPreviousPrice(),instrument.getBaseCurrency(),instrument.getBaseCurrency()== Currency.TRY? "TR BORSA":"US BORSA");
     }
 }

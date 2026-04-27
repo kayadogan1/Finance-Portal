@@ -3,6 +3,7 @@ package com.finance.services;
 import com.finance.mapper.ChartResponseToModel;
 import com.finance.models.Instrument;
 import com.finance.models.MarketData;
+import com.finance.repositories.InstrumentRepository;
 import com.finance.repositories.MarketDataRepository;
 import com.finance.shared.YahooChartResponse;
 import lombok.RequiredArgsConstructor;
@@ -10,12 +11,13 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.math.BigDecimal;
 import java.time.*;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -30,11 +32,12 @@ public class FetchFilteredInstrumentService {
     private final MarketDataRepository marketDataRepository;
     private final FetchMarketDataService fetchMarketDataService;
     private final RestClient restClient;
+    private final InstrumentRepository instrumentRepository;
+    private final RedisCacheService redisCacheService;
 
     @Value("${finance.YAHOO_API_URL}")
     private String yahooApiUrl;
 
-    @Transactional
     public void fetchInstrumentClosePricesSinceLastDate(Instrument instrument) {
 
         Instant lastTimestamp = marketDataRepository
@@ -49,10 +52,38 @@ public class FetchFilteredInstrumentService {
             logger.info("No new data found for {}", instrument.getSymbol());
             return;
         }
+        BigDecimal previousClose = resolvePreviousClose(instrument,fetchedData);
 
+        instrument.setPreviousPrice(previousClose);
+        instrument.setCurrentPrice(fetchedData.getLast().getPrice());
+        instrument.setLastUpdateTime(LocalDateTime.now());
         marketDataRepository.saveAll(fetchedData);
+        instrumentRepository.save(instrument);
+        redisCacheService.save(instrument.getSymbol(), instrument);
+
+
         logger.info("Saved {} new records for {}", fetchedData.size(), instrument.getSymbol());
     }
+    private BigDecimal resolvePreviousClose(
+            Instrument instrument,
+            List<MarketData> fetchedData
+    ) {
+        LocalDate today = LocalDate.now(ZoneId.of("Europe/Istanbul"));
+        LocalDateTime startOfToday = today.atStartOfDay();
+
+        return fetchedData.stream()
+                .filter(md -> md.getTimestamp().isBefore(startOfToday))
+                .max(Comparator.comparing(MarketData::getTimestamp))
+                .map(MarketData::getPrice)
+                .or(() -> marketDataRepository
+                        .findFirstByInstrumentAndTimestampBeforeOrderByTimestampDesc(
+                                instrument,
+                                startOfToday
+                        )
+                        .map(MarketData::getPrice))
+                .orElse(null);
+    }
+
 
     private List<MarketData> fetchFromYahoo(Instrument instrument, Instant lastTimestamp) {
 
@@ -68,7 +99,7 @@ public class FetchFilteredInstrumentService {
 
         long period1;
         if (lastTimestamp != null) {
-            period1 = lastTimestamp.getEpochSecond();
+            period1 = lastTimestamp.getEpochSecond() + 1;
 
             if ((period2 - period1) < MIN_FETCH_INTERVAL_SECONDS) {
                 logger.info("Skipping Yahoo fetch for {}, data is already up to date.", symbol);

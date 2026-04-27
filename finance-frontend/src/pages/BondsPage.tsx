@@ -33,7 +33,7 @@ const BondsPage = () => (
             </div>
         </div>
 
-        <div className="card-base"><NewsGrid topic="ECONOMY" title="Ekonomi Haberleri" columns={3} maxItems={12} /></div>
+        <div className="card-base"><NewsGrid topic="BOND" title="Tahvil/Bono Haberleri" columns={3} maxItems={12} /></div>
     </div>
 );
 

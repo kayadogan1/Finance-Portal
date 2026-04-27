@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { AxiosError } from "axios";
 import * as z from "zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -22,7 +23,7 @@ export function DepositModal({ isOpen, onClose, portfolioId }: DepositModalProps
     const mutation = useMutation({
         mutationFn: async (data: DepositFormValues) => depositFunds(data.amount, portfolioId),
         onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["portfolio"] }); queryClient.invalidateQueries({ queryKey: ["portfolio-history"] }); onClose(); reset(); },
-        onError: (error: any) => { setErrorText(error.response?.data?.message || "Para yatırma işlemi başarısız."); },
+        onError: (error: AxiosError<{ message?: string }>) => { setErrorText(error.response?.data?.message || "Para yatırma işlemi başarısız."); },
     });
 
     const onSubmit = (data: DepositFormValues) => { setErrorText(null); mutation.mutate(data); };

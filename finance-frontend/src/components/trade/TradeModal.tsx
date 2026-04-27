@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { AxiosError } from "axios";
 import * as z from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -33,7 +34,7 @@ export function TradeModal({ isOpen, onClose, symbol, side, portfolioId }: Trade
             ["portfolio", "portfolio-history", "portfolio-pie", "market"].forEach(k => queryClient.invalidateQueries({ queryKey: [k] }));
             onClose(); reset();
         },
-        onError: (error: any) => { setErrorText(error.response?.data?.message || error.message || "İşlem başarısız oldu."); },
+        onError: (error: AxiosError<{ message?: string }>) => { setErrorText(error.response?.data?.message || error.message || "İşlem başarısız oldu."); },
     });
 
     const onSubmit = (data: TradeFormValues) => {

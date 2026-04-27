@@ -47,11 +47,13 @@ function javaDateToUnixSeconds(isoString: string): number {
 
 /** Matches `com.finance.shared.CandleDto` */
 interface CandleDto {
-    time: string;   // Java LocalDateTime ISO — may have microseconds
-    open: number;
-    high: number;
-    low: number;
-    close: number;
+    time?: string;   // Java LocalDateTime ISO — may have microseconds
+    timestamp?: string;
+    date?: string;
+    open: number | string;
+    high: number | string;
+    low: number | string;
+    close: number | string;
 }
 
 /** Matches `com.finance.shared.LineChartDto` */
@@ -64,12 +66,22 @@ export interface LineChartDto {
  * Matches `com.finance.shared.InstrumentDto` (paginated endpoint).
  * Field name is `instrumentType` (not `type`).
  */
+export type BackendInstrumentType = 'CRYPTO' | 'FIAT' | 'COMMODITY' | 'INDEX' | 'STOCK' | 'FOREX' | 'BOND' | 'FUND' | 'VIOP';
+
 export interface InstrumentDto {
     symbol: string;
     name: string;
-    instrumentType: 'CRYPTO' | 'FIAT' | 'COMMODITY' | 'INDEX' | 'STOCK' | 'FOREX' | 'BOND';
+    instrumentType?: BackendInstrumentType;
+    type?: BackendInstrumentType;
     currentPrice: number;
-    baseCurrency: string;
+    change24h?: number;
+    changePercent?: number;
+    dailyChangePercent?: number;
+    baseCurrency?: string;
+    currency?: string;
+    country?: string;
+    exchange?: string;
+    market?: string;
 }
 
 /** Matches `com.finance.models.Instrument` JPA entity (single-instrument endpoint) */
@@ -99,8 +111,11 @@ export interface MarketInstrument {
     name: string;
     type: string;
     currentPrice: number;
-    change24h: number;
+    change24h?: number;
     baseCurrency: string;
+    country: 'TR' | 'US' | 'GLOBAL' | 'UNKNOWN';
+    exchange: string;
+    market: 'TR' | 'US' | 'GLOBAL' | 'UNKNOWN';
 }
 
 /** Spring Boot Page<T> response shape */
@@ -122,6 +137,144 @@ export interface ParsedLinePoint {
     close: number;
 }
 
+const parseOptionalNumber = (value: unknown): number | undefined => {
+    if (value === null || value === undefined || value === '') return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+};
+
+const INSTRUMENT_TYPES = new Set(['CRYPTO', 'FIAT', 'COMMODITY', 'INDEX', 'STOCK', 'FOREX', 'BOND', 'FUND', 'VIOP']);
+const US_EXCHANGES = new Set(['NASDAQ', 'NYSE', 'AMEX', 'ARCA', 'CBOE']);
+const TR_EXCHANGES = new Set(['BIST', 'BORSA_ISTANBUL', 'ISTANBUL', 'VIOP', 'TEFAS']);
+
+const TR_SYMBOL_HINTS = new Set([
+    'XU030', 'XU050', 'XU100', 'XUSIN', 'XBANK', 'XGMYO',
+    'AKBNK', 'ARCLK', 'ASELS', 'BIMAS', 'DOAS', 'EKGYO', 'ENKAI', 'EREGL',
+    'FROTO', 'GARAN', 'GUBRF', 'HALKB', 'ISCTR', 'KCHOL', 'KOZAL', 'KRDMD',
+    'MGROS', 'PETKM', 'PGSUS', 'SAHOL', 'SASA', 'SISE', 'TCELL', 'THYAO',
+    'TOASO', 'TTKOM', 'TUPRS', 'VAKBN', 'YKBNK', 'ZOREN',
+]);
+
+const TR_NAME_HINTS = [
+    'TURK', 'TURKIYE', 'TÜRK', 'TÜRKİYE', 'ANADOLU', 'YATIRIM', 'MENKUL',
+    'SANAY', 'TICARET', 'TİCARET', 'GAYRIMENKUL', 'GAYRİMENKUL', 'BANKASI',
+    'HOLDING A', 'HOLDİNG A', 'ORTAKLIGI', 'ORTAKLIĞI', 'A.O', 'A.S', 'A.Ş',
+];
+
+const normalizeString = (value?: string | null) => (value ?? '').trim().toUpperCase();
+
+export const normalizeInstrumentType = (value?: string | null): BackendInstrumentType => {
+    const type = normalizeString(value);
+    if (type === 'STOCKS' || type === 'HISSE' || type === 'HİSSE') return 'STOCK';
+    if (type === 'INDEXES' || type === 'INDICES' || type === 'ENDEKS') return 'INDEX';
+    if (type === 'CURRENCY' || type === 'FX' || type === 'DOVIZ' || type === 'DÖVİZ') return 'FOREX';
+    if (type === 'FUNDS' || type === 'FON') return 'FUND';
+    if (type === 'BONDS' || type === 'TAHVIL' || type === 'TAHVİL') return 'BOND';
+    return INSTRUMENT_TYPES.has(type) ? type as BackendInstrumentType : 'STOCK';
+};
+
+const looksLikeTurkishName = (name?: string) => {
+    const normalized = normalizeString(name)
+        .replaceAll('?', 'I')
+        .replaceAll('�', 'I');
+    return TR_NAME_HINTS.some((hint) => normalized.includes(hint));
+};
+
+const inferExchange = (inst: InstrumentDto): string => {
+    const exchange = normalizeString(inst.exchange);
+    if (exchange) return exchange;
+
+    const rawSymbol = normalizeString(inst.symbol);
+    const symbol = rawSymbol.replace(/\.IS$/, '');
+    const type = normalizeInstrumentType(inst.instrumentType ?? inst.type);
+
+    if (rawSymbol.endsWith('.IS') || symbol.startsWith('XU') || TR_SYMBOL_HINTS.has(symbol) || looksLikeTurkishName(inst.name)) {
+        return type === 'FUND' ? 'TEFAS' : type === 'VIOP' ? 'VIOP' : 'BIST';
+    }
+    if (type === 'CRYPTO') return 'CRYPTO';
+    if (type === 'FOREX' || type === 'FIAT') return 'FOREX';
+    if (type === 'COMMODITY') return 'COMMODITY';
+    return 'NASDAQ';
+};
+
+export const inferBaseCurrency = (inst: Partial<InstrumentDto>): string => {
+    const explicit = normalizeString(inst.baseCurrency ?? inst.currency);
+    if (explicit) return explicit;
+
+    const rawSymbol = normalizeString(inst.symbol);
+    const symbol = rawSymbol.replace(/\.IS$/, '');
+    const type = normalizeInstrumentType(inst.instrumentType ?? inst.type);
+    const exchange = normalizeString(inst.exchange);
+    const country = normalizeString(inst.country);
+    const market = normalizeString(inst.market);
+
+    if (type === 'CRYPTO') return 'USDT';
+    if (type === 'FOREX' || type === 'FIAT') {
+        if (symbol.endsWith('TRY')) return 'TRY';
+        return symbol.slice(-3) || 'USD';
+    }
+    if (
+        country === 'TR' ||
+        market === 'TR' ||
+        TR_EXCHANGES.has(exchange) ||
+        rawSymbol.endsWith('.IS') ||
+        symbol.startsWith('XU') ||
+        TR_SYMBOL_HINTS.has(symbol) ||
+        looksLikeTurkishName(inst.name)
+    ) {
+        return 'TRY';
+    }
+    if (type === 'COMMODITY') return 'USD';
+    return 'USD';
+};
+
+export const inferMarketInfo = (inst: InstrumentDto) => {
+    const exchange = inferExchange(inst);
+    const currency = inferBaseCurrency({ ...inst, exchange });
+    const country = normalizeString(inst.country);
+    const market = normalizeString(inst.market);
+
+    const isTR = currency === 'TRY' || country === 'TR' || market === 'TR' || TR_EXCHANGES.has(exchange);
+    const isUS = currency === 'USD' && (country === 'US' || market === 'US' || US_EXCHANGES.has(exchange));
+
+    if (normalizeInstrumentType(inst.instrumentType ?? inst.type) === 'CRYPTO') {
+        return { baseCurrency: currency, country: 'GLOBAL' as const, exchange, market: 'GLOBAL' as const };
+    }
+    if (isTR) return { baseCurrency: currency, country: 'TR' as const, exchange, market: 'TR' as const };
+    if (isUS || currency === 'USD') return { baseCurrency: currency, country: 'US' as const, exchange, market: 'US' as const };
+    return { baseCurrency: currency, country: 'UNKNOWN' as const, exchange, market: 'UNKNOWN' as const };
+};
+
+export const normalizeInstrument = (inst: InstrumentDto): MarketInstrument => {
+    const marketInfo = inferMarketInfo(inst);
+    const change24h = parseOptionalNumber(inst.change24h ?? inst.changePercent ?? inst.dailyChangePercent);
+    return {
+        symbol: inst.symbol,
+        name: inst.name,
+        type: normalizeInstrumentType(inst.instrumentType ?? inst.type),
+        currentPrice: Number(inst.currentPrice) || 0,
+        ...(change24h !== undefined ? { change24h } : {}),
+        ...marketInfo,
+    };
+};
+
+export const hasChange = (inst: Pick<MarketInstrument, 'change24h'>): inst is Pick<MarketInstrument, 'change24h'> & { change24h: number } => {
+    return Number.isFinite(inst.change24h);
+};
+
+export const formatChangePercent = (change?: number): string => {
+    if (!Number.isFinite(change)) return '—';
+    return `${change! >= 0 ? '+' : ''}${change!.toFixed(2)}%`;
+};
+
+export const belongsToMarket = (inst: Pick<MarketInstrument, 'market' | 'country' | 'exchange' | 'baseCurrency' | 'type' | 'symbol'>, region: 'TR' | 'US'): boolean => {
+    if (inst.type === 'CRYPTO') return true;
+    if (region === 'TR') {
+        return inst.market === 'TR' || inst.country === 'TR' || inst.baseCurrency === 'TRY' || TR_EXCHANGES.has(normalizeString(inst.exchange));
+    }
+    return inst.market === 'US' || inst.country === 'US' || (inst.baseCurrency === 'USD' && inst.market !== 'TR');
+};
+
 /* ═══════════════════════════════════════════════════════════════════════
    1. CANDLESTICK DATA  →  <CandlestickChart> ONLY
    Endpoint: GET /api/market/candles/{symbol}?slot={slot}&from={ISO}
@@ -137,17 +290,30 @@ export const getCandleData = async (
         params: { slot, ...(from && { from }) },
     });
 
-    // RULE 3: Validate — backend returns 204 No Content → data is null
     if (!data || !Array.isArray(data) || data.length === 0) return [];
 
-    // RULE 2: Convert Java LocalDateTime to UNIX seconds for Lightweight Charts
-    return data.map((c) => ({
-        time: javaDateToUnixSeconds(c.time),
-        open: Number(c.open),
-        high: Number(c.high),
-        low: Number(c.low),
-        close: Number(c.close),
-    }));
+    const normalized = data
+        .map((c) => {
+            const rawTime = c.time ?? c.timestamp ?? c.date;
+            const time = rawTime ? javaDateToUnixSeconds(rawTime) : Number.NaN;
+            const open = Number(c.open);
+            const high = Number(c.high);
+            const low = Number(c.low);
+            const close = Number(c.close);
+            return { time, open, high, low, close };
+        })
+        .filter((c) => {
+            const values = [c.time, c.open, c.high, c.low, c.close];
+            if (!values.every(Number.isFinite)) return false;
+            if (c.high < Math.max(c.open, c.close, c.low)) return false;
+            if (c.low > Math.min(c.open, c.close, c.high)) return false;
+            return true;
+        })
+        .sort((a, b) => a.time - b.time);
+
+    const deduped = new Map<number, OHLCData>();
+    for (const candle of normalized) deduped.set(candle.time, candle);
+    return [...deduped.values()];
 };
 
 /** @deprecated Use `getCandleData`. Kept for backward compat. */
@@ -226,42 +392,7 @@ export const getMarketInstrumentsPaged = async (
         return { content: [], totalElements: 0, totalPages: 0, number: 0, size, first: true, last: true, empty: true };
     }
 
-    const from24h = toLocalDateTime(new Date(Date.now() - 24 * 60 * 60 * 1000));
-
-    // Fetch 24h history for change calculation — only for current page items
-    const historyResults = await Promise.allSettled(
-        pageData.content.map((inst) =>
-            publicApi
-                .get<{ price: number; timestamp: string }[]>(
-                    `/api/market/history/${inst.symbol}`,
-                    { params: { from: from24h } },
-                )
-                .then((res) => ({ symbol: inst.symbol, data: res.data ?? [] }))
-        ),
-    );
-
-    const oldPriceMap = new Map<string, number>();
-    for (const result of historyResults) {
-        if (result.status === 'fulfilled' && result.value.data?.length > 0) {
-            oldPriceMap.set(result.value.symbol, Number(result.value.data[0].price));
-        }
-    }
-
-    const enriched: MarketInstrument[] = pageData.content.map((inst: any) => {
-        const current = Number(inst.currentPrice) || 0;
-        const old = oldPriceMap.get(inst.symbol);
-        const change24h = old && old !== 0
-            ? Number((((current - old) / old) * 100).toFixed(2))
-            : 0;
-        return {
-            symbol: inst.symbol,
-            name: inst.name,
-            type: inst.type || inst.instrumentType,  // Support both 'type' and 'instrumentType'
-            currentPrice: current,
-            change24h,
-            baseCurrency: inst.baseCurrency ?? 'USD',
-        };
-    });
+    const enriched = pageData.content.map(normalizeInstrument);
 
     return { ...pageData, content: enriched };
 };
@@ -296,4 +427,3 @@ export const getInstrumentBySymbol = async (symbol: string): Promise<BackendInst
     const { data } = await publicApi.get<BackendInstrument>(`/api/market/${symbol}`);
     return data;
 };
-

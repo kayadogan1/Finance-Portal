@@ -1,5 +1,6 @@
 package com.finance.services;
 
+import com.finance.models.Instrument;
 import com.finance.models.MarketData;
 import com.finance.repositories.InstrumentRepository;
 import com.finance.repositories.MarketDataRepository;
@@ -15,6 +16,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class MarketDataPersistenceService {
@@ -42,23 +44,44 @@ public class MarketDataPersistenceService {
                 .orElseThrow(() -> new IllegalArgumentException("Veritabanında bu sembol bulunamadı: " + symbol));
 
         List<MarketData> marketDataList = new ArrayList<>();
+        List<BigDecimal> validCloses = new ArrayList<>();
 
         for (int i = 0; i < closes.size(); i++) {
-            LocalDate tradeTime = Instant.ofEpochSecond(timestamps.get(i))
+            BigDecimal close = closes.get(i);
+
+            if (close == null) {
+                continue;
+            }
+
+            LocalDate tradeDate = Instant.ofEpochSecond(timestamps.get(i))
                     .atZone(ZoneId.of("Europe/Istanbul"))
                     .toLocalDate();
 
+            validCloses.add(close);
+
             marketDataList.add(MarketData.builder()
                     .instrument(instrument)
-                    .price(closes.get(i))
-                    .timestamp(tradeTime.atStartOfDay())
+                    .price(close)
+                    .timestamp(tradeDate.atStartOfDay())
                     .build());
+        }
+
+        if (validCloses.isEmpty()) {
+            logger.warn("No valid close data found for symbol: {}", symbol);
+            return;
         }
 
         marketDataRepository.saveAll(marketDataList);
 
-        instrument.setCurrentPrice(closes.getLast());
+        var latestPrice = validCloses.getLast();
+        BigDecimal previousPrice = validCloses.size() >= 2
+                ? validCloses.get(validCloses.size() - 2)
+                : instrument.getPreviousPrice();
+
+        instrument.setCurrentPrice(latestPrice);
+        instrument.setPreviousPrice(previousPrice);
         instrument.setLastUpdateTime(LocalDateTime.now());
+
         instrumentRepository.save(instrument);
         redisCacheService.save(symbol, instrument);
 
@@ -73,6 +96,7 @@ public class MarketDataPersistenceService {
             var instrument = instrumentOptional.get();
             instrument.setCurrentPrice(price);
             instrument.setLastUpdateTime(LocalDateTime.now());
+            instrument.setPreviousPrice(resolvePreviousClose(instrument));
             instrumentRepository.save(instrument);
 
             redisCacheService.save(symbol, instrument);
@@ -89,4 +113,22 @@ public class MarketDataPersistenceService {
             logger.warn("Instrument not found in DB: {}", symbol);
         }
     }
+    private BigDecimal resolvePreviousClose(Instrument instrument) {
+        LocalDate today = LocalDate.now(ZoneId.of("Europe/Istanbul"));
+        LocalDateTime startOfDay = today.atStartOfDay();
+
+        if (instrument.getPreviousPrice() != null) {
+            return instrument.getPreviousPrice();
+        }
+
+        return marketDataRepository
+                .findFirstByInstrumentAndTimestampBeforeOrderByTimestampDesc(
+                        instrument,
+                        startOfDay
+                )
+                .map(MarketData::getPrice)
+                .orElse(null);
+    }
+
+
 }

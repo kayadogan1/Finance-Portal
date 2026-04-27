@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { Newspaper, AlertCircle } from 'lucide-react';
-import { getNews } from '../../services/newsService';
+import { getNews, normalizeNewsCategory } from '../../services/newsService';
 import NewsCard from './NewsCard';
 
 const CardSkeleton = () => (
@@ -20,14 +20,19 @@ interface NewsGridProps {
     title?: string;
     maxItems?: number;
     columns?: 2 | 3 | 4;
+    category?: string;
 }
 
-export default function NewsGrid({ topic, country, title = 'Son Haberler', maxItems = 12, columns = 3 }: NewsGridProps) {
+export default function NewsGrid({ topic, country, title = 'Son Haberler', maxItems = 12, columns = 3, category }: NewsGridProps) {
     const { data: articles, isLoading, isError } = useQuery({
         queryKey: ['news', topic ?? 'all', country ?? 'all'],
         queryFn: () => getNews(topic, country),
         staleTime: 1000 * 60 * 3,
     });
+
+    const filteredArticles = category
+        ? (articles ?? []).filter(article => normalizeNewsCategory(article) === category)
+        : (articles ?? []);
 
     const gridCols = { 2: 'grid-cols-1 sm:grid-cols-2', 3: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3', 4: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' }[columns];
 
@@ -48,16 +53,16 @@ export default function NewsGrid({ topic, country, title = 'Son Haberler', maxIt
                 </div>
             )}
 
-            {articles && articles.length === 0 && !isLoading && (
+            {filteredArticles.length === 0 && !isLoading && !isError && (
                 <div className="text-center py-10">
                     <Newspaper className="mx-auto mb-2 text-ghost" size={24} />
                     <p className="text-meta">Bu kategoride şu an haber bulunmuyor.</p>
                 </div>
             )}
 
-            {articles && articles.length > 0 && (
+            {filteredArticles.length > 0 && (
                 <div className={`grid ${gridCols} gap-3.5`}>
-                    {articles.slice(0, maxItems).map((a, i) => (
+                    {filteredArticles.slice(0, maxItems).map((a, i) => (
                         <NewsCard
                             key={`${a.url}-${i}`}
                             title={a.title}
@@ -66,7 +71,7 @@ export default function NewsGrid({ topic, country, title = 'Son Haberler', maxIt
                             urlToImage={a.urlToImage}
                             sourceName={a.source?.name}
                             publishedAt={a.publishedAt}
-                            category={a.category}
+                            category={normalizeNewsCategory(a)}
                             modelName={a.modelName}
                             instrumentSymbol={a.instrumentSymbol}
                             instruments={a.instruments}

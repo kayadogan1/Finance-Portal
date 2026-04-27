@@ -173,7 +173,7 @@ export default function ComparisonChart() {
                         options={{
                             chart: {
                                 type: 'line',
-                                foreColor: '#94a3b8',
+                                foreColor: 'hsl(var(--muted-foreground))',
                                 toolbar: { show: false },
                                 background: 'transparent',
                                 animations: { enabled: false },
@@ -197,7 +197,7 @@ export default function ComparisonChart() {
                                 },
                             },
                             grid: {
-                                borderColor: '#334155',
+                                borderColor: 'hsl(var(--ghost-foreground))',
                                 strokeDashArray: 4,
                                 yaxis: { lines: { show: true } },
                             },

@@ -2,6 +2,7 @@ package com.finance.services;
 import com.finance.models.*;
 import com.finance.repositories.*;
 import com.finance.shared.*;
+import com.finance.shared.Currency;
 import com.finance.shared.PortfolioItemDto;
 import jakarta.transaction.Transactional;
 import org.apache.logging.log4j.LogManager;
@@ -78,7 +79,10 @@ public class PortfolioService {
                 item.getInstrument().getSymbol(),
                 item.getInstrument().getName(),
                 item.getInstrument().getType(),
-                item.getInstrument().getCurrentPrice()
+                item.getInstrument().getCurrentPrice(),
+                item.getInstrument().getPreviousPrice(),
+                item.getInstrument().getBaseCurrency(),
+                item.getInstrument().getBaseCurrency()== Currency.TRY ? "TR BORSA" : "US BORSA"
         );
 
         return new PortfolioItemDto(

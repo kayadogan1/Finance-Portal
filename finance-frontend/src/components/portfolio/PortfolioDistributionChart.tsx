@@ -7,7 +7,7 @@ interface Props {
 }
 
 const PortfolioDistributionChart = ({ data }: Props) => {
-    const total = data.series.reduce((sum, v) => sum + v, 0);
+    const total = data.series.reduce((sum: number, v: number) => sum + v, 0);
 
     const options: ApexOptions = {
         chart: {
@@ -16,7 +16,7 @@ const PortfolioDistributionChart = ({ data }: Props) => {
             fontFamily: 'Inter, system-ui, sans-serif',
         },
         labels: data.labels,
-        colors: ['#10b981', '#6366f1', '#f59e0b', '#64748b'],
+        colors: ['#10b981', '#6366f1', '#f59e0b', 'hsl(var(--muted-foreground))'],
         stroke: {
             width: 2,
             colors: ['#0f172a'],
@@ -39,14 +39,14 @@ const PortfolioDistributionChart = ({ data }: Props) => {
                         name: {
                             show: true,
                             fontSize: '14px',
-                            color: '#94a3b8',
+                            color: 'hsl(var(--muted-foreground))',
                             offsetY: -8,
                         },
                         value: {
                             show: true,
                             fontSize: '22px',
                             fontWeight: 700,
-                            color: '#f1f5f9',
+                            color: 'hsl(var(--foreground))',
                             offsetY: 4,
                             formatter: (val: string) =>
                                 `₺${Number(val).toLocaleString('tr-TR')}`,
@@ -55,7 +55,7 @@ const PortfolioDistributionChart = ({ data }: Props) => {
                             show: true,
                             label: 'Toplam',
                             fontSize: '14px',
-                            color: '#94a3b8',
+                            color: 'hsl(var(--muted-foreground))',
                             formatter: () => `₺${total.toLocaleString('tr-TR')}`,
                         },
                     },

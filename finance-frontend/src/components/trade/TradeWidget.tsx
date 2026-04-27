@@ -43,7 +43,7 @@ const TradeWidget = ({ symbol, instrumentName, currentPrice }: TradeWidgetProps)
     const { data: rawPortfolios = [], isLoading: pLoading } = useQuery<PortfolioDto[]>({
         queryKey: ['portfolios'], queryFn: getPortfolios, staleTime: 1000 * 60 * 2,
     });
-    const portfolios = Array.isArray(rawPortfolios) ? rawPortfolios : [];
+    const portfolios = useMemo(() => Array.isArray(rawPortfolios) ? rawPortfolios : [], [rawPortfolios]);
 
     const activePortfolio = useMemo(() => {
         if (!portfolios.length) return null;
@@ -84,7 +84,11 @@ const TradeWidget = ({ symbol, instrumentName, currentPrice }: TradeWidgetProps)
     const handleSubmit = () => {
         if (isInvalid || isSubmitting) return;
         setErrorMsg('');
-        isBuy ? buyMut.mutate() : sellMut.mutate();
+        if (isBuy) {
+            buyMut.mutate();
+        } else {
+            sellMut.mutate();
+        }
     };
 
     return (
