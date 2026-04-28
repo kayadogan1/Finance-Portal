@@ -87,8 +87,6 @@ public class FetchMarketDataService {
                     executor.submit(tracer.currentTraceContext().wrap(() -> chunk.forEach(task ->
                             self.fetchAndSave(task.dbSymbol(),task.category(),task.currency()))));
                 }
-
-
             }
         }
 

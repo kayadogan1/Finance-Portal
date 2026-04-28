@@ -190,13 +190,6 @@ const MainLayout = () => {
             <main className="max-w-7xl mx-auto px-4 md:px-6 py-6 flex-1 w-full">
                 <Outlet />
             </main>
-
-            {/* FOOTER */}
-            <footer className="mt-auto py-4 text-center text-[11px] text-subtle border-t border-border">
-                <div className="max-w-7xl mx-auto px-4">
-                    Yahoo Finance ve Binance API üzerinden Spring Boot ile sunulmaktadır
-                </div>
-            </footer>
         </div>
     );
 };

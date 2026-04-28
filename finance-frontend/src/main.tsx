@@ -21,6 +21,7 @@ const queryClient = new QueryClient({
 });
 
 const root = createRoot(document.getElementById('root')!);
+let hasRendered = false;
 
 /**
  * Render the React app.
@@ -28,6 +29,9 @@ const root = createRoot(document.getElementById('root')!);
  * the user is authenticated or not, so public pages are always accessible.
  */
 const renderApp = () => {
+  if (hasRendered) return;
+  hasRendered = true;
+
   root.render(
     <StrictMode>
       <QueryClientProvider client={queryClient}>
@@ -75,3 +79,7 @@ keycloak
     // Still render the app so public pages remain accessible
     renderApp();
   });
+
+window.setTimeout(() => {
+  renderApp();
+}, 3000);

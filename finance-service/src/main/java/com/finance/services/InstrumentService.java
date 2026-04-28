@@ -5,6 +5,7 @@ import com.finance.models.Instrument;
 import com.finance.repositories.InstrumentRepository;
 import com.finance.shared.Currency;
 import com.finance.shared.InstrumentDto;
+import com.finance.shared.InstrumentType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.data.domain.Page;
@@ -26,10 +27,61 @@ public class InstrumentService {
         this.redisCacheService = redisCacheService;
     }
 
-    public Page<InstrumentDto> getAllInstruments(int page,int size) {
-        Pageable pageable = PageRequest.of(Math.max(0,Math.min(page,100)),Math.max(1,Math.min(size,30)) );
-        return instrumentRepository.findAll(pageable)
+    public Page<InstrumentDto> getAllInstruments(
+            String q, InstrumentType type, String market, Currency currency,
+            int page, int size) {
+
+        Pageable pageable = PageRequest.of(
+                Math.max(0, page),
+                Math.min(size, 100)
+        );
+
+        String qParam = (q == null || q.isBlank()) ? "" : q.trim();
+        Currency currParam = resolveCurrencyFilter(market, currency);
+
+        return instrumentRepository
+                .searchInstruments(qParam, type, currParam, pageable)
                 .map(this::toInstrumentDto);
+    }
+
+    private Currency resolveCurrencyFilter(String market, Currency currency) {
+        if (currency != null) {
+            return currency;
+        }
+        if (market == null || market.isBlank()) {
+            return null;
+        }
+        return switch (market.trim().toUpperCase()) {
+            case "TR", "TRY", "TR BORSA" -> Currency.TRY;
+            case "US", "USA", "USD", "US BORSA" -> Currency.USD;
+            default -> null;
+        };
+    }
+
+    public Page<InstrumentDto> getMarketMovers(
+            String direction,
+            String market,
+            InstrumentType type,
+            Currency currency,
+            int page,
+            int size
+    ) {
+        Pageable pageable = PageRequest.of(
+                Math.max(0, page),
+                Math.min(size, 100)
+        );
+
+        Currency currencyFilter = resolveCurrencyFilter(market, currency);
+
+        boolean losers = "LOSERS".equalsIgnoreCase(direction)
+                || "DOWN".equalsIgnoreCase(direction)
+                || "DUSENLER".equalsIgnoreCase(direction);
+
+        Page<Instrument> result = losers
+                ? instrumentRepository.findTopLosers(type, currencyFilter, pageable)
+                : instrumentRepository.findTopGainers(type, currencyFilter, pageable);
+
+        return result.map(this::toInstrumentDto);
     }
 
     public Instrument getInstrumentBySymbol(String symbol) {
@@ -52,6 +104,6 @@ public class InstrumentService {
     }
 
     public InstrumentDto toInstrumentDto(Instrument instrument) {
-        return new InstrumentDto(instrument.getSymbol(),instrument.getName(),instrument.getType(),instrument.getCurrentPrice(),instrument.getPreviousPrice(),instrument.getBaseCurrency(),instrument.getBaseCurrency()== Currency.TRY? "TR BORSA":"US BORSA");
+        return new InstrumentDto(instrument.getSymbol(),instrument.getName(),instrument.getType(),instrument.getCurrentPrice(),instrument.getPreviousPrice(),instrument.getBaseCurrency(),instrument.getBaseCurrency()== Currency.TRY? "TR BORSA":"US BORSA",instrument.getLastUpdateTime(),instrument.isActive(),instrument.isHistoricalDataLoaded());
     }
 }

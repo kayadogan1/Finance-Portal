@@ -5,7 +5,11 @@ import java.math.BigDecimal;
 public record PortfolioItemDto(
         InstrumentDto instrumentDto,
         BigDecimal amount,
-        BigDecimal averageCost
-
+        BigDecimal averageCost,
+        BigDecimal currentValue,
+        BigDecimal costValue,
+        BigDecimal profitLoss,
+        BigDecimal profitLossPercent,
+        InstrumentType instrumentType
 ) {
 }

@@ -5,7 +5,7 @@ import {
     ArrowDownToLine, ArrowUpFromLine, RefreshCw, Plus, ChevronDown, Clock,
 } from 'lucide-react';
 import {
-    getPortfolios, getPortfolioPieChart, getTransactions,
+    getPortfolios, getPortfolioPieChart, getPortfolioTypeAllocation, getTransactions,
     type PortfolioDto,
 } from '../services/portfolioService';
 import PortfolioPieChart from '../components/portfolio/PortfolioPieChart';
@@ -89,6 +89,7 @@ const PortfolioPage = () => {
     const [sellSymbol, setSellSymbol] = useState<string | null>(null);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [selectorOpen, setSelectorOpen] = useState(false);
+    const [allocationMode, setAllocationMode] = useState<'instrument' | 'type'>('instrument');
 
     const { data: portfolios, isLoading: portsLoading } = useQuery({
         queryKey: ['portfolio'], queryFn: getPortfolios,
@@ -98,8 +99,10 @@ const PortfolioPage = () => {
     const active: PortfolioDto | null = hasPortfolio ? portfolios[selectedIndex] ?? portfolios[0] : null;
 
     const { data: pieData, isLoading: pieLoading, isError: pieError } = useQuery({
-        queryKey: ['portfolio-pie', active?.id],
-        queryFn: () => getPortfolioPieChart(active!.id),
+        queryKey: ['portfolio-pie', allocationMode, active?.id],
+        queryFn: () => allocationMode === 'type'
+            ? getPortfolioTypeAllocation(active!.id)
+            : getPortfolioPieChart(active!.id),
         staleTime: 1000 * 60 * 5,
         refetchOnWindowFocus: false,
         enabled: !!active?.id,
@@ -190,9 +193,37 @@ const PortfolioPage = () => {
                     {/* Charts */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                         <div className="card-base">
-                            <div className="flex items-center gap-2 mb-4">
-                                <PieChartIcon size={14} className="text-primary" />
-                                <span className="text-[14px] font-medium text-foreground">Varlık Dağılımı</span>
+                            <div className="flex items-center justify-between gap-3 mb-4">
+                                <div className="flex items-center gap-2">
+                                    <PieChartIcon size={14} className="text-primary" />
+                                    <span className="text-[14px] font-medium text-foreground">
+                                        {allocationMode === 'type' ? 'Tür Dağılımı' : 'Varlık Dağılımı'}
+                                    </span>
+                                </div>
+                                <div className="flex bg-[hsl(var(--background-subtle))] border border-border rounded p-0.5">
+                                    <button
+                                        type="button"
+                                        onClick={() => setAllocationMode('instrument')}
+                                        className={`px-3 h-7 rounded text-[11px] font-semibold transition-colors ${
+                                            allocationMode === 'instrument'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'text-muted-foreground hover:text-foreground'
+                                        }`}
+                                    >
+                                        Enstrüman
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setAllocationMode('type')}
+                                        className={`px-3 h-7 rounded text-[11px] font-semibold transition-colors ${
+                                            allocationMode === 'type'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'text-muted-foreground hover:text-foreground'
+                                        }`}
+                                    >
+                                        Tür
+                                    </button>
+                                </div>
                             </div>
                             {pieLoading && <div className="h-[280px] rounded bg-white/[0.03] animate-pulse" />}
                             {pieError && <p className="text-[13px] text-negative">Dağılım verileri yüklenemedi.</p>}

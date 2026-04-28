@@ -65,8 +65,12 @@ export interface PerformanceLineChartDto {
 
 /** Matches `com.finance.shared.PieChartDto` */
 export interface PieChartDto {
-    instrumentName: string;
+    label?: string | null;
+    symbol?: string | null;
+    instrumentType?: string | null;
+    currency?: string | null;
     totalValue: number;
+    percentage?: number | null;
 }
 
 export interface DistributionData {
@@ -113,10 +117,19 @@ export const createPortfolio = async (portfolio: CreatePortfolioRequest): Promis
 /**
  * Fetch pie chart data for a portfolio.
  * Route: GET /api/portfolio/value/{portfolioId}
- * Returns: PieChartDto[] = [{ instrumentName, totalValue }]
+ * Returns: PieChartDto[] = [{ label, symbol, instrumentType, currency, totalValue, percentage }]
  */
 export const getPortfolioPieChart = async (portfolioId: string): Promise<PieChartDto[]> => {
     const { data } = await privateApi.get<PieChartDto[]>(`/api/portfolio/value/${portfolioId}`);
+    return data ?? [];
+};
+
+/**
+ * Fetch portfolio allocation grouped by instrument type.
+ * Route: GET /api/portfolio/allocation/type/{portfolioId}
+ */
+export const getPortfolioTypeAllocation = async (portfolioId: string): Promise<PieChartDto[]> => {
+    const { data } = await privateApi.get<PieChartDto[]>(`/api/portfolio/allocation/type/${portfolioId}`);
     return data ?? [];
 };
 

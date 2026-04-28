@@ -18,27 +18,14 @@ import java.util.UUID;
 public interface MarketDataRepository extends JpaRepository<MarketData, UUID> {
 
 
-    Optional<MarketData> findFirstByInstrumentAndTimestampBetweenOrderByTimestampAsc(Instrument instrument, LocalDateTime from, LocalDateTime to);
     Optional<MarketData> findFirstByInstrumentAndTimestampBeforeOrderByTimestampDesc(
             Instrument instrument,
             LocalDateTime before
     );
     List<MarketData> findByInstrumentSymbolAndTimestampAfterOrderByTimestampAsc(String symbol, LocalDateTime timestamp);
+    List<MarketData> findByInstrumentSymbolAndTimestampGreaterThanEqualOrderByTimestampAsc(String symbol, LocalDateTime timestamp);
+    List<MarketData> findByInstrumentSymbolOrderByTimestampAsc(String symbol);
     Optional<MarketData> findFirstByInstrumentOrderByTimestampDesc(Instrument instrument);
-    @Query(
-            value = "SELECT * FROM market_data " +
-                    "WHERE instrument_id = :instrumentId " +
-                    "AND DATE(timestamp) = :queryDate " +
-                    "ORDER BY timestamp DESC " +
-                    "LIMIT 1",
-            nativeQuery = true
-    )
-    Optional<MarketData> findLastDataOfDay(
-            @Param("instrumentId") UUID instrumentId,
-            @Param("queryDate") LocalDate queryDate
-    );
-
-
     @Query(
             value = """
         SELECT md.id, md.instrument_id, md.price, md.timestamp

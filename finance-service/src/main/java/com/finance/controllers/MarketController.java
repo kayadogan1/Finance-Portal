@@ -1,15 +1,11 @@
 package com.finance.controllers;
 
 import com.finance.handling.ApiResult;
-import com.finance.models.Instrument;
 import com.finance.models.MarketData;
 import com.finance.repositories.MarketDataRepository;
 import com.finance.services.InstrumentService;
 import com.finance.services.MarketDataService;
-import com.finance.shared.CandleDto;
-import com.finance.shared.InstrumentDto;
-import com.finance.shared.LineChartDto;
-import com.finance.shared.TimeSlot;
+import com.finance.shared.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.data.domain.Page;
@@ -35,24 +31,41 @@ public class MarketController {
         this.marketDataService = marketDataService;
     }
     @GetMapping("/{symbol}")
-    public ResponseEntity<ApiResult<Instrument>> getInstrumentBySymbol(@PathVariable String symbol){
-        return ResponseEntity.ok(ApiResult.success(instrumentService.getInstrumentBySymbol(symbol),"instrument fetched",200));
+    public ResponseEntity<ApiResult<InstrumentDto>> getInstrumentBySymbol(@PathVariable String symbol){
+        var instrument = instrumentService.getInstrumentBySymbol(symbol);
+        var instrumentDto = instrumentService.toInstrumentDto(instrument);
+        return ResponseEntity.ok(ApiResult.success(instrumentDto,"instrument fetched",200));
     }
     @GetMapping
     public ResponseEntity<ApiResult<Page<InstrumentDto>>> getAllInstruments(
+            @RequestParam(required = false) String q,
+            @RequestParam(required = false) InstrumentType type,
+            @RequestParam(required = false) String market,
+            @RequestParam(required = false) Currency currency,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
+            @RequestParam(defaultValue = "30") int size) {
 
-        Page<InstrumentDto> instruments = instrumentService.getAllInstruments(page, size);
-        return ResponseEntity.ok(ApiResult.success(instruments, "all instruments fetched", 200));
+        Page<InstrumentDto> instruments = instrumentService.getAllInstruments(q, type, market, currency, page, size);
+        return ResponseEntity.ok(ApiResult.success(instruments, "instruments fetched", 200));
+    }
+    @GetMapping("movers")
+    public ResponseEntity<ApiResult<Page<InstrumentDto>>> getMarketMovers(
+            @RequestParam(defaultValue = "GAINERS") String direction,
+            @RequestParam(required = false) String market,
+            @RequestParam(required = false) InstrumentType type,
+            @RequestParam(required = false) Currency currency,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ){
+        Page<InstrumentDto> movers = instrumentService.getMarketMovers(direction, market, type, currency, page, size);
+        return ResponseEntity.ok(ApiResult.success(movers, "market movers fetched", 200));
     }
 
     @GetMapping("candles/{symbol}")
     public ResponseEntity<ApiResult<List<CandleDto>>> getCandlesBySymbol(@PathVariable String symbol, @RequestParam(defaultValue = "M1")TimeSlot slot, @RequestParam(required = false)@DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from
     ){
         logger.info("fetching candles for symbol {} with slot time: {}", symbol, slot);
-        LocalDateTime startTime = from != null ? from : LocalDateTime.now().minusHours(24);
-        List<CandleDto> candleDtoList = marketDataService.getMarketDataHistory(symbol,startTime,slot);
+        List<CandleDto> candleDtoList = marketDataService.getMarketDataHistory(symbol, from, slot);
         return ResponseEntity.ok(ApiResult.success(candleDtoList,"all candle data fetched",200));
     }
     @GetMapping("line/{symbol}")
@@ -74,8 +87,9 @@ public class MarketController {
             logger.warn("Invalid 'from' timestamp: {}. It cannot be in the future.", from);
             return ResponseEntity.badRequest().build();
         }
-        LocalDateTime startTime = from != null ? from : LocalDateTime.now().minusHours(24);
-        List<MarketData> marketDataList = marketDataRepository.findByInstrumentSymbolAndTimestampAfterOrderByTimestampAsc(symbol, startTime);
+        List<MarketData> marketDataList = from != null
+                ? marketDataRepository.findByInstrumentSymbolAndTimestampGreaterThanEqualOrderByTimestampAsc(symbol, from)
+                : marketDataRepository.findByInstrumentSymbolOrderByTimestampAsc(symbol);
         return ResponseEntity.ok(ApiResult.success(marketDataList,"all market data fetched",200));
     }
 }

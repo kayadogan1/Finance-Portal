@@ -1,7 +1,7 @@
 import axios from 'axios';
 import keycloak from '../utils/keycloak';
 
-const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const baseURL = import.meta.env.VITE_API_BASE_URL || '';
 
 /**
  * Backend wraps ALL responses in: { success, data, message, response, timestamp }
@@ -67,4 +67,3 @@ privateApi.interceptors.response.use(
         return Promise.reject(error);
     },
 );
-

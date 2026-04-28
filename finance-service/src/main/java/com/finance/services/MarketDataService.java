@@ -44,7 +44,6 @@ public class MarketDataService {
             saveInstruments(instrumentProperties.getCrypto(), InstrumentType.CRYPTO);
             saveInstruments(instrumentProperties.getCommodity(), InstrumentType.COMMODITY);
             saveInstruments(instrumentProperties.getIndex(), InstrumentType.INDEX);
-            saveInstruments(instrumentProperties.getBond(), InstrumentType.BOND);
             saveInstruments(instrumentProperties.getFiat(), InstrumentType.FIAT);
 
             logger.info("Instruments loaded successfully");
@@ -120,24 +119,33 @@ public class MarketDataService {
             return Currency.USD;
         }
     }
-    public List<CandleDto> getMarketDataHistory(String symbol, LocalDateTime fromTimestamp,TimeSlot slot) {
+    public List<CandleDto> getMarketDataHistory(String symbol, LocalDateTime fromTimestamp, TimeSlot slot) {
+        if (symbol == null || symbol.isEmpty()) {
+            throw new BadRequestException("Symbol can not be null or empty");
+        }
+
+        if (slot == null) {
+            slot = TimeSlot.D1;
+        }
+
+        if (fromTimestamp != null && fromTimestamp.isAfter(LocalDateTime.now())) {
+            throw new BadRequestException("Invalid Date format");
+        }
 
         if(instrumentRepository.findInstrumentBySymbol(symbol).isEmpty()){
             logger.warn("Instrument with symbol {} not found when fetching market data history.", symbol);
             return List.of();
         }
-        List<MarketData> rawData = marketDataRepository.findByInstrumentSymbolAndTimestampAfterOrderByTimestampAsc(symbol, fromTimestamp);
+
+        List<MarketData> rawData = fromTimestamp == null
+                ? marketDataRepository.findByInstrumentSymbolOrderByTimestampAsc(symbol)
+                : marketDataRepository.findByInstrumentSymbolAndTimestampGreaterThanEqualOrderByTimestampAsc(symbol, fromTimestamp);
+
         if(rawData.isEmpty()){
             logger.warn("No market data found for symbol {} ", symbol);
             return List.of();
         }
-        if (fromTimestamp.isAfter(LocalDateTime.now())) {
-            throw new BadRequestException("Invalid Date format");
-        }
 
-        if (symbol == null || symbol.isEmpty()) {
-            throw new BadRequestException("Symbol can not be null or empty");
-        }
         List<CandleDto> candleDtoList = new ArrayList<>();
 
         MarketData firstMarketData = rawData.getFirst();
@@ -176,13 +184,12 @@ public class MarketDataService {
         if(symbol == null || symbol.isEmpty()){
             throw new BadRequestException("symbol can not empty or null");
         }
-        if(from== null){
-            from = LocalDateTime.now();
-        }
-        if (from.isAfter(LocalDateTime.now())) {
+        if (from != null && from.isAfter(LocalDateTime.now())) {
             throw new BadRequestException("invalid date . future date not valid");
         }
-        List<MarketData> rawData = marketDataRepository.findByInstrumentSymbolAndTimestampAfterOrderByTimestampAsc(symbol, from);
+        List<MarketData> rawData = from == null
+                ? marketDataRepository.findByInstrumentSymbolOrderByTimestampAsc(symbol)
+                : marketDataRepository.findByInstrumentSymbolAndTimestampGreaterThanEqualOrderByTimestampAsc(symbol, from);
         logger.info("fetching line chart data...");
         if(rawData.isEmpty()){
             logger.info("No market data found for symbol {} ", symbol);

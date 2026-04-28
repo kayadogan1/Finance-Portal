@@ -28,6 +28,16 @@ public record PortfolioReadDto(
         @Valid
         List<PortfolioItemDto> portfolioItems,
 
+        BigDecimal holdingsValue,
+
+        BigDecimal totalPortfolioValue,
+
+        BigDecimal totalCost,
+
+        BigDecimal profitLoss,
+
+        BigDecimal profitLossPercent,
+
         BigDecimal portfolioBalance
 ) {
 

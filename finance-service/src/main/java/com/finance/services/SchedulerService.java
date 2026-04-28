@@ -28,7 +28,7 @@ public class SchedulerService {
         yahooService.updateAllMarketData();
     }
 
-   @Scheduled(initialDelay = 0, fixedRate = 3000000)
+    @Scheduled(initialDelay = 0, fixedRate = 3000000)
     public void updateBinanceCryptoData() {
 
         if (config.getCrypto().isEmpty()) {

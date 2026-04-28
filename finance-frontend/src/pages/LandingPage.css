@@ -253,7 +253,7 @@
 .ticker-track {
   display: flex;
   gap: 0;
-  animation: tickerScroll 220s linear infinite;
+  animation: tickerScroll var(--ticker-duration, 600s) linear infinite;
   width: max-content;
   will-change: transform;
 }

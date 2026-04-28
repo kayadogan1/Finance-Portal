@@ -18,14 +18,6 @@ export type TimeSlot = 'M1' | 'M5' | 'M15' | 'M30' | 'H1' | 'H4' | 'D1' | 'W1';
 /* ────────────────────── Date Utilities ─────────────────────────────── */
 
 /**
- * Convert a JS Date to Spring-compatible LocalDateTime string.
- * Spring expects "2026-03-02T10:30:43" — no trailing Z, no milliseconds.
- */
-function toLocalDateTime(date: Date): string {
-    return date.toISOString().replace('Z', '').split('.')[0];
-}
-
-/**
  * RULE 2 — MANDATORY DATE PARSING
  *
  * Java LocalDateTime strings can arrive with microseconds:
@@ -38,8 +30,22 @@ function toLocalDateTime(date: Date): string {
  * ApexCharts         → UNIX timestamp in MILLISECONDS
  */
 function javaDateToUnixSeconds(isoString: string): number {
-    // new Date() handles "2026-02-20T11:41:27.080933" correctly —
-    // it truncates excess precision but parses the date fine.
+    const match = isoString.match(
+        /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?)?/,
+    );
+
+    if (match) {
+        const [, year, month, day, hour = '0', minute = '0', second = '0'] = match;
+        return Math.floor(Date.UTC(
+            Number(year),
+            Number(month) - 1,
+            Number(day),
+            Number(hour),
+            Number(minute),
+            Number(second),
+        ) / 1000);
+    }
+
     return Math.floor(new Date(isoString).getTime() / 1000);
 }
 
@@ -111,6 +117,7 @@ export interface MarketInstrument {
     name: string;
     type: string;
     currentPrice: number;
+    hasPrice: boolean;
     change24h?: number;
     baseCurrency: string;
     country: 'TR' | 'US' | 'GLOBAL' | 'UNKNOWN';
@@ -163,6 +170,32 @@ const TR_NAME_HINTS = [
 
 const normalizeString = (value?: string | null) => (value ?? '').trim().toUpperCase();
 
+export const cleanInstrumentDisplayName = (name?: string | null, symbol?: string | null): string => {
+    const raw = (name ?? '').trim();
+    if (!raw) return symbol ?? '';
+    if (!/[?�]/.test(raw)) return raw;
+
+    return raw
+        .replace(/�\?MSA/gi, 'ÇİMSA')
+        .replace(/�\?MENTO/gi, 'ÇİMENTO')
+        .replaceAll('�?', 'İ')
+        .replaceAll('�', '')
+        .replace(/SANAY\?/gi, 'SANAYİ')
+        .replace(/T\?CARET/gi, 'TİCARET')
+        .replace(/A\.\?\./gi, 'A.Ş.')
+        .replace(/\?MENTO/gi, 'ÇİMENTO')
+        .replace(/\?MSA/gi, 'ÇİMSA')
+        .replace(/GEM\?/gi, 'GEMİ')
+        .replace(/\?N\?AA/gi, 'İNŞA')
+        .replace(/DEN\?Z/gi, 'DENİZ')
+        .replace(/NAKL\?YAT/gi, 'NAKLİYAT')
+        .replace(/BAKIM ONARIM/gi, 'BAKIM ONARIM')
+        .replace(/T\?RK/gi, 'TÜRK')
+        .replace(/T\?RKIYE/gi, 'TÜRKİYE')
+        .replace(/\s+/g, ' ')
+        .trim();
+};
+
 export const normalizeInstrumentType = (value?: string | null): BackendInstrumentType => {
     const type = normalizeString(value);
     if (type === 'STOCKS' || type === 'HISSE' || type === 'HİSSE') return 'STOCK';
@@ -174,7 +207,7 @@ export const normalizeInstrumentType = (value?: string | null): BackendInstrumen
 };
 
 const looksLikeTurkishName = (name?: string) => {
-    const normalized = normalizeString(name)
+    const normalized = normalizeString(cleanInstrumentDisplayName(name))
         .replaceAll('?', 'I')
         .replaceAll('�', 'I');
     return TR_NAME_HINTS.some((hint) => normalized.includes(hint));
@@ -248,11 +281,13 @@ export const inferMarketInfo = (inst: InstrumentDto) => {
 export const normalizeInstrument = (inst: InstrumentDto): MarketInstrument => {
     const marketInfo = inferMarketInfo(inst);
     const change24h = parseOptionalNumber(inst.change24h ?? inst.changePercent ?? inst.dailyChangePercent);
+    const currentPrice = parseOptionalNumber(inst.currentPrice);
     return {
         symbol: inst.symbol,
-        name: inst.name,
+        name: cleanInstrumentDisplayName(inst.name, inst.symbol),
         type: normalizeInstrumentType(inst.instrumentType ?? inst.type),
-        currentPrice: Number(inst.currentPrice) || 0,
+        currentPrice: currentPrice ?? 0,
+        hasPrice: currentPrice !== undefined,
         ...(change24h !== undefined ? { change24h } : {}),
         ...marketInfo,
     };
@@ -269,6 +304,7 @@ export const formatChangePercent = (change?: number): string => {
 
 export const belongsToMarket = (inst: Pick<MarketInstrument, 'market' | 'country' | 'exchange' | 'baseCurrency' | 'type' | 'symbol'>, region: 'TR' | 'US'): boolean => {
     if (inst.type === 'CRYPTO') return true;
+    if (inst.type === 'FOREX' || inst.type === 'FIAT' || inst.type === 'COMMODITY') return true;
     if (region === 'TR') {
         return inst.market === 'TR' || inst.country === 'TR' || inst.baseCurrency === 'TRY' || TR_EXCHANGES.has(normalizeString(inst.exchange));
     }
@@ -329,25 +365,27 @@ export const getLineData = async (
     symbol: string,
     dateTime?: string,
 ): Promise<ParsedLinePoint[]> => {
-    // Backend NPEs if dateTime is null — always send a value
-    const dt = dateTime ?? toLocalDateTime(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000));
-
     const { data } = await publicApi.get<LineChartDto[]>(`/api/market/line/${symbol}`, {
-        params: { dateTime: dt },
+        params: dateTime ? { dateTime } : undefined,
     });
 
     // RULE 3: Validate
     if (!data || !Array.isArray(data) || data.length === 0) return [];
 
     // RULE 2: Parse Java LocalDateTime to both UNIX ms and readable label
-    return data.map((d) => {
-        const dateObj = new Date(d.dateTime);
-        return {
-            timestamp: dateObj.getTime(),             // UNIX ms for ApexCharts
-            label: dateObj.toLocaleDateString('tr-TR'), // "20.02.2026" for Recharts
-            close: Number(d.close),
-        };
-    });
+    return data
+        .map((d) => {
+            const timestamp = javaDateToUnixSeconds(d.dateTime) * 1000;
+            const close = Number(d.close);
+            const dateObj = new Date(timestamp);
+            return {
+                timestamp,
+                label: dateObj.toLocaleDateString('tr-TR'), // "20.02.2026" for Recharts
+                close,
+            };
+        })
+        .filter((point) => Number.isFinite(point.timestamp) && Number.isFinite(point.close))
+        .sort((a, b) => a.timestamp - b.timestamp);
 };
 
 /** @deprecated Use `getLineData`. */
@@ -419,11 +457,36 @@ export const getMarketInstruments = async (): Promise<MarketInstrument[]> => {
     return [firstPage, ...remaining].flatMap((p) => p.content);
 };
 
+export const getMarketInstrumentCatalog = async (): Promise<MarketInstrument[]> => {
+    const firstPage = await getMarketInstrumentsPaged(0, 30);
+    const maxPage = Math.min(firstPage.totalPages - 1, 100);
+    if (maxPage <= 0) return firstPage.content;
+
+    const pages: PagedResponse<MarketInstrument>[] = [firstPage];
+    const pageNumbers = Array.from({ length: maxPage }, (_, i) => i + 1);
+    const batchSize = 8;
+
+    for (let i = 0; i < pageNumbers.length; i += batchSize) {
+        const batch = pageNumbers.slice(i, i + batchSize);
+        const results = await Promise.all(batch.map((page) => getMarketInstrumentsPaged(page, 30)));
+        pages.push(...results);
+    }
+
+    const bySymbol = new Map<string, MarketInstrument>();
+    for (const inst of pages.flatMap((p) => p.content)) {
+        bySymbol.set(inst.symbol, inst);
+    }
+    return [...bySymbol.values()];
+};
+
 /**
  * Fetch a single instrument by symbol.
  * Route: GET /api/market/{symbol}
  */
 export const getInstrumentBySymbol = async (symbol: string): Promise<BackendInstrument> => {
     const { data } = await publicApi.get<BackendInstrument>(`/api/market/${symbol}`);
-    return data;
+    return {
+        ...data,
+        name: cleanInstrumentDisplayName(data.name, data.symbol),
+    };
 };

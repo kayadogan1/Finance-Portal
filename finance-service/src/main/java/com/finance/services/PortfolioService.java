@@ -2,7 +2,6 @@ package com.finance.services;
 import com.finance.models.*;
 import com.finance.repositories.*;
 import com.finance.shared.*;
-import com.finance.shared.Currency;
 import com.finance.shared.PortfolioItemDto;
 import jakarta.transaction.Transactional;
 import org.apache.logging.log4j.LogManager;
@@ -24,12 +23,14 @@ public class PortfolioService {
     private final TransactionRepository transactionRepository;
     private final InstrumentRepository instrumentRepository;
     private final UserRepository userRepository;
-    public PortfolioService(InstrumentRepository instrumentRepository, PortfolioRepository portfolioRepository, MarketDataRepository marketDataRepository, TransactionRepository transactionRepository, UserRepository userRepository) {
+    private final InstrumentService instrumentService;
+    public PortfolioService(InstrumentRepository instrumentRepository, PortfolioRepository portfolioRepository, MarketDataRepository marketDataRepository, TransactionRepository transactionRepository, UserRepository userRepository, InstrumentService instrumentService) {
         this.marketDataRepository = marketDataRepository;
         this.userRepository = userRepository;
         this.instrumentRepository= instrumentRepository;
         this.portfolioRepository = portfolioRepository;
         this.transactionRepository = transactionRepository;
+        this.instrumentService = instrumentService;
     }
 
     public PortfolioReadDto getPortfolio(String userId,UUID portfolioId){
@@ -52,11 +53,32 @@ public class PortfolioService {
                 .collect(Collectors.toList());
 
     }
-    private PortfolioReadDto toPortfolioReadDto(Portfolio portfolio){
+    private PortfolioReadDto toPortfolioReadDto(Portfolio portfolio) {
         List<PortfolioItemDto> itemDtos = portfolio.getItems()
                 .stream()
                 .map(this::toPortfolioItemDto)
                 .toList();
+
+        BigDecimal holdingsValue = itemDtos.stream()
+                .map(PortfolioItemDto::currentValue)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalCost = itemDtos.stream()
+                .map(PortfolioItemDto::costValue)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal profitLoss = holdingsValue.subtract(totalCost);
+
+        BigDecimal profitLossPercent = totalCost.compareTo(BigDecimal.ZERO) == 0
+                ? null
+                : profitLoss
+                .multiply(BigDecimal.valueOf(100))
+                .divide(totalCost, 2, RoundingMode.HALF_UP);
+
+        BigDecimal cash = Optional.ofNullable(portfolio.getCashBalance()).orElse(BigDecimal.ZERO);
+        BigDecimal totalPortfolioValue = cash.add(holdingsValue);
 
         return PortfolioReadDto.builder()
                 .id(portfolio.getId())
@@ -64,9 +86,15 @@ public class PortfolioService {
                 .riskTolerance(portfolio.getRiskTolerance())
                 .purpose(portfolio.getPurpose())
                 .portfolioItems(itemDtos)
-                .portfolioBalance(portfolio.getCashBalance())
+                .portfolioBalance(cash)
+                .holdingsValue(holdingsValue)
+                .totalPortfolioValue(totalPortfolioValue)
+                .totalCost(totalCost)
+                .profitLoss(profitLoss)
+                .profitLossPercent(profitLossPercent)
                 .build();
     }
+
     private Portfolio getPortfolioEntity(String userId, UUID portfolioId) {
         return portfolioRepository.findByIdAndUserId(portfolioId,userId)
                 .orElseThrow(() ->
@@ -74,52 +102,77 @@ public class PortfolioService {
     }
 
     private PortfolioItemDto toPortfolioItemDto(PortfolioItem item) {
+        Instrument instrument = item.getInstrument();
 
-        InstrumentDto instrumentDto = new InstrumentDto(
-                item.getInstrument().getSymbol(),
-                item.getInstrument().getName(),
-                item.getInstrument().getType(),
-                item.getInstrument().getCurrentPrice(),
-                item.getInstrument().getPreviousPrice(),
-                item.getInstrument().getBaseCurrency(),
-                item.getInstrument().getBaseCurrency()== Currency.TRY ? "TR BORSA" : "US BORSA"
-        );
+        BigDecimal quantity = Optional.ofNullable(item.getQuantity()).orElse(BigDecimal.ZERO);
+        BigDecimal avgCost = Optional.ofNullable(item.getAverageCost()).orElse(BigDecimal.ZERO);
+        BigDecimal currentPrice = Optional.ofNullable(instrument.getCurrentPrice()).orElse(BigDecimal.ZERO);
 
+        BigDecimal currentValue = currentPrice.multiply(quantity);
+        BigDecimal costValue = avgCost.multiply(quantity);
+        BigDecimal profitLoss = currentValue.subtract(costValue);
+
+        BigDecimal profitLossPercent = costValue.compareTo(BigDecimal.ZERO) == 0
+                ? null
+                : profitLoss
+                .multiply(BigDecimal.valueOf(100))
+                .divide(costValue, 2, RoundingMode.HALF_UP);
+
+        InstrumentDto instrumentDto = instrumentService.toInstrumentDto(instrument);
         return new PortfolioItemDto(
                 instrumentDto,
-                item.getQuantity(),
-                item.getAverageCost()
+                quantity,
+                avgCost,
+                currentValue,
+                costValue,
+                profitLoss,
+                profitLossPercent,
+                instrument.getType()
         );
     }
+
 
 
 
     public List<PieChartDto> getPortfolioChartValues(String userId, UUID portfolioId) {
-
         Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
-        if(portfolio == null || portfolio.getItems().isEmpty()) {
-            logger.warn("portfolio not found");
+
+        BigDecimal total = portfolio.getItems().stream()
+                .map(item -> {
+                    BigDecimal price = Optional.ofNullable(item.getInstrument().getCurrentPrice()).orElse(BigDecimal.ZERO);
+                    BigDecimal qty = Optional.ofNullable(item.getQuantity()).orElse(BigDecimal.ZERO);
+                    return price.multiply(qty);
+                })
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (total.compareTo(BigDecimal.ZERO) == 0) {
             return Collections.emptyList();
         }
+
         return portfolio.getItems().stream()
                 .map(item -> {
-                    BigDecimal price = Optional.ofNullable(item.getInstrument())
-                            .map(Instrument::getCurrentPrice)
-                            .orElse(BigDecimal.ZERO);
+                    Instrument instrument = item.getInstrument();
+                    BigDecimal price = Optional.ofNullable(instrument.getCurrentPrice()).orElse(BigDecimal.ZERO);
+                    BigDecimal qty = Optional.ofNullable(item.getQuantity()).orElse(BigDecimal.ZERO);
+                    BigDecimal value = price.multiply(qty);
 
-                    BigDecimal quantity = Optional.ofNullable(item.getQuantity())
-                            .orElse(BigDecimal.ZERO);
-                   String instrumentName= Optional.ofNullable(item.getInstrument())
-                            .map(Instrument::getName)
-                            .orElse("Bilinmeyen Varlik");
+                    BigDecimal percentage = value
+                            .multiply(BigDecimal.valueOf(100))
+                            .divide(total, 2, RoundingMode.HALF_UP);
+
                     return new PieChartDto(
-                            instrumentName,
-                            price.multiply(quantity)
+                            instrument.getName(),
+                            instrument.getSymbol(),
+                            instrument.getType(),
+                            instrument.getBaseCurrency(),
+                            value,
+                            percentage
                     );
                 })
-                .filter(pieChartDto ->pieChartDto.totalValue().compareTo(BigDecimal.ZERO) > 0)
+                .filter(dto -> dto.totalValue().compareTo(BigDecimal.ZERO) > 0)
                 .toList();
     }
+
 
     public void createPortfolio(String userId,PortfolioDto portfolio){
         logger.info("creating Portfolio {}", portfolio.portfolioName());
@@ -140,6 +193,44 @@ public class PortfolioService {
 
 
     }
+    public List<PieChartDto> getPortfolioTypeAllocation(String userId, UUID portfolioId) {
+        Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
+
+        Map<InstrumentType, BigDecimal> byType = portfolio.getItems().stream()
+                .collect(Collectors.groupingBy(
+                        item -> item.getInstrument().getType(),
+                        Collectors.mapping(item -> {
+                            BigDecimal price = Optional.ofNullable(item.getInstrument().getCurrentPrice()).orElse(BigDecimal.ZERO);
+                            BigDecimal qty = Optional.ofNullable(item.getQuantity()).orElse(BigDecimal.ZERO);
+                            return price.multiply(qty);
+                        }, Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))
+                ));
+
+        BigDecimal total = byType.values().stream()
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (total.compareTo(BigDecimal.ZERO) == 0) {
+            return Collections.emptyList();
+        }
+
+        return byType.entrySet().stream()
+                .map(entry -> {
+                    BigDecimal percentage = entry.getValue()
+                            .multiply(BigDecimal.valueOf(100))
+                            .divide(total, 2, RoundingMode.HALF_UP);
+
+                    return new PieChartDto(
+                            entry.getKey().name(),
+                            null,
+                            entry.getKey(),
+                            null,
+                            entry.getValue(),
+                            percentage
+                    );
+                })
+                .toList();
+    }
+
     private LocalDate resolveStartDate(PortfolioRange portfolioRange){
         LocalDate today = LocalDate.now();
         return switch (portfolioRange){

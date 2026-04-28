@@ -1,13 +1,51 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Globe2, Search, ChevronLeft, ChevronRight, Star, ArrowUpRight } from 'lucide-react';
-import { belongsToMarket, formatChangePercent, getMarketInstruments, hasChange, type MarketInstrument } from '../services/marketService';
+import {
+    belongsToMarket,
+    formatChangePercent,
+    getInstrumentBySymbol,
+    getMarketInstrumentCatalog,
+    hasChange,
+    normalizeInstrument,
+    type MarketInstrument,
+} from '../services/marketService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMarketPrice } from '../utils/currency';
 import { useFavorites } from '../hooks/useFavorites';
 
 const PAGE_SIZE = 20;
+
+type MarketTab = 'all' | 'stock' | 'crypto' | 'forex' | 'commodity' | 'indices' | 'bond' | 'gainers' | 'losers';
+
+const MARKET_TABS: { key: MarketTab; label: string; tone?: 'up' | 'down' }[] = [
+    { key: 'all', label: 'Tümü' },
+    { key: 'stock', label: 'Hisse' },
+    { key: 'crypto', label: 'Kripto' },
+    { key: 'forex', label: 'Döviz' },
+    { key: 'commodity', label: 'Emtia' },
+    { key: 'indices', label: 'Endeks' },
+    { key: 'bond', label: 'Tahvil' },
+    { key: 'gainers', label: 'Artanlar', tone: 'up' },
+    { key: 'losers', label: 'Düşenler', tone: 'down' },
+];
+
+const PINNED_US_SYMBOLS = ['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'META', 'TSLA', 'AMD', 'NFLX'];
+
+const SEARCH_SYMBOL_ALIASES: Record<string, string> = {
+    APPLE: 'AAPL',
+    NVIDIA: 'NVDA',
+    NVIDA: 'NVDA',
+    MICROSOFT: 'MSFT',
+    GOOGLE: 'GOOGL',
+    ALPHABET: 'GOOGL',
+    AMAZON: 'AMZN',
+    META: 'META',
+    FACEBOOK: 'META',
+    TESLA: 'TSLA',
+    NETFLIX: 'NFLX',
+};
 
 /* ─── Skeleton row ─── */
 const SkeletonRow = () => (
@@ -41,7 +79,7 @@ const InstrumentRow = ({
                 alignItems: 'center',
                 gap: 0,
                 height: 46,
-                padding: '0 16px',
+                padding: '0 12px',
                 borderBottom: '1px solid hsl(var(--border-subtle))',
                 background: 'transparent',
                 cursor: 'pointer',
@@ -53,13 +91,13 @@ const InstrumentRow = ({
             {/* Fav star */}
             <button
                 onClick={e => { e.stopPropagation(); toggleFavorite(inst.symbol); }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 8px 0 0', display: 'flex', alignItems: 'center' }}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px 0 0', display: 'flex', alignItems: 'center' }}
             >
                 <Star size={12} fill={fav ? '#eab308' : 'none'} color={fav ? '#eab308' : 'hsl(var(--ghost-foreground))'} style={{ transition: 'all 0.15s' }} />
             </button>
 
             {/* Symbol + change indicator */}
-            <div style={{ width: 96, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <div style={{ width: 68, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
                 <span style={{
                     width: 3, height: 14, borderRadius: 1, flexShrink: 0,
                     background: !hasChangeValue ? 'hsl(var(--muted-foreground))' : isPositive ? '#10b981' : '#ef4444',
@@ -70,7 +108,7 @@ const InstrumentRow = ({
             </div>
 
             {/* Name */}
-            <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
+            <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
                 <span style={{
                     fontSize: 12, color: 'hsl(var(--muted-foreground))',
                     whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block',
@@ -80,31 +118,32 @@ const InstrumentRow = ({
             </div>
 
             {/* Type badge */}
-            <div style={{ width: 64, flexShrink: 0, textAlign: 'center' }}>
+            <div style={{ width: 42, flexShrink: 0, textAlign: 'center' }}>
                 <span style={{
                     fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5,
                     padding: '2px 6px', borderRadius: 3,
                     background: 'hsl(var(--border-subtle))', color: 'hsl(var(--subtle-foreground))',
+                    display: 'inline-block', maxWidth: 40, overflow: 'hidden', textOverflow: 'ellipsis', verticalAlign: 'middle',
                 }}>
                     {inst.type}
                 </span>
             </div>
 
             {/* Price */}
-            <div style={{ width: 120, flexShrink: 0, textAlign: 'right' }}>
+            <div style={{ width: 70, flexShrink: 0, textAlign: 'right' }}>
                 <span style={{
                     fontSize: 13, fontWeight: 600, color: 'hsl(var(--foreground))',
                     fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.2px',
                 }}>
-                    {formatPrice(inst.currentPrice ?? 0, inst.baseCurrency)}
+                    {inst.hasPrice ? formatPrice(inst.currentPrice, inst.baseCurrency) : '—'}
                 </span>
             </div>
 
             {/* Change % */}
-            <div style={{ width: 80, flexShrink: 0, textAlign: 'right' }}>
+            <div style={{ width: 64, flexShrink: 0, textAlign: 'right' }}>
                 <span style={{
                     fontSize: 12, fontWeight: 600, fontVariantNumeric: 'tabular-nums',
-                    padding: '2px 8px', borderRadius: 4,
+                    padding: '2px 4px', borderRadius: 4,
                     background: !hasChangeValue ? 'rgba(148,163,184,0.08)' : isPositive ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
                     color: !hasChangeValue ? 'hsl(var(--muted-foreground))' : isPositive ? '#10b981' : '#ef4444',
                 }}>
@@ -113,7 +152,7 @@ const InstrumentRow = ({
             </div>
 
             {/* Arrow hint */}
-            <div style={{ width: 28, flexShrink: 0, textAlign: 'right', paddingLeft: 8 }}>
+            <div style={{ width: 0, flexShrink: 0, textAlign: 'right', overflow: 'hidden' }}>
                 <ArrowUpRight size={12} style={{ color: 'hsl(var(--ghost-foreground))' }} />
             </div>
         </div>
@@ -133,14 +172,8 @@ function InstrumentList({
     formatPrice: (price: number, cur: string) => string;
     onNavigate: (symbol: string) => void;
 }) {
-    const [search, setSearch] = useState('');
     const hasPagination = totalPages !== undefined && totalPages > 1 && onPageChange !== undefined;
-
-    const processed = useMemo(() => {
-        if (!search.trim()) return instruments;
-        const q = search.toLowerCase();
-        return instruments.filter(i => i.symbol.toLowerCase().includes(q) || i.name.toLowerCase().includes(q));
-    }, [instruments, search]);
+    const processed = instruments;
 
     const pageNumbers = useMemo(() => {
         if (!hasPagination || totalPages === undefined || page === undefined) return [];
@@ -175,29 +208,25 @@ function InstrumentList({
     }
 
     if (!instruments.length) {
-        return <div style={{ textAlign: 'center', padding: 48, fontSize: 13, color: 'hsl(var(--muted-foreground))' }}>Bu kategoride enstrüman bulunamadı.</div>;
+        return (
+            <div style={{
+                textAlign: 'center',
+                padding: 48,
+                fontSize: 13,
+                color: 'hsl(var(--muted-foreground))',
+                border: '1px solid hsl(var(--border))',
+                borderRadius: 6,
+                background: 'hsl(var(--card))',
+            }}>
+                Bu filtrelerle eşleşen enstrüman bulunamadı.
+            </div>
+        );
     }
 
     return (
-        <div style={{ background: 'hsl(var(--card))', borderRadius: 12, border: '1px solid hsl(var(--border))', overflow: 'hidden' }}>
+        <div style={{ background: 'hsl(var(--card))', borderRadius: 6, border: '1px solid hsl(var(--border))', overflow: 'hidden' }}>
             {/* Search + count */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 16px', borderBottom: '1px solid hsl(var(--border))' }}>
-                <div style={{ position: 'relative', width: 280 }}>
-                    <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--subtle-foreground))', pointerEvents: 'none' }} />
-                    <input
-                        type="text"
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        placeholder="Sembol veya isim ara..."
-                        style={{
-                            width: '100%', height: 32, paddingLeft: 32, paddingRight: 10, fontSize: 12, fontWeight: 500,
-                            background: 'hsl(var(--background-subtle))', border: '1px solid hsl(var(--border))', borderRadius: 6,
-                            color: 'hsl(var(--foreground))', outline: 'none', transition: 'border-color 0.15s',
-                        }}
-                        onFocus={e => { e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)'; }}
-                        onBlur={e => { e.currentTarget.style.borderColor = 'hsl(var(--border))'; }}
-                    />
-                </div>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '8px 16px', borderBottom: '1px solid hsl(var(--border))', minHeight: 42 }}>
                 <span style={{ fontSize: 11, color: 'hsl(var(--subtle-foreground))' }}>
                     {processed.length} enstrüman — Detaylar için tıklayın
                 </span>
@@ -205,17 +234,17 @@ function InstrumentList({
 
             {/* Table header */}
             <div style={{
-                display: 'flex', alignItems: 'center', height: 32, padding: '0 16px',
+                display: 'flex', alignItems: 'center', height: 32, padding: '0 12px',
                 borderBottom: '1px solid hsl(var(--border))',
                 background: 'rgba(255,255,255,0.015)',
             }}>
-                <div style={{ width: 20 }} />
-                <div style={{ width: 96, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5 }}>Sembol</div>
+                <div style={{ width: 16 }} />
+                <div style={{ width: 68, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5 }}>Sembol</div>
                 <div style={{ flex: 1, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5 }}>Ad</div>
-                <div style={{ width: 64, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' }}>Tip</div>
-                <div style={{ width: 120, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Fiyat</div>
-                <div style={{ width: 80, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Değişim</div>
-                <div style={{ width: 28 }} />
+                <div style={{ width: 42, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' }}>Tip</div>
+                <div style={{ width: 70, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Fiyat</div>
+                <div style={{ width: 64, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Değişim</div>
+                <div style={{ width: 0 }} />
             </div>
 
             {/* Rows */}
@@ -270,23 +299,91 @@ function InstrumentList({
    ════════════════════════════════════════ */
 const MarketPage = () => {
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState('all');
+    const [activeTab, setActiveTab] = useState<MarketTab>('all');
     const [page, setPage] = useState(0);
     const [region, setRegion] = useState<'TR' | 'US'>('TR');
+    const [search, setSearch] = useState('');
 
     const { data: allInstruments = [], isLoading: allLoading } = useQuery({
-        queryKey: ['market-instruments'],
-        queryFn: getMarketInstruments,
-        staleTime: 1000 * 60 * 15,
-        gcTime: 1000 * 60 * 45,
+        queryKey: ['market-instrument-catalog'],
+        queryFn: getMarketInstrumentCatalog,
+        staleTime: 1000 * 60 * 30,
+        gcTime: 1000 * 60 * 60,
     });
+
+    const pinnedQueries = useQueries({
+        queries: PINNED_US_SYMBOLS.map((symbol) => ({
+            queryKey: ['instrument-detail', symbol],
+            queryFn: () => getInstrumentBySymbol(symbol),
+            staleTime: 1000 * 60 * 30,
+            gcTime: 1000 * 60 * 60,
+            retry: false,
+        })),
+    });
+
+    const exactSearchSymbol = useMemo(() => {
+        const value = search.trim().toUpperCase().replace(/\s+/g, '');
+        const alias = SEARCH_SYMBOL_ALIASES[value];
+        if (alias) return alias;
+        return /^[A-Z0-9._-]{1,12}$/.test(value) ? value : '';
+    }, [search]);
+
+    const { data: searchedInstrument } = useQuery({
+        queryKey: ['instrument-search-symbol', exactSearchSymbol],
+        queryFn: () => getInstrumentBySymbol(exactSearchSymbol),
+        enabled: exactSearchSymbol.length > 0,
+        staleTime: 1000 * 60 * 10,
+        gcTime: 1000 * 60 * 30,
+        retry: false,
+    });
+
+    const directSearchInstrument = useMemo(() => {
+        return searchedInstrument ? normalizeInstrument(searchedInstrument) : null;
+    }, [searchedInstrument]);
+
+    const catalog = useMemo(() => {
+        const bySymbol = new Map<string, MarketInstrument>();
+        for (const inst of allInstruments) bySymbol.set(inst.symbol, inst);
+        for (const result of pinnedQueries) {
+            if (result.data) {
+                const normalized = normalizeInstrument(result.data);
+                bySymbol.set(normalized.symbol, normalized);
+            }
+        }
+        if (directSearchInstrument) {
+            bySymbol.set(directSearchInstrument.symbol, directSearchInstrument);
+        }
+        return [...bySymbol.values()];
+    }, [allInstruments, pinnedQueries, directSearchInstrument]);
 
     const isLoading = allLoading;
 
     const formatPrice = (price: number, baseCurrency: string) => formatMarketPrice(price, baseCurrency);
 
-    const grouped = useMemo(() => {
-        const regional = allInstruments.filter(i => belongsToMarket(i, region));
+    const searchFiltered = useMemo(() => {
+        const query = search.trim().toLocaleLowerCase('tr-TR');
+        if (!query) return catalog;
+        const filtered = catalog.filter((inst) => {
+            const haystack = [
+                inst.symbol,
+                inst.name,
+                inst.type,
+                inst.exchange,
+                inst.baseCurrency,
+                inst.country,
+                inst.market,
+            ].join(' ').toLocaleLowerCase('tr-TR');
+            return haystack.includes(query);
+        });
+        if (directSearchInstrument && !filtered.some((inst) => inst.symbol === directSearchInstrument.symbol)) {
+            return [directSearchInstrument, ...filtered];
+        }
+        return filtered;
+    }, [catalog, directSearchInstrument, search]);
+
+    const grouped = useMemo<Record<MarketTab, MarketInstrument[]>>(() => {
+        const hasSearch = search.trim().length > 0;
+        const regional = hasSearch ? searchFiltered : searchFiltered.filter(i => belongsToMarket(i, region));
         return {
             all: regional,
             crypto: regional.filter(i => i.type === 'CRYPTO'),
@@ -304,7 +401,7 @@ const MarketPage = () => {
                 .sort((a, b) => (a.change24h ?? Number.POSITIVE_INFINITY) - (b.change24h ?? Number.POSITIVE_INFINITY))
                 .slice(0, 20),
         };
-    }, [allInstruments, region]);
+    }, [searchFiltered, region, search]);
 
     const allPage = useMemo(() => {
         const start = page * PAGE_SIZE;
@@ -316,8 +413,6 @@ const MarketPage = () => {
     const handleNavigate = (symbol: string) => {
         navigate(`/instrument/${symbol}`);
     };
-
-    const tabCls = 'text-label pb-2 border-b-2 border-transparent rounded-none data-[state=active]:border-primary data-[state=active]:text-foreground text-muted-foreground';
 
     return (
         <div className="space-y-5">
@@ -353,23 +448,62 @@ const MarketPage = () => {
                 </div>
             </div>
 
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                padding: 12,
+                border: '1px solid hsl(var(--border))',
+                borderRadius: 6,
+                background: 'hsl(var(--card))',
+            }}>
+                <div style={{ position: 'relative', width: 'min(100%, 420px)' }}>
+                    <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--subtle-foreground))', pointerEvents: 'none' }} />
+                    <input
+                        type="text"
+                        value={search}
+                        onChange={e => { setSearch(e.target.value); setPage(0); }}
+                        placeholder="Sembol, enstrüman adı, tür veya piyasa ara..."
+                        style={{
+                            width: '100%',
+                            height: 38,
+                            paddingLeft: 36,
+                            paddingRight: 12,
+                            fontSize: 13,
+                            fontWeight: 500,
+                            background: 'hsl(var(--background-subtle))',
+                            border: '1px solid hsl(var(--border))',
+                            borderRadius: 4,
+                            color: 'hsl(var(--foreground))',
+                            outline: 'none',
+                        }}
+                    />
+                </div>
+                <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', whiteSpace: 'nowrap' }}>
+                    {searchFiltered.length} sonuç
+                </span>
+            </div>
+
             {/* Tabs + Table */}
-            <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value); setPage(0); }} className="w-full">
-                <div className="border-b border-border pb-0 mb-0" style={{ overflowX: 'auto' }}>
-                    <TabsList className="bg-transparent p-0 h-auto gap-4 rounded-none" style={{ flexWrap: 'nowrap', minWidth: 'max-content' }}>
-                        <TabsTrigger value="all" className={tabCls}>Tümü</TabsTrigger>
-                        <TabsTrigger value="stock" className={tabCls}>Hisse</TabsTrigger>
-                        <TabsTrigger value="crypto" className={tabCls}>Kripto</TabsTrigger>
-                        <TabsTrigger value="forex" className={tabCls}>Döviz</TabsTrigger>
-                        <TabsTrigger value="commodity" className={tabCls}>Emtia</TabsTrigger>
-                        <TabsTrigger value="indices" className={tabCls}>Endeks</TabsTrigger>
-                        <TabsTrigger value="bond" className={tabCls}>Tahvil</TabsTrigger>
-                        <TabsTrigger value="gainers" className={tabCls} style={{ color: allLoading ? undefined : '#10b981' }}>
-                            Artanlar
-                        </TabsTrigger>
-                        <TabsTrigger value="losers" className={tabCls} style={{ color: allLoading ? undefined : '#ef4444' }}>
-                            Düşenler
-                        </TabsTrigger>
+            <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value as MarketTab); setPage(0); }} className="w-full">
+                <div style={{ overflowX: 'auto', border: '1px solid hsl(var(--border))', borderRadius: 6, background: 'hsl(var(--card))' }}>
+                    <TabsList className="bg-transparent p-0 h-auto rounded-none" style={{ flexWrap: 'nowrap', minWidth: 'max-content', display: 'flex' }}>
+                        {MARKET_TABS.map((tab) => (
+                            <TabsTrigger
+                                key={tab.key}
+                                value={tab.key}
+                                className="rounded-none border-r border-border px-4 py-3 text-sm font-semibold text-muted-foreground data-[state=active]:bg-[hsl(var(--background-subtle))] data-[state=active]:text-foreground data-[state=active]:shadow-none"
+                                style={{
+                                    color: tab.tone === 'up' && !allLoading ? '#10b981' : tab.tone === 'down' && !allLoading ? '#ef4444' : undefined,
+                                }}
+                            >
+                                <span>{tab.label}</span>
+                                <span style={{ marginLeft: 8, fontSize: 11, color: 'hsl(var(--subtle-foreground))' }}>
+                                    {grouped[tab.key]?.length ?? 0}
+                                </span>
+                            </TabsTrigger>
+                        ))}
                     </TabsList>
                 </div>
 

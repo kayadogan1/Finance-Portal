@@ -11,16 +11,39 @@ interface PortfolioPieChartProps {
     data: PieChartDto[];
 }
 
-const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: { name: string; value: number; payload: { percent: number } }[] }) => {
+type ChartSlice = {
+    name: string;
+    symbol?: string;
+    instrumentType?: string;
+    currency?: string;
+    value: number;
+    percentage?: number;
+};
+
+const getSliceName = (item: PieChartDto, index: number) => {
+    const label = item.label?.trim();
+    if (label) return label;
+    const symbol = item.symbol?.trim();
+    if (symbol) return symbol;
+    const type = item.instrumentType?.trim();
+    if (type) return type;
+    return `Varlık ${index + 1}`;
+};
+
+const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: { name: string; value: number; payload: ChartSlice & { percent?: number } }[] }) => {
     if (!active || !payload || !payload.length) return null;
     const item = payload[0];
+    const percent = item.payload.percentage ?? (item.payload.percent !== undefined ? item.payload.percent * 100 : undefined);
     return (
         <div className="bg-card border border-border rounded px-3 py-2 shadow-none">
             <p className="text-[13px] font-semibold text-foreground">{item.name}</p>
+            {item.payload.symbol && (
+                <p className="text-[11px] text-muted-foreground">{item.payload.symbol}</p>
+            )}
             <p className="text-primary text-[12px] tabular-nums">
                 ₺{Number(item.value).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
             </p>
-            <p className="text-meta">{(item.payload.percent * 100).toFixed(1)}%</p>
+            {percent !== undefined && <p className="text-meta">{percent.toFixed(1)}%</p>}
         </div>
     );
 };
@@ -34,9 +57,13 @@ export default function PortfolioPieChartComponent({ data }: PortfolioPieChartPr
         );
     }
 
-    const chartData = data.map((d) => ({
-        name: d.instrumentName,
+    const chartData: ChartSlice[] = data.map((d, index) => ({
+        name: getSliceName(d, index),
+        symbol: d.symbol ?? undefined,
+        instrumentType: d.instrumentType ?? undefined,
+        currency: d.currency ?? undefined,
         value: Number(d.totalValue),
+        percentage: d.percentage === null || d.percentage === undefined ? undefined : Number(d.percentage),
     }));
 
     return (
@@ -50,6 +77,7 @@ export default function PortfolioPieChartComponent({ data }: PortfolioPieChartPr
                     outerRadius={100}
                     paddingAngle={3}
                     dataKey="value"
+                    nameKey="name"
                     animationDuration={600}
                     animationEasing="ease-out"
                 >
@@ -67,7 +95,7 @@ export default function PortfolioPieChartComponent({ data }: PortfolioPieChartPr
                     iconType="circle"
                     iconSize={8}
                     formatter={(value: string) => (
-                        <span className="text-[11px] text-muted-foreground">{value}</span>
+                        <span className="text-[11px] text-muted-foreground">{value || 'Varlık'}</span>
                     )}
                 />
             </PieChart>

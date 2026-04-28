@@ -8,6 +8,7 @@ import {
     getPortfolios, buyInstrument, sellInstrument,
     type PortfolioDto, type PortfolioItemDto,
 } from '../../services/portfolioService';
+import { formatMarketPrice } from '../../utils/currency';
 
 type TradeAction = 'BUY' | 'SELL';
 
@@ -15,9 +16,10 @@ interface TradeWidgetProps {
     symbol: string;
     instrumentName?: string;
     currentPrice: number;
+    baseCurrency?: string;
 }
 
-function formatCurrency(v: number) {
+function formatTry(v: number) {
     return new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v);
 }
 
@@ -32,7 +34,7 @@ const QUICK = [
     { label: 'Max', value: 1.0 },
 ];
 
-const TradeWidget = ({ symbol, instrumentName, currentPrice }: TradeWidgetProps) => {
+const TradeWidget = ({ symbol, instrumentName, currentPrice, baseCurrency }: TradeWidgetProps) => {
     const qc = useQueryClient();
     const [action, setAction] = useState<TradeAction>('BUY');
     const [quantity, setQuantity] = useState('');
@@ -141,7 +143,7 @@ const TradeWidget = ({ symbol, instrumentName, currentPrice }: TradeWidgetProps)
                             <span className="text-label">{isBuy ? 'Bakiye' : 'Miktar'}</span>
                         </div>
                         <span className={`text-[13px] font-semibold tabular-nums ${isBuy ? 'text-positive' : 'text-primary'}`}>
-                            {isBuy ? formatCurrency(cash) : `${formatQty(holdQty)} adet`}
+                            {isBuy ? formatTry(cash) : `${formatQty(holdQty)} adet`}
                         </span>
                     </div>
                 )}
@@ -150,7 +152,7 @@ const TradeWidget = ({ symbol, instrumentName, currentPrice }: TradeWidgetProps)
                 {!isBuy && holdingItem && (
                     <div className="flex items-center justify-between px-3 py-1.5 bg-background rounded">
                         <span className="flex items-center gap-1 text-label"><Package size={10} />Ort. Maliyet</span>
-                        <span className="text-[12px] font-medium tabular-nums text-muted-foreground">{formatCurrency(holdingItem.averageCost ?? 0)}</span>
+                        <span className="text-[12px] font-medium tabular-nums text-muted-foreground">{formatTry(holdingItem.averageCost ?? 0)}</span>
                     </div>
                 )}
 
@@ -158,7 +160,7 @@ const TradeWidget = ({ symbol, instrumentName, currentPrice }: TradeWidgetProps)
                 <div>
                     <label className="text-label mb-1.5 block">Güncel Fiyat</label>
                     <div className="h-9 bg-background border border-border rounded px-3 flex items-center text-[13px] font-semibold tabular-nums text-foreground">
-                        {formatCurrency(currentPrice)}
+                        {currentPrice > 0 ? formatMarketPrice(currentPrice, baseCurrency) : '—'}
                     </div>
                 </div>
 
@@ -193,7 +195,7 @@ const TradeWidget = ({ symbol, instrumentName, currentPrice }: TradeWidgetProps)
                 {qty > 0 && (
                     <div className={`flex items-center justify-between px-3 py-2 rounded border ${isBuy ? 'border-positive/20' : 'border-negative/20'} bg-background`}>
                         <span className="text-label">Tahmini Tutar</span>
-                        <span className={`text-[13px] font-bold tabular-nums ${isBuy ? 'text-positive' : 'text-negative'}`}>{formatCurrency(total)}</span>
+                        <span className={`text-[13px] font-bold tabular-nums ${isBuy ? 'text-positive' : 'text-negative'}`}>{formatMarketPrice(total, baseCurrency)}</span>
                     </div>
                 )}
 

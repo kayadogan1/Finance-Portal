@@ -91,6 +91,19 @@ public class PortfolioController {
          return ResponseEntity.ok(ApiResult.success(pieChartList,"current all portfolio values fetched",200));
 
     }
+    @GetMapping("allocation/type/{portfolioId}")
+    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    public ResponseEntity<ApiResult<List<PieChartDto>>> getPortfolioTypeAllocation(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID portfolioId
+    ) {
+        return ResponseEntity.ok(ApiResult.success(
+                portfolioService.getPortfolioTypeAllocation(jwt.getSubject(), portfolioId),
+                "portfolio type allocation fetched",
+                200
+        ));
+    }
+
     @GetMapping("/transactions")
     @PreAuthorize("hasAnyRole('USER','ADMIN')")
     public ResponseEntity<ApiResult<List<TransactionDto>>> getUserTransactionsByTimeStamp(@AuthenticationPrincipal Jwt jwt,@RequestParam(required = false) LocalDate startDate){

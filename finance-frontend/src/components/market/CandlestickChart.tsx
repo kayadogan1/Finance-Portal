@@ -36,7 +36,7 @@ const DATE_RANGES: { label: string; value: DateRange }[] = [
 
 /** Convert DateRange to a `from` ISO LocalDateTime string for the backend */
 function dateRangeToFrom(range: DateRange): string | undefined {
-    if (range === 'ALL') return undefined; // no from = all data
+    if (range === 'ALL') return '1970-01-01T00:00:00';
 
     const now = new Date();
     const offsets: Record<Exclude<DateRange, 'ALL'>, number> = {

@@ -2,6 +2,7 @@ package com.finance.services;
 
 import com.finance.models.Instrument;
 import com.finance.models.MarketData;
+import com.finance.repositories.InstrumentRepository;
 import com.finance.repositories.MarketDataRepository;
 import com.finance.shared.Currency;
 import com.finance.shared.InstrumentType;
@@ -42,6 +43,12 @@ class FetchFilteredInstrumentServiceTest {
 
     @Mock
     private RestClient restClient;
+
+    @Mock
+    private InstrumentRepository instrumentRepository;
+
+    @Mock
+    private RedisCacheService redisCacheService;
 
     @SuppressWarnings("rawtypes")
     @Mock

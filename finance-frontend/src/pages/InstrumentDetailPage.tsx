@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import CandlestickChart from '../components/market/CandlestickChart';
 import TradeWidget from '../components/trade/TradeWidget';
-import { formatChangePercent, getMarketInstruments, hasChange, type MarketInstrument } from '../services/marketService';
+import { formatChangePercent, getInstrumentBySymbol, hasChange, normalizeInstrument, type MarketInstrument } from '../services/marketService';
 import { articleMatchesInstrument, getNews, normalizeNewsCategory, TOPIC_LABELS, ASSET_TYPE_COLORS } from '../services/newsService';
 import { formatMarketPrice } from '../utils/currency';
 import { useFavorites } from '../hooks/useFavorites';
@@ -29,6 +29,12 @@ const typeToNewsTopic: Record<string, string> = {
     FIAT: 'FOREX',
     FOREX: 'FOREX',
     INDEX: 'STOCK',
+};
+
+const countryToNewsCountry = (market?: string) => {
+    if (market === 'TR') return 'TR';
+    if (market === 'US') return 'US';
+    return undefined;
 };
 
 /* ─── Skeletons ─── */
@@ -49,7 +55,7 @@ const StatPill = ({ label, value, highlight }: { label: string; value: string; h
         border: '1px solid hsl(var(--border))',
         minWidth: 110,
     }}>
-        <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5, fontWeight: 600 }}>
+        <div style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))', marginBottom: 4, letterSpacing: 0.5, fontWeight: 600 }}>
             {label}
         </div>
         <div style={{ fontSize: 15, fontWeight: 700, color: highlight ?? 'hsl(var(--foreground))', fontVariantNumeric: 'tabular-nums' }}>
@@ -82,37 +88,41 @@ const InstrumentDetailPage = () => {
     const navigate = useNavigate();
     const { isFavorite, toggleFavorite } = useFavorites();
 
-    /* Use cached instruments — same queryKey as Dashboard/MarketPage */
-    const { data: allInstruments = [], isLoading: loading } = useQuery({
-        queryKey: ['market-instruments'],
-        queryFn: getMarketInstruments,
+    const { data: fetchedInstrument, isLoading: loading } = useQuery({
+        queryKey: ['instrument-detail', symbol],
+        queryFn: () => getInstrumentBySymbol(symbol!),
+        enabled: !!symbol,
         staleTime: 1000 * 60 * 15,
         gcTime: 1000 * 60 * 45,
     });
 
     const instrument: MarketInstrument | null = useMemo(() => {
-        return allInstruments.find(i => i.symbol === symbol) ?? null;
-    }, [allInstruments, symbol]);
+        return fetchedInstrument ? normalizeInstrument(fetchedInstrument) : null;
+    }, [fetchedInstrument]);
 
     /* News topic from instrument type */
     const newsTopic = instrument ? typeToNewsTopic[instrument.type] ?? undefined : undefined;
+    const newsCountry = instrument ? countryToNewsCountry(instrument.market) : undefined;
 
     /* Fetch all news (by topic) and filter by instrument symbol on frontend */
     const { data: allNews = [], isLoading: newsLoading } = useQuery({
-        queryKey: ['news', newsTopic ?? 'all', 'all'],
-        queryFn: () => getNews(newsTopic),
+        queryKey: ['news', newsTopic ?? 'all', newsCountry ?? 'all'],
+        queryFn: () => getNews(newsTopic, newsCountry),
         staleTime: 1000 * 60 * 3,
         enabled: !!symbol,
     });
 
-    /* Filter news: articles that mention this instrument symbol in their instruments list */
-    const relatedNews = useMemo(() => {
-        if (!symbol || allNews.length === 0) return [];
+    /* Prefer exact instrument matches; fall back to same country/category news. */
+    const { relatedNews, hasExactNews } = useMemo(() => {
+        if (!symbol || allNews.length === 0) return { relatedNews: [], hasExactNews: false };
 
         const target = instrument ?? { symbol };
-        return allNews
+        const exact = allNews
             .filter(article => articleMatchesInstrument(article, target))
             .slice(0, 9);
+        if (exact.length > 0) return { relatedNews: exact, hasExactNews: true };
+
+        return { relatedNews: allNews.slice(0, 9), hasExactNews: false };
     }, [allNews, instrument, symbol]);
 
     if (!symbol) {
@@ -287,6 +297,7 @@ const InstrumentDetailPage = () => {
                             symbol={symbol}
                             instrumentName={instrument?.name}
                             currentPrice={instrument?.currentPrice ?? 0}
+                            baseCurrency={instrument?.baseCurrency}
                         />
                     </div>
                 </div>
@@ -304,6 +315,15 @@ const InstrumentDetailPage = () => {
                             background: 'rgba(99,102,241,0.1)', color: '#818cf8',
                         }}>
                             {TOPIC_LABELS[newsTopic] || newsTopic}
+                        </span>
+                    )}
+                    {!newsLoading && relatedNews.length > 0 && !hasExactNews && (
+                        <span style={{
+                            fontSize: 10, fontWeight: 600,
+                            letterSpacing: 0.2, padding: '2px 8px', borderRadius: 4,
+                            background: 'hsl(var(--background-subtle))', color: 'hsl(var(--muted-foreground))',
+                        }}>
+                            Piyasa haberleri
                         </span>
                     )}
                     <a

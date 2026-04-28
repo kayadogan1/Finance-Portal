@@ -3,7 +3,9 @@ package com.finance.services;
 import com.finance.exceptions.InstrumentNotFoundException;
 import com.finance.models.Instrument;
 import com.finance.repositories.InstrumentRepository;
+import com.finance.shared.Currency;
 import com.finance.shared.InstrumentDto;
+import com.finance.shared.InstrumentType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -21,7 +23,6 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -43,20 +44,22 @@ class InstrumentServiceTest {
         Instrument instrument = new Instrument();
         instrument.setSymbol("AAPL");
         instrument.setName("Apple Inc.");
-        // instrument type might be enum or string, assuming it has a getter doing nothing special
+        instrument.setType(InstrumentType.STOCK);
+        instrument.setBaseCurrency(Currency.USD);
         instrument.setCurrentPrice(new BigDecimal("150.0"));
+        instrument.setPreviousPrice(new BigDecimal("145.0"));
         
         Page<Instrument> pageResult = new PageImpl<>(List.of(instrument));
-        when(instrumentRepository.findAll(any(Pageable.class))).thenReturn(pageResult);
+        when(instrumentRepository.searchInstruments(eq("AAPL"), eq(InstrumentType.STOCK), eq(Currency.USD), any(Pageable.class))).thenReturn(pageResult);
 
         // Act
-        Page<InstrumentDto> result = instrumentService.getAllInstruments(0, 10);
+        Page<InstrumentDto> result = instrumentService.getAllInstruments("AAPL", InstrumentType.STOCK, null, Currency.USD,0,10);
 
         // Assert
         assertEquals(1, result.getTotalElements());
-        assertEquals("AAPL", result.getContent().get(0).getSymbol());
-        assertEquals("Apple Inc.", result.getContent().get(0).getName());
-        verify(instrumentRepository).findAll(any(Pageable.class));
+        assertEquals("AAPL", result.getContent().getFirst().getSymbol());
+        assertEquals("Apple Inc.", result.getContent().getFirst().getName());
+        verify(instrumentRepository).searchInstruments(eq("AAPL"), eq(InstrumentType.STOCK), eq(Currency.USD), any(Pageable.class));
     }
 
     @Test

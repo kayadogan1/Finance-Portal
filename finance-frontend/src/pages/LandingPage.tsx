@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { Activity, ArrowRight, TrendingUp, BarChart2 } from 'lucide-react';
 import { formatChangePercent, getMarketInstruments, hasChange, type MarketInstrument } from '../services/marketService';
@@ -11,10 +12,13 @@ const TickerStrip = ({ instruments }: { instruments: MarketInstrument[] }) => {
 
     // Duplicate for seamless infinite scroll
     const doubled = [...instruments, ...instruments];
+    const tickerStyle = {
+        '--ticker-duration': `${Math.max(360, instruments.length * 6)}s`,
+    } as CSSProperties;
 
     return (
         <div className="ticker-strip">
-            <div className="ticker-track">
+            <div className="ticker-track" style={tickerStyle}>
                 {doubled.map((inst, idx) => {
                     const hasChangeValue = hasChange(inst);
                     const isPositive = hasChangeValue && inst.change24h >= 0;

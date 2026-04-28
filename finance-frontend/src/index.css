@@ -129,7 +129,6 @@ body {
     font-size: 11px;
     font-weight: 500;
     letter-spacing: 0.6px;
-    text-transform: uppercase;
     color: hsl(var(--subtle-foreground));
   }
 

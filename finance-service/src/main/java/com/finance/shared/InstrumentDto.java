@@ -5,6 +5,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDateTime;
 
 @NoArgsConstructor
 @Getter
@@ -24,6 +25,12 @@ public class InstrumentDto {
 
     private String market;
 
+    private LocalDateTime lastUpdateTime;
+
+    private boolean historicalDataLoaded;
+
+    private boolean active;
+
     private BigDecimal changeValue;
 
     private BigDecimal changePercent;
@@ -35,7 +42,10 @@ public class InstrumentDto {
             BigDecimal currentPrice,
             BigDecimal previousPrice,
             Currency baseCurrency,
-            String market
+            String market,
+            LocalDateTime lastUpdateTime,
+            boolean active,
+            boolean historicalDataLoaded
     ) {
         this.symbol = symbol;
         this.name = name;
@@ -44,6 +54,9 @@ public class InstrumentDto {
         this.previousPrice = previousPrice;
         this.baseCurrency = baseCurrency;
         this.market = market;
+        this.lastUpdateTime = lastUpdateTime;
+        this.active = active;
+        this.historicalDataLoaded = historicalDataLoaded;
 
         calculateChangeFields();
     }

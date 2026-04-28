@@ -99,7 +99,7 @@ class MarketDataServiceTest {
         data.setTimestamp(LocalDateTime.now().minusHours(1));
         data.setPrice(new BigDecimal("150.0"));
         
-        when(marketDataRepository.findByInstrumentSymbolAndTimestampAfterOrderByTimestampAsc(symbol, from))
+        when(marketDataRepository.findByInstrumentSymbolAndTimestampGreaterThanEqualOrderByTimestampAsc(symbol, from))
                 .thenReturn(List.of(data));
 
         // Act
@@ -130,7 +130,7 @@ class MarketDataServiceTest {
     @Test
     void getMarketDataHistory_whenDateInFuture_throwsBadRequestException() {
         when(instrumentRepository.findInstrumentBySymbol("AAPL")).thenReturn(Optional.of(new Instrument()));
-        when(marketDataRepository.findByInstrumentSymbolAndTimestampAfterOrderByTimestampAsc(eq("AAPL"), any()))
+        when(marketDataRepository.findByInstrumentSymbolAndTimestampGreaterThanEqualOrderByTimestampAsc(eq("AAPL"), any()))
                 .thenReturn(List.of(new MarketData()));
         
         assertThrows(BadRequestException.class, () -> 
@@ -155,7 +155,7 @@ class MarketDataServiceTest {
         data2.setTimestamp(LocalDateTime.now().minusDays(1).withHour(11));
         data2.setPrice(new BigDecimal("110"));
 
-        when(marketDataRepository.findByInstrumentSymbolAndTimestampAfterOrderByTimestampAsc(symbol, fromTimestamp))
+        when(marketDataRepository.findByInstrumentSymbolAndTimestampGreaterThanEqualOrderByTimestampAsc(symbol, fromTimestamp))
                 .thenReturn(List.of(data1, data2));
 
         // Act

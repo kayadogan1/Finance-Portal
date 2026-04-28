@@ -50,7 +50,7 @@ public class FundScraperService {
         this.viops = instrumentPropertiesConfig.getViop();
     }
 
-    @Scheduled(fixedRate = 300000)
+    @Scheduled(cron = "0 30 18 * * *", zone = "Europe/Istanbul")
     public void scrapeFunds() {
         logger.info("Starting one-time scrape for Funds and VIOPs...");
 
