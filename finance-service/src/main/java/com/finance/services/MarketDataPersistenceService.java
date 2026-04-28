@@ -16,7 +16,6 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class MarketDataPersistenceService {
@@ -117,17 +116,13 @@ public class MarketDataPersistenceService {
         LocalDate today = LocalDate.now(ZoneId.of("Europe/Istanbul"));
         LocalDateTime startOfDay = today.atStartOfDay();
 
-        if (instrument.getPreviousPrice() != null) {
-            return instrument.getPreviousPrice();
-        }
-
         return marketDataRepository
                 .findFirstByInstrumentAndTimestampBeforeOrderByTimestampDesc(
                         instrument,
                         startOfDay
                 )
                 .map(MarketData::getPrice)
-                .orElse(null);
+                .orElse(instrument.getPreviousPrice());
     }
 
 

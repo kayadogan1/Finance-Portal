@@ -7,5 +7,7 @@ public enum InstrumentType {
     COMMODITY,         // Emtialar
     FOREX,             // Döviz çiftleri
     INDEX,             // Endeksler
+    FUND,
+    VIOP,
     BOND               // Tahviller
 }

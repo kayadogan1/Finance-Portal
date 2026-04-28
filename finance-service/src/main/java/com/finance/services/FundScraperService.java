@@ -1,9 +1,12 @@
 package com.finance.services;
 
 import com.finance.config.InstrumentPropertiesConfig;
+import com.finance.models.Instrument;
 import com.finance.repositories.InstrumentRepository;
 import com.finance.repositories.MarketDataRepository;
+import com.finance.shared.Currency;
 import com.finance.shared.FundHistoryResponse;
+import com.finance.shared.InstrumentType;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -37,7 +41,7 @@ public class FundScraperService {
 
     public FundScraperService(MarketDataPersistenceService marketDataPersistenceService,
                               RestClient restClient,
-                              InstrumentPropertiesConfig instrumentPropertiesConfig,MarketDataRepository marketDataRepository,InstrumentRepository instrumentRepository) {
+                              InstrumentPropertiesConfig instrumentPropertiesConfig, MarketDataRepository marketDataRepository, InstrumentRepository instrumentRepository) {
         this.restClient = restClient;
         this.marketDataRepository = marketDataRepository;
         this.marketDataPersistenceService = marketDataPersistenceService;
@@ -76,17 +80,44 @@ public class FundScraperService {
             }
         });
     }
+    private Instrument  firstSaveToDatabase(String instrumentName) {
 
+        String name;
+        InstrumentType type;
+
+        if (funds.containsKey(instrumentName)) {
+            name = funds.get(instrumentName);
+            type = InstrumentType.FUND;
+        } else if (viops.containsKey(instrumentName)) {
+            name = viops.get(instrumentName);
+            type = InstrumentType.VIOP;
+        } else {
+            throw new IllegalArgumentException("Instrument config içinde bulunamadı: " + instrumentName);
+        }
+
+        Instrument instrument = Instrument.builder()
+                .symbol(instrumentName)
+                .name(name)
+                .type(type)
+                .baseCurrency(Currency.TRY)
+                .currentPrice(null)
+                .previousPrice(null)
+                .lastUpdateTime(LocalDateTime.now())
+                .isActive(true)
+                .historicalDataLoaded(false)
+                .build();
+
+        return instrumentRepository.save(instrument);
+    }
     private void fetchAndProcess(String instrumentName) {
         logger.info("Fetching data for instrument: {}", instrumentName);
 
         try {
-            var instrumentOpt = instrumentRepository.findInstrumentBySymbol(instrumentName);
-            if (instrumentOpt.isEmpty()) {
-                logger.warn("Instrument not found in DB: {}", instrumentName);
-                return;
-            }
-            var instrument = instrumentOpt.get();
+            var instrument = instrumentRepository.findInstrumentBySymbol(instrumentName)
+                    .orElseGet(() -> {
+                        logger.warn("Instrument not found in DB. Creating first: {}", instrumentName);
+                        return firstSaveToDatabase(instrumentName);
+                    });
 
             long fromUnix = marketDataRepository.findFirstByInstrumentOrderByTimestampDesc(instrument)
                     .map(md -> md.getTimestamp().plusDays(1).atZone(ZoneId.of("Europe/Istanbul")).toEpochSecond())
@@ -98,9 +129,9 @@ public class FundScraperService {
                 logger.info("Data for {} is already strictly up to date. Skipping API call.", instrumentName);
                 return;
             }
-
+            String apiSymbol = instrumentName.replace("F_","");
             FundHistoryResponse response = restClient.get()
-                    .uri(API_URL + "?symbol={symbol}&resolution=D&from={from}&to={to}", instrumentName, fromUnix, toUnix)
+                    .uri(API_URL + "?symbol={symbol}&resolution=D&from={from}&to={to}", apiSymbol, fromUnix, toUnix)
                     .header("Accept", "application/json")
                     .retrieve()
                     .body(FundHistoryResponse.class);
