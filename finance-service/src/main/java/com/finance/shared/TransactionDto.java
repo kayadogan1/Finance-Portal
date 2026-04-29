@@ -5,7 +5,9 @@ import java.time.LocalDateTime;
 
 public record TransactionDto(
         TransactionType transactionType,
+        String instrumentSymbol,
         String instrumentName,
+        Currency currency,
         BigDecimal quantity,
         BigDecimal price,
         LocalDateTime dateTime

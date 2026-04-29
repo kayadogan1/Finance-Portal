@@ -35,6 +35,13 @@ export interface PortfolioDto {
     purpose: PortfolioPurposeType;
     portfolioItems?: PortfolioItemDto[];
     portfolioBalance: number;
+    holdingsValue?: number;
+    totalPortfolioValue?: number;
+    totalCost?: number;
+    profitLoss?: number;
+    profitLossPercent?: number | null;
+    displayCurrency?: string;
+    fxRateToDisplayCurrency?: number;
 }
 
 /** Used for creating a new portfolio — no id or cashBalance needed */
@@ -51,10 +58,19 @@ export interface PortfolioItemDto {
         name: string;
         instrumentType: string;
         currentPrice: number;
+        baseCurrency?: string;
+        market?: string;
     };
     instrumentSymbol?: string;
     amount: number;
     averageCost: number;
+    currentValue?: number;
+    costValue?: number;
+    profitLoss?: number;
+    profitLossPercent?: number;
+    instrumentType?: string;
+    displayCurrency?: string;
+    fxRateToDisplayCurrency?: number;
 }
 
 /** Matches `com.finance.shared.PerformanceLineChartDto` */
@@ -71,6 +87,9 @@ export interface PieChartDto {
     currency?: string | null;
     totalValue: number;
     percentage?: number | null;
+    originalCurrency?: string | null;
+    originalValue?: number | null;
+    fxRateToDisplayCurrency?: number | null;
 }
 
 export interface DistributionData {
@@ -92,8 +111,11 @@ export type PortfolioRange = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'THREE_MONTHS' | '
  * Fetch portfolios for the authenticated user.
  * Route: GET /api/portfolio/myPortfolios
  */
-export const getPortfolios = async (): Promise<PortfolioDto[]> => {
-    const { data } = await privateApi.get<PortfolioDto[]>('/api/portfolio/myPortfolios');
+export const getPortfolios = async (displayCurrencyInput?: unknown): Promise<PortfolioDto[]> => {
+    const displayCurrency = typeof displayCurrencyInput === 'string' ? displayCurrencyInput : 'TRY';
+    const { data } = await privateApi.get<PortfolioDto[]>('/api/portfolio/myPortfolios', {
+        params: { displayCurrency },
+    });
     return Array.isArray(data) ? data : [];
 };
 
@@ -101,8 +123,10 @@ export const getPortfolios = async (): Promise<PortfolioDto[]> => {
  * Fetch a single portfolio by ID.
  * Route: GET /api/portfolio/{portfolioId}
  */
-export const getPortfolioById = async (portfolioId: string): Promise<PortfolioDto> => {
-    const { data } = await privateApi.get<PortfolioDto>(`/api/portfolio/${portfolioId}`);
+export const getPortfolioById = async (portfolioId: string, displayCurrency: string = 'TRY'): Promise<PortfolioDto> => {
+    const { data } = await privateApi.get<PortfolioDto>(`/api/portfolio/${portfolioId}`, {
+        params: { displayCurrency },
+    });
     return data;
 };
 
@@ -119,8 +143,13 @@ export const createPortfolio = async (portfolio: CreatePortfolioRequest): Promis
  * Route: GET /api/portfolio/value/{portfolioId}
  * Returns: PieChartDto[] = [{ label, symbol, instrumentType, currency, totalValue, percentage }]
  */
-export const getPortfolioPieChart = async (portfolioId: string): Promise<PieChartDto[]> => {
-    const { data } = await privateApi.get<PieChartDto[]>(`/api/portfolio/value/${portfolioId}`);
+export const getPortfolioPieChart = async (
+    portfolioId: string,
+    displayCurrency: string = 'TRY',
+): Promise<PieChartDto[]> => {
+    const { data } = await privateApi.get<PieChartDto[]>(`/api/portfolio/value/${portfolioId}`, {
+        params: { displayCurrency },
+    });
     return data ?? [];
 };
 
@@ -128,8 +157,13 @@ export const getPortfolioPieChart = async (portfolioId: string): Promise<PieChar
  * Fetch portfolio allocation grouped by instrument type.
  * Route: GET /api/portfolio/allocation/type/{portfolioId}
  */
-export const getPortfolioTypeAllocation = async (portfolioId: string): Promise<PieChartDto[]> => {
-    const { data } = await privateApi.get<PieChartDto[]>(`/api/portfolio/allocation/type/${portfolioId}`);
+export const getPortfolioTypeAllocation = async (
+    portfolioId: string,
+    displayCurrency: string = 'TRY',
+): Promise<PieChartDto[]> => {
+    const { data } = await privateApi.get<PieChartDto[]>(`/api/portfolio/allocation/type/${portfolioId}`, {
+        params: { displayCurrency },
+    });
     return data ?? [];
 };
 
@@ -187,7 +221,9 @@ export const sellInstrument = async (
 /** Matches `com.finance.shared.TransactionDto` */
 export interface TransactionDto {
     transactionType: 'BUY' | 'SELL';
+    instrumentSymbol?: string;
     instrumentName: string;
+    currency?: string;
     quantity: number;
     price: number;
     dateTime: string; // Java LocalDateTime ISO

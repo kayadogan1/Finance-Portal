@@ -307,6 +307,7 @@ class PortfolioServiceTest {
         Instrument inst = new Instrument();
         inst.setName("Apple");
         inst.setCurrentPrice(BigDecimal.valueOf(150));
+        inst.setBaseCurrency(com.finance.shared.Currency.USD);
         
         PortfolioItem item = new PortfolioItem();
         item.setInstrument(inst);
@@ -320,7 +321,7 @@ class PortfolioServiceTest {
 
         // Assert
         assertEquals(1, result.size());
-        assertEquals("Apple", result.get(0).instrumentName());
+        assertEquals("Apple", result.get(0).label());
         assertEquals(BigDecimal.valueOf(1500), result.get(0).totalValue());
     }
 

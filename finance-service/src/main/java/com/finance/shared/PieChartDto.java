@@ -8,6 +8,8 @@ public record PieChartDto(
         InstrumentType instrumentType,
         Currency currency,
         BigDecimal totalValue,
-        BigDecimal percentage
+        BigDecimal percentage,
+        Currency originalCurrency,
+        BigDecimal originalValue,
+        BigDecimal fxRateToDisplayCurrency
 ) {}
-

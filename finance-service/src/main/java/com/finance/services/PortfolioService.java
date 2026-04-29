@@ -10,7 +10,17 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 
@@ -33,30 +43,40 @@ public class PortfolioService {
         this.instrumentService = instrumentService;
     }
 
-    public PortfolioReadDto getPortfolio(String userId,UUID portfolioId){
+    public PortfolioReadDto getPortfolio(String userId, UUID portfolioId){
+        return getPortfolio(userId, portfolioId, Currency.TRY);
+    }
+
+    public PortfolioReadDto getPortfolio(String userId, UUID portfolioId, Currency displayCurrency){
         logger.info("fetching Portfolio for {}", userId);
 
 
         return portfolioRepository.findByIdAndUserId(portfolioId,userId)
-                .map(this::toPortfolioReadDto)
+                .map(portfolio -> toPortfolioReadDto(portfolio, displayCurrency))
                 .orElseThrow(() -> new RuntimeException(
                         "Error occurred while mapper entity to dto . userId=" + userId + ", portfolioId=" + portfolioId
                 ));
 
     }
     public List<PortfolioReadDto> getUserPortfolios(String userId){
+        return getUserPortfolios(userId, Currency.TRY);
+    }
+
+    public List<PortfolioReadDto> getUserPortfolios(String userId, Currency displayCurrency){
         logger.info("fetching Portfolios for {}", userId);
 
         return portfolioRepository.findAllByUserId(userId)
                 .stream()
-                .map(this::toPortfolioReadDto)
+                .map(portfolio -> toPortfolioReadDto(portfolio, displayCurrency))
                 .collect(Collectors.toList());
-
     }
-    private PortfolioReadDto toPortfolioReadDto(Portfolio portfolio) {
+
+    private PortfolioReadDto toPortfolioReadDto(Portfolio portfolio, Currency displayCurrency) {
+        Currency targetCurrency = normalizeCurrency(displayCurrency);
+        BigDecimal usdTryRate = resolveUsdTryRate();
         List<PortfolioItemDto> itemDtos = portfolio.getItems()
                 .stream()
-                .map(this::toPortfolioItemDto)
+                .map(item -> toPortfolioItemDto(item, targetCurrency, usdTryRate))
                 .toList();
 
         BigDecimal holdingsValue = itemDtos.stream()
@@ -77,7 +97,12 @@ public class PortfolioService {
                 .multiply(BigDecimal.valueOf(100))
                 .divide(totalCost, 2, RoundingMode.HALF_UP);
 
-        BigDecimal cash = Optional.ofNullable(portfolio.getCashBalance()).orElse(BigDecimal.ZERO);
+        BigDecimal cash = convertValue(
+                Optional.ofNullable(portfolio.getCashBalance()).orElse(BigDecimal.ZERO),
+                Currency.TRY,
+                targetCurrency,
+                usdTryRate
+        );
         BigDecimal totalPortfolioValue = cash.add(holdingsValue);
 
         return PortfolioReadDto.builder()
@@ -92,6 +117,8 @@ public class PortfolioService {
                 .totalCost(totalCost)
                 .profitLoss(profitLoss)
                 .profitLossPercent(profitLossPercent)
+                .displayCurrency(targetCurrency)
+                .fxRateToDisplayCurrency(resolveFxRate(Currency.TRY, targetCurrency, usdTryRate))
                 .build();
     }
 
@@ -101,15 +128,17 @@ public class PortfolioService {
                         new RuntimeException("Portfolio not found for user: " + userId));
     }
 
-    private PortfolioItemDto toPortfolioItemDto(PortfolioItem item) {
+
+    private PortfolioItemDto toPortfolioItemDto(PortfolioItem item, Currency displayCurrency, BigDecimal usdTryRate) {
         Instrument instrument = item.getInstrument();
+        Currency instrumentCurrency = normalizeCurrency(instrument.getBaseCurrency());
 
         BigDecimal quantity = Optional.ofNullable(item.getQuantity()).orElse(BigDecimal.ZERO);
         BigDecimal avgCost = Optional.ofNullable(item.getAverageCost()).orElse(BigDecimal.ZERO);
         BigDecimal currentPrice = Optional.ofNullable(instrument.getCurrentPrice()).orElse(BigDecimal.ZERO);
 
-        BigDecimal currentValue = currentPrice.multiply(quantity);
-        BigDecimal costValue = avgCost.multiply(quantity);
+        BigDecimal currentValue = convertValue(currentPrice.multiply(quantity), instrumentCurrency, displayCurrency, usdTryRate);
+        BigDecimal costValue = convertValue(avgCost.multiply(quantity), instrumentCurrency, displayCurrency, usdTryRate);
         BigDecimal profitLoss = currentValue.subtract(costValue);
 
         BigDecimal profitLossPercent = costValue.compareTo(BigDecimal.ZERO) == 0
@@ -127,7 +156,9 @@ public class PortfolioService {
                 costValue,
                 profitLoss,
                 profitLossPercent,
-                instrument.getType()
+                instrument.getType(),
+                displayCurrency,
+                resolveFxRate(instrumentCurrency, displayCurrency, usdTryRate)
         );
     }
 
@@ -135,41 +166,29 @@ public class PortfolioService {
 
 
     public List<PieChartDto> getPortfolioChartValues(String userId, UUID portfolioId) {
-        Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
+        return getPortfolioChartValues(userId, portfolioId, Currency.TRY);
+    }
 
-        BigDecimal total = portfolio.getItems().stream()
-                .map(item -> {
-                    BigDecimal price = Optional.ofNullable(item.getInstrument().getCurrentPrice()).orElse(BigDecimal.ZERO);
-                    BigDecimal qty = Optional.ofNullable(item.getQuantity()).orElse(BigDecimal.ZERO);
-                    return price.multiply(qty);
-                })
+    public List<PieChartDto> getPortfolioChartValues(String userId, UUID portfolioId, Currency displayCurrency) {
+        Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
+        Currency targetCurrency = normalizeCurrency(displayCurrency);
+        BigDecimal usdTryRate = resolveUsdTryRate();
+
+        List<PieChartDto> slices = portfolio.getItems().stream()
+                .map(item -> toInstrumentPieSlice(item, targetCurrency, usdTryRate))
+                .filter(dto -> dto.totalValue().compareTo(BigDecimal.ZERO) > 0)
+                .toList();
+
+        BigDecimal total = slices.stream()
+                .map(PieChartDto::totalValue)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         if (total.compareTo(BigDecimal.ZERO) == 0) {
             return Collections.emptyList();
         }
 
-        return portfolio.getItems().stream()
-                .map(item -> {
-                    Instrument instrument = item.getInstrument();
-                    BigDecimal price = Optional.ofNullable(instrument.getCurrentPrice()).orElse(BigDecimal.ZERO);
-                    BigDecimal qty = Optional.ofNullable(item.getQuantity()).orElse(BigDecimal.ZERO);
-                    BigDecimal value = price.multiply(qty);
-
-                    BigDecimal percentage = value
-                            .multiply(BigDecimal.valueOf(100))
-                            .divide(total, 2, RoundingMode.HALF_UP);
-
-                    return new PieChartDto(
-                            instrument.getName(),
-                            instrument.getSymbol(),
-                            instrument.getType(),
-                            instrument.getBaseCurrency(),
-                            value,
-                            percentage
-                    );
-                })
-                .filter(dto -> dto.totalValue().compareTo(BigDecimal.ZERO) > 0)
+        return slices.stream()
+                .map(slice -> withPercentage(slice, total))
                 .toList();
     }
 
@@ -193,42 +212,194 @@ public class PortfolioService {
 
 
     }
-    public List<PieChartDto> getPortfolioTypeAllocation(String userId, UUID portfolioId) {
+
+    public List<PieChartDto> getPortfolioTypeAllocation(String userId, UUID portfolioId, Currency displayCurrency) {
         Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
+        Currency targetCurrency = normalizeCurrency(displayCurrency);
+        BigDecimal usdTryRate = resolveUsdTryRate();
 
-        Map<InstrumentType, BigDecimal> byType = portfolio.getItems().stream()
-                .collect(Collectors.groupingBy(
-                        item -> item.getInstrument().getType(),
-                        Collectors.mapping(item -> {
-                            BigDecimal price = Optional.ofNullable(item.getInstrument().getCurrentPrice()).orElse(BigDecimal.ZERO);
-                            BigDecimal qty = Optional.ofNullable(item.getQuantity()).orElse(BigDecimal.ZERO);
-                            return price.multiply(qty);
-                        }, Collectors.reducing(BigDecimal.ZERO, BigDecimal::add))
-                ));
+        Map<String, AllocationAccumulator> byTypeAndMarket = new LinkedHashMap<>();
+        for (PortfolioItem item : portfolio.getItems()) {
+            Instrument instrument = item.getInstrument();
+            Currency instrumentCurrency = normalizeCurrency(instrument.getBaseCurrency());
+            Currency marketCurrency = resolveMarketCurrency(instrumentCurrency);
+            BigDecimal originalValue = Optional.ofNullable(instrument.getCurrentPrice()).orElse(BigDecimal.ZERO)
+                    .multiply(Optional.ofNullable(item.getQuantity()).orElse(BigDecimal.ZERO));
+            BigDecimal displayValue = convertValue(originalValue, instrumentCurrency, targetCurrency, usdTryRate);
+            if (displayValue.compareTo(BigDecimal.ZERO) <= 0) continue;
 
-        BigDecimal total = byType.values().stream()
+            String marketCode = marketCurrency == Currency.TRY ? "TR" : marketCurrency == Currency.USD ? "US" : "GLOBAL";
+            String key = marketCode + "-" + instrument.getType().name();
+            byTypeAndMarket.compute(key, (ignored, current) -> {
+                AllocationAccumulator accumulator = current == null
+                        ? new AllocationAccumulator(
+                        marketLabel(marketCode) + " " + instrumentTypeLabel(instrument.getType()),
+                        marketCode,
+                        instrument.getType(),
+                        marketCurrency
+                )
+                        : current;
+                return accumulator.add(displayValue, originalValue, resolveFxRate(instrumentCurrency, targetCurrency, usdTryRate));
+            });
+        }
+
+        BigDecimal total = byTypeAndMarket.values().stream()
+                .map(AllocationAccumulator::displayValue)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         if (total.compareTo(BigDecimal.ZERO) == 0) {
             return Collections.emptyList();
         }
 
-        return byType.entrySet().stream()
-                .map(entry -> {
-                    BigDecimal percentage = entry.getValue()
-                            .multiply(BigDecimal.valueOf(100))
-                            .divide(total, 2, RoundingMode.HALF_UP);
-
-                    return new PieChartDto(
-                            entry.getKey().name(),
-                            null,
-                            entry.getKey(),
-                            null,
-                            entry.getValue(),
-                            percentage
-                    );
-                })
+        return byTypeAndMarket.values().stream()
+                .sorted(Comparator.comparing(AllocationAccumulator::displayValue).reversed())
+                .map(acc -> new PieChartDto(
+                        acc.label(),
+                        acc.marketCode(),
+                        acc.instrumentType(),
+                        targetCurrency,
+                        acc.displayValue(),
+                        acc.displayValue()
+                                .multiply(BigDecimal.valueOf(100))
+                                .divide(total, 2, RoundingMode.HALF_UP),
+                        acc.originalCurrency(),
+                        acc.originalValue(),
+                        acc.fxRateToDisplayCurrency()
+                ))
                 .toList();
+    }
+
+    private PieChartDto toInstrumentPieSlice(PortfolioItem item, Currency displayCurrency, BigDecimal usdTryRate) {
+        Instrument instrument = item.getInstrument();
+        Currency instrumentCurrency = normalizeCurrency(instrument.getBaseCurrency());
+        BigDecimal originalValue = Optional.ofNullable(instrument.getCurrentPrice()).orElse(BigDecimal.ZERO)
+                .multiply(Optional.ofNullable(item.getQuantity()).orElse(BigDecimal.ZERO));
+        BigDecimal displayValue = convertValue(originalValue, instrumentCurrency, displayCurrency, usdTryRate);
+
+        return new PieChartDto(
+                instrument.getName(),
+                instrument.getSymbol(),
+                instrument.getType(),
+                displayCurrency,
+                displayValue,
+                null,
+                instrumentCurrency,
+                originalValue,
+                resolveFxRate(instrumentCurrency, displayCurrency, usdTryRate)
+        );
+    }
+
+    private PieChartDto withPercentage(PieChartDto slice, BigDecimal total) {
+        return new PieChartDto(
+                slice.label(),
+                slice.symbol(),
+                slice.instrumentType(),
+                slice.currency(),
+                slice.totalValue(),
+                slice.totalValue()
+                        .multiply(BigDecimal.valueOf(100))
+                        .divide(total, 2, RoundingMode.HALF_UP),
+                slice.originalCurrency(),
+                slice.originalValue(),
+                slice.fxRateToDisplayCurrency()
+        );
+    }
+
+    private Currency normalizeCurrency(Currency currency) {
+        if (currency == null) return Currency.TRY;
+        return switch (currency) {
+            case USDT, XAU, XAG -> Currency.USD;
+            default -> currency;
+        };
+    }
+
+    private Currency resolveMarketCurrency(Currency currency) {
+        Currency normalized = normalizeCurrency(currency);
+        if (normalized == Currency.TRY) return Currency.TRY;
+        if (normalized == Currency.USD) return Currency.USD;
+        return normalized;
+    }
+
+    private BigDecimal resolveUsdTryRate() {
+        return instrumentRepository.findInstrumentBySymbol("USDTRY")
+                .or(() -> instrumentRepository.findInstrumentBySymbol("TRY"))
+                .map(Instrument::getCurrentPrice)
+                .filter(price -> price.compareTo(BigDecimal.ZERO) > 0)
+                .orElse(BigDecimal.ONE);
+    }
+
+    private BigDecimal convertValue(BigDecimal value, Currency sourceCurrency, Currency displayCurrency, BigDecimal usdTryRate) {
+        Currency source = normalizeCurrency(sourceCurrency);
+        Currency target = normalizeCurrency(displayCurrency);
+        if (value == null) return BigDecimal.ZERO;
+        if (source == target) return value;
+        if (source == Currency.USD && target == Currency.TRY) return value.multiply(usdTryRate);
+        if (source == Currency.TRY && target == Currency.USD) {
+            return usdTryRate.compareTo(BigDecimal.ZERO) == 0
+                    ? value
+                    : value.divide(usdTryRate, 8, RoundingMode.HALF_UP);
+        }
+        return value;
+    }
+
+    private BigDecimal resolveFxRate(Currency sourceCurrency, Currency displayCurrency, BigDecimal usdTryRate) {
+        Currency source = normalizeCurrency(sourceCurrency);
+        Currency target = normalizeCurrency(displayCurrency);
+        if (source == target) return BigDecimal.ONE;
+        if (source == Currency.USD && target == Currency.TRY) return usdTryRate;
+        if (source == Currency.TRY && target == Currency.USD) {
+            return usdTryRate.compareTo(BigDecimal.ZERO) == 0
+                    ? BigDecimal.ONE
+                    : BigDecimal.ONE.divide(usdTryRate, 8, RoundingMode.HALF_UP);
+        }
+        return BigDecimal.ONE;
+    }
+
+    private String marketLabel(String marketCode) {
+        return switch (marketCode) {
+            case "TR" -> "TR";
+            case "US" -> "US";
+            default -> "Global";
+        };
+    }
+
+    private String instrumentTypeLabel(InstrumentType type) {
+        return switch (type) {
+            case STOCK -> "Hisse";
+            case VIOP -> "VİOP";
+            case FUND -> "Fon";
+            case BOND -> "Tahvil / Bono";
+            case FOREX, FIAT -> "Döviz";
+            case COMMODITY -> "Emtia";
+            case CRYPTO -> "Kripto";
+            case INDEX -> "Endeks";
+        };
+    }
+
+    private record AllocationAccumulator(
+            String label,
+            String marketCode,
+            InstrumentType instrumentType,
+            Currency originalCurrency,
+            BigDecimal displayValue,
+            BigDecimal originalValue,
+            BigDecimal fxRateToDisplayCurrency
+    ) {
+        private AllocationAccumulator(String label, String marketCode, InstrumentType instrumentType, Currency originalCurrency) {
+            this(label, marketCode, instrumentType, originalCurrency, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ONE);
+        }
+
+        private AllocationAccumulator add(BigDecimal displayValue, BigDecimal originalValue, BigDecimal fxRateToDisplayCurrency) {
+            return new AllocationAccumulator(
+                    label,
+                    marketCode,
+                    instrumentType,
+                    originalCurrency,
+                    this.displayValue.add(displayValue),
+                    this.originalValue.add(originalValue),
+                    fxRateToDisplayCurrency
+            );
+        }
     }
 
     private LocalDate resolveStartDate(PortfolioRange portfolioRange){
@@ -323,12 +494,16 @@ public class PortfolioService {
         return calculatePerformanceLineChart(range , portfolio);
     }
     public List<PortfolioReadDto> getAllPortfolios() {
+        return getAllPortfolios(Currency.TRY);
+    }
+
+    public List<PortfolioReadDto> getAllPortfolios(Currency displayCurrency) {
 
         logger.info("fetching all portfolios");
 
         return portfolioRepository.findAll()
                 .stream()
-                .map(this::toPortfolioReadDto)
+                .map(portfolio -> toPortfolioReadDto(portfolio, displayCurrency))
                 .toList();
     }
 

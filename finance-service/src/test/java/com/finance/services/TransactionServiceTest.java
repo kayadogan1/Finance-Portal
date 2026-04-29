@@ -44,7 +44,9 @@ class TransactionServiceTest {
         LocalDateTime startDate = date.atStartOfDay();
 
         Instrument instrument = new Instrument();
+        instrument.setSymbol("AAPL");
         instrument.setName("Apple Inc.");
+        instrument.setBaseCurrency(com.finance.shared.Currency.USD);
 
         Transaction transaction = new Transaction();
         transaction.setType(TransactionType.BUY);
@@ -61,7 +63,9 @@ class TransactionServiceTest {
 
         // Assert
         assertEquals(1, result.size());
+        assertEquals("AAPL", result.get(0).instrumentSymbol());
         assertEquals("Apple Inc.", result.get(0).instrumentName());
+        assertEquals(com.finance.shared.Currency.USD, result.get(0).currency());
         assertEquals(TransactionType.BUY, result.get(0).transactionType());
         assertEquals(BigDecimal.valueOf(10), result.get(0).quantity());
         assertEquals(BigDecimal.valueOf(150.0), result.get(0).price());

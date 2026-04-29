@@ -30,16 +30,22 @@ public class PortfolioController {
     }
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN')")
-    public ResponseEntity<ApiResult<List<PortfolioReadDto>>> getAllPortfolios(@AuthenticationPrincipal Jwt jwt){
+    public ResponseEntity<ApiResult<List<PortfolioReadDto>>> getAllPortfolios(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(defaultValue = "TRY") Currency displayCurrency
+    ){
         logger.info("Fetching all portfolios for user: {}", jwt.getSubject());
-        return ResponseEntity.ok(ApiResult.success(portfolioService.getAllPortfolios(),"all portfolios fetched",200) ) ;
+        return ResponseEntity.ok(ApiResult.success(portfolioService.getAllPortfolios(displayCurrency),"all portfolios fetched",200) ) ;
     }
 
     @GetMapping("/myPortfolios")
     @PreAuthorize("hasAnyRole('USER')")
-    public ResponseEntity<ApiResult<List<PortfolioReadDto>>> getUserPortfolios(@AuthenticationPrincipal Jwt jwt){
+    public ResponseEntity<ApiResult<List<PortfolioReadDto>>> getUserPortfolios(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(defaultValue = "TRY") Currency displayCurrency
+    ){
         logger.info("Fetching portfolios for user: {}", jwt.getSubject());
-        List<PortfolioReadDto> userPortfolios = portfolioService.getUserPortfolios(jwt.getSubject());
+        List<PortfolioReadDto> userPortfolios = portfolioService.getUserPortfolios(jwt.getSubject(), displayCurrency);
         return ResponseEntity.ok(ApiResult.success(userPortfolios,"all user portfolios fetched",200));
     }
 
@@ -47,9 +53,10 @@ public class PortfolioController {
     @PreAuthorize("hasAnyRole('USER','ADMIN')")
     public ResponseEntity<ApiResult<PortfolioReadDto>> getPortfolio(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable UUID portfolioId) {
+            @PathVariable UUID portfolioId,
+            @RequestParam(defaultValue = "TRY") Currency displayCurrency) {
         logger.info("Fetching portfolio for user: {}", jwt.getSubject());
-        return ResponseEntity.ok(ApiResult.success(portfolioService.getPortfolio(jwt.getSubject(), portfolioId),"portfolio fetched",200)
+        return ResponseEntity.ok(ApiResult.success(portfolioService.getPortfolio(jwt.getSubject(), portfolioId, displayCurrency),"portfolio fetched",200)
                  );
     }
     @PostMapping("/create")
@@ -86,8 +93,12 @@ public class PortfolioController {
     }
     @GetMapping("value/{portfolioId}")
     @PreAuthorize("hasAnyRole('USER','ADMIN')")
-    public ResponseEntity<ApiResult<List<PieChartDto>>> getCurrentPortfolioValue(@AuthenticationPrincipal Jwt jwt,@PathVariable UUID portfolioId) {
-         List<PieChartDto> pieChartList =  portfolioService.getPortfolioChartValues(jwt.getSubject(), portfolioId);
+    public ResponseEntity<ApiResult<List<PieChartDto>>> getCurrentPortfolioValue(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID portfolioId,
+            @RequestParam(defaultValue = "TRY") Currency displayCurrency
+    ) {
+         List<PieChartDto> pieChartList =  portfolioService.getPortfolioChartValues(jwt.getSubject(), portfolioId, displayCurrency);
          return ResponseEntity.ok(ApiResult.success(pieChartList,"current all portfolio values fetched",200));
 
     }
@@ -95,10 +106,11 @@ public class PortfolioController {
     @PreAuthorize("hasAnyRole('USER','ADMIN')")
     public ResponseEntity<ApiResult<List<PieChartDto>>> getPortfolioTypeAllocation(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable UUID portfolioId
+            @PathVariable UUID portfolioId,
+            @RequestParam(defaultValue = "TRY") Currency displayCurrency
     ) {
         return ResponseEntity.ok(ApiResult.success(
-                portfolioService.getPortfolioTypeAllocation(jwt.getSubject(), portfolioId),
+                portfolioService.getPortfolioTypeAllocation(jwt.getSubject(), portfolioId, displayCurrency),
                 "portfolio type allocation fetched",
                 200
         ));

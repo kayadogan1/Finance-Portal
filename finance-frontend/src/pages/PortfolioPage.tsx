@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
     PieChart as PieChartIcon, TrendingUp, TrendingDown, Wallet,
     ArrowDownToLine, ArrowUpFromLine, RefreshCw, Plus, ChevronDown, Clock,
 } from 'lucide-react';
 import {
     getPortfolios, getPortfolioPieChart, getPortfolioTypeAllocation, getTransactions,
-    type PortfolioDto,
+    type PortfolioDto, type TransactionDto,
 } from '../services/portfolioService';
 import PortfolioPieChart from '../components/portfolio/PortfolioPieChart';
 import PerformanceAreaChart from '../components/portfolio/PerformanceAreaChart';
@@ -14,15 +14,28 @@ import { CreatePortfolioModal } from '../components/portfolio/CreatePortfolioMod
 import { DepositModal } from '../components/portfolio/DepositModal';
 import { TradeModal } from '../components/trade/TradeModal';
 import useAuth from '../hooks/useAuth';
+import { formatMarketPrice } from '../utils/currency';
 
 /* ─── Transaction History (inline component) ─── */
 
-const TransactionHistory = () => {
+type CurrencyLookup = Record<string, string>;
+
+const TransactionHistory = ({ currencyLookup }: { currencyLookup: CurrencyLookup }) => {
     const { data: transactions = [], isLoading } = useQuery({
         queryKey: ['portfolio-transactions'],
         queryFn: () => getTransactions(),
         staleTime: 1000 * 60 * 2,
     });
+
+    const resolveTransactionCurrency = (tx: TransactionDto) => {
+        const explicit = normalizeCurrency(tx.currency);
+        if (tx.currency) return explicit;
+        const symbolKey = tx.instrumentSymbol?.toUpperCase();
+        const nameKey = tx.instrumentName?.toUpperCase();
+        return (symbolKey && currencyLookup[symbolKey])
+            || (nameKey && currencyLookup[nameKey])
+            || 'TRY';
+    };
 
     return (
         <div className="border-t border-border pt-5">
@@ -66,7 +79,7 @@ const TransactionHistory = () => {
                                             {Number(tx.quantity).toLocaleString('tr-TR', { maximumFractionDigits: 6 })}
                                         </td>
                                         <td className="px-4 py-0 text-right text-[13px] font-medium tabular-nums text-foreground">
-                                            {Number(tx.price).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                                            {formatMarketPrice(Number(tx.price), resolveTransactionCurrency(tx))}
                                         </td>
                                         <td className="px-4 py-0 text-right text-[12px] text-subtle tabular-nums">
                                             {txDate.toLocaleDateString('tr-TR')} {txDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
@@ -82,6 +95,15 @@ const TransactionHistory = () => {
     );
 };
 
+type DisplayCurrency = 'TRY' | 'USD';
+
+const normalizeCurrency = (currency?: string) => {
+    const cur = (currency ?? 'TRY').toUpperCase();
+    if (cur === 'TL') return 'TRY';
+    if (cur === 'USDT' || cur === 'XAU' || cur === 'XAG') return 'USD';
+    return cur;
+};
+
 const PortfolioPage = () => {
     const { isAdmin } = useAuth();
     const [createModalOpen, setCreateModalOpen] = useState(false);
@@ -90,23 +112,42 @@ const PortfolioPage = () => {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [selectorOpen, setSelectorOpen] = useState(false);
     const [allocationMode, setAllocationMode] = useState<'instrument' | 'type'>('instrument');
+    const [displayCurrency, setDisplayCurrency] = useState<DisplayCurrency>('TRY');
 
     const { data: portfolios, isLoading: portsLoading } = useQuery({
-        queryKey: ['portfolio'], queryFn: getPortfolios,
+        queryKey: ['portfolio', displayCurrency],
+        queryFn: () => getPortfolios(displayCurrency),
+        staleTime: 1000 * 60,
     });
 
     const hasPortfolio = portfolios && portfolios.length > 0;
     const active: PortfolioDto | null = hasPortfolio ? portfolios[selectedIndex] ?? portfolios[0] : null;
 
     const { data: pieData, isLoading: pieLoading, isError: pieError } = useQuery({
-        queryKey: ['portfolio-pie', allocationMode, active?.id],
+        queryKey: ['portfolio-pie', active?.id, allocationMode, displayCurrency],
         queryFn: () => allocationMode === 'type'
-            ? getPortfolioTypeAllocation(active!.id)
-            : getPortfolioPieChart(active!.id),
+            ? getPortfolioTypeAllocation(active!.id, displayCurrency)
+            : getPortfolioPieChart(active!.id, displayCurrency),
         staleTime: 1000 * 60 * 5,
         refetchOnWindowFocus: false,
         enabled: !!active?.id,
     });
+
+    const displayedPieData = useMemo(() => {
+        return pieData?.filter((item) => Number(item.totalValue) > 0);
+    }, [pieData]);
+
+    const transactionCurrencyLookup = useMemo(() => {
+        const lookup: CurrencyLookup = {};
+        for (const item of active?.portfolioItems ?? []) {
+            const currency = normalizeCurrency(item.instrumentDto?.baseCurrency);
+            const symbol = item.instrumentDto?.symbol ?? item.instrumentSymbol;
+            const name = item.instrumentDto?.name;
+            if (symbol) lookup[symbol.toUpperCase()] = currency;
+            if (name) lookup[name.toUpperCase()] = currency;
+        }
+        return lookup;
+    }, [active?.portfolioItems]);
 
     if (portsLoading) {
         return <div className="flex items-center justify-center h-64"><RefreshCw className="animate-spin text-primary" size={24} /></div>;
@@ -175,7 +216,7 @@ const PortfolioPage = () => {
                                 <span className="text-price">
                                     {Number(active?.portfolioBalance ?? 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
-                                <span className="text-label">TRY</span>
+                                <span className="text-label">{active?.displayCurrency ?? displayCurrency}</span>
                             </div>
                         </div>
                         {!isAdmin && (
@@ -200,35 +241,53 @@ const PortfolioPage = () => {
                                         {allocationMode === 'type' ? 'Tür Dağılımı' : 'Varlık Dağılımı'}
                                     </span>
                                 </div>
-                                <div className="flex bg-[hsl(var(--background-subtle))] border border-border rounded p-0.5">
-                                    <button
-                                        type="button"
-                                        onClick={() => setAllocationMode('instrument')}
-                                        className={`px-3 h-7 rounded text-[11px] font-semibold transition-colors ${
-                                            allocationMode === 'instrument'
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'text-muted-foreground hover:text-foreground'
-                                        }`}
-                                    >
-                                        Enstrüman
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setAllocationMode('type')}
-                                        className={`px-3 h-7 rounded text-[11px] font-semibold transition-colors ${
-                                            allocationMode === 'type'
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'text-muted-foreground hover:text-foreground'
-                                        }`}
-                                    >
-                                        Tür
-                                    </button>
+                                <div className="flex items-center gap-2">
+                                    <div className="flex bg-[hsl(var(--background-subtle))] border border-border rounded p-0.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => setAllocationMode('instrument')}
+                                            className={`px-3 h-7 rounded text-[11px] font-semibold transition-colors ${
+                                                allocationMode === 'instrument'
+                                                    ? 'bg-primary text-primary-foreground'
+                                                    : 'text-muted-foreground hover:text-foreground'
+                                            }`}
+                                        >
+                                            Enstrüman
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setAllocationMode('type')}
+                                            className={`px-3 h-7 rounded text-[11px] font-semibold transition-colors ${
+                                                allocationMode === 'type'
+                                                    ? 'bg-primary text-primary-foreground'
+                                                    : 'text-muted-foreground hover:text-foreground'
+                                            }`}
+                                        >
+                                            Tür/Piyasa
+                                        </button>
+                                    </div>
+                                    <div className="flex bg-[hsl(var(--background-subtle))] border border-border rounded p-0.5">
+                                        {(['TRY', 'USD'] as const).map((currency) => (
+                                            <button
+                                                key={currency}
+                                                type="button"
+                                                onClick={() => setDisplayCurrency(currency)}
+                                                className={`px-2.5 h-7 rounded text-[11px] font-semibold transition-colors ${
+                                                    displayCurrency === currency
+                                                        ? 'bg-primary text-primary-foreground'
+                                                        : 'text-muted-foreground hover:text-foreground'
+                                                }`}
+                                            >
+                                                {currency}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                             {pieLoading && <div className="h-[280px] rounded bg-white/[0.03] animate-pulse" />}
                             {pieError && <p className="text-[13px] text-negative">Dağılım verileri yüklenemedi.</p>}
-                            {pieData && <PortfolioPieChart data={pieData} />}
-                            {!pieLoading && !pieError && !pieData && <div className="flex items-center justify-center h-[280px] text-meta">Varlık dağılımı verisi bulunamadı.</div>}
+                            {displayedPieData && <PortfolioPieChart data={displayedPieData} displayCurrency={displayCurrency} />}
+                            {!pieLoading && !pieError && !displayedPieData && <div className="flex items-center justify-center h-[280px] text-meta">Varlık dağılımı verisi bulunamadı.</div>}
                         </div>
                         <div className="card-base">
                             <div className="flex items-center gap-2 mb-4">
@@ -265,12 +324,13 @@ const PortfolioPage = () => {
                                         {active.portfolioItems.map((item, idx) => {
                                             const symbol = item.instrumentDto?.symbol ?? item.instrumentSymbol ?? '—';
                                             const curPrice = item.instrumentDto?.currentPrice ?? 0;
+                                            const itemCurrency = normalizeCurrency(item.instrumentDto?.baseCurrency);
                                             const amount = Number(item.amount ?? 0);
                                             const avgCost = Number(item.averageCost ?? 0);
-                                            const totalVal = amount * curPrice;
-                                            const totalCost = amount * avgCost;
-                                            const pnl = totalVal - totalCost;
-                                            const pnlPct = totalCost > 0 ? (pnl / totalCost) * 100 : 0;
+                                            const totalVal = Number(item.currentValue ?? amount * curPrice);
+                                            const totalCost = Number(item.costValue ?? amount * avgCost);
+                                            const pnl = Number(item.profitLoss ?? totalVal - totalCost);
+                                            const pnlPct = Number(item.profitLossPercent ?? (totalCost > 0 ? (pnl / totalCost) * 100 : 0));
                                             const isProfit = pnl >= 0;
                                             return (
                                                 <tr key={idx} className="h-11 hover:bg-white/[0.02] transition-colors">
@@ -279,13 +339,20 @@ const PortfolioPage = () => {
                                                         {item.instrumentDto?.name && <p className="text-[10px] text-subtle mt-0.5">{item.instrumentDto.name}</p>}
                                                     </td>
                                                     <td className="px-4 py-0 text-right text-[13px] tabular-nums text-muted-foreground">{amount.toLocaleString('tr-TR', { maximumFractionDigits: 6 })}</td>
-                                                    <td className="px-4 py-0 text-right text-[13px] tabular-nums text-muted-foreground">{avgCost.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
-                                                    <td className="px-4 py-0 text-right text-[13px] font-medium tabular-nums text-foreground">{curPrice.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
-                                                    <td className="px-4 py-0 text-right text-[13px] font-semibold tabular-nums text-foreground">{totalVal.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
+                                                    <td className="px-4 py-0 text-right text-[13px] tabular-nums text-muted-foreground">{formatMarketPrice(avgCost, itemCurrency)}</td>
+                                                    <td className="px-4 py-0 text-right text-[13px] font-medium tabular-nums text-foreground">{formatMarketPrice(curPrice, itemCurrency)}</td>
+                                                    <td className="px-4 py-0 text-right text-[13px] font-semibold tabular-nums text-foreground">
+                                                        {formatMarketPrice(totalVal, displayCurrency)}
+                                                        {itemCurrency !== displayCurrency && (
+                                                            <p className="text-[10px] font-normal text-subtle">
+                                                                {formatMarketPrice(amount * curPrice, itemCurrency)}
+                                                            </p>
+                                                        )}
+                                                    </td>
                                                     <td className="px-4 py-0 text-right">
                                                         <span className={`inline-flex items-center gap-1 ${isProfit ? 'badge-positive' : 'badge-negative'}`}>
                                                             {isProfit ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                                                            {isProfit ? '+' : ''}{pnl.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                                                            {isProfit ? '+' : '-'}{formatMarketPrice(Math.abs(pnl), displayCurrency)}
                                                             <span className="opacity-60 text-[10px]">({isProfit ? '+' : ''}{pnlPct.toFixed(1)}%)</span>
                                                         </span>
                                                     </td>
@@ -306,7 +373,7 @@ const PortfolioPage = () => {
                     </div>
 
                     {/* Transaction History */}
-                    <TransactionHistory />
+                    <TransactionHistory currencyLookup={transactionCurrencyLookup} />
                 </>
             )}
 

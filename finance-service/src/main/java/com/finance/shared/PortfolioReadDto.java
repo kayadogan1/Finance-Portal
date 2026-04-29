@@ -38,6 +38,10 @@ public record PortfolioReadDto(
 
         BigDecimal profitLossPercent,
 
+        Currency displayCurrency,
+
+        BigDecimal fxRateToDisplayCurrency,
+
         BigDecimal portfolioBalance
 ) {
 

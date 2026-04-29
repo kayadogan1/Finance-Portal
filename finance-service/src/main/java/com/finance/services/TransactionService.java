@@ -1,5 +1,6 @@
 package com.finance.services;
 
+import com.finance.models.Instrument;
 import com.finance.models.Transaction;
 import com.finance.repositories.TransactionRepository;
 import com.finance.shared.TransactionDto;
@@ -26,7 +27,20 @@ public class TransactionService {
         }
         LocalDateTime startDate = date.atStartOfDay();
         List<Transaction> userTransactionList = transactionRepository.findByUserIdAndTimestampAfterOrderByTimestampDesc(userId,startDate);
-        return userTransactionList.stream().map(userTransaction -> new TransactionDto(userTransaction.getType(), userTransaction.getInstrument().getName(), userTransaction.getQuantity(), userTransaction.getPrice(), userTransaction.getTimestamp())).collect(Collectors.toList());
+        return userTransactionList.stream()
+                .map(userTransaction -> {
+                    Instrument instrument = userTransaction.getInstrument();
+                    return new TransactionDto(
+                            userTransaction.getType(),
+                            instrument.getSymbol(),
+                            instrument.getName(),
+                            instrument.getBaseCurrency(),
+                            userTransaction.getQuantity(),
+                            userTransaction.getPrice(),
+                            userTransaction.getTimestamp()
+                    );
+                })
+                .collect(Collectors.toList());
 
     }
 

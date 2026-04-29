@@ -10,6 +10,8 @@ public record PortfolioItemDto(
         BigDecimal costValue,
         BigDecimal profitLoss,
         BigDecimal profitLossPercent,
-        InstrumentType instrumentType
+        InstrumentType instrumentType,
+        Currency displayCurrency,
+        BigDecimal fxRateToDisplayCurrency
 ) {
 }
