@@ -66,8 +66,6 @@ services:
       - SPRING_FLYWAY_USER=${DB_USER:-postgres}
       - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD:-253421}
       - SPRING_FLYWAY_ENABLED=true
-      - NEWS_API_KEY=${NEWS_API_KEY}
-      - NEWS_API_URL=${NEWS_API_URL}
     labels:
       - "co.elastic.logs/enabled=true"
       - "co.elastic.logs/json.keys_under_root=true"
@@ -141,8 +139,9 @@ services:
       - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /Users/dogankaya/IDEA Projects/Finance-Portal/logs:/logs:ro
     environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - ELASTICSEARCH_HOSTS=http://63.176.49.3:9200
     depends_on:
       - elasticsearch
     networks:
@@ -197,8 +196,6 @@ services:
       - ldap_config:/etc/ldap/slapd.d
     networks:
       - finance-network
-
-
   phpldapadmin:
     image: osixia/phpldapadmin:latest
     container_name: finance_phpldapadmin

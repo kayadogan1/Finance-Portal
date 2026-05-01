@@ -9,7 +9,6 @@ import useTheme from '../hooks/useTheme';
 import { useFavorites } from '../hooks/useFavorites';
 import { formatChangePercent, getMarketInstruments, hasChange, type MarketInstrument } from '../services/marketService';
 import { getTransactions } from '../services/portfolioService';
-import keycloak from '../utils/keycloak';
 
 /* ─── Helpers ─── */
 
@@ -23,7 +22,7 @@ function formatDate(isoStr: string): string {
    ═══════════════════════════════════ */
 
 const ProfilePage = () => {
-    const { isAuthenticated, username, isAdmin } = useAuth();
+    const { isAuthenticated, username, email, isAdmin } = useAuth();
     const { isDark, toggle: toggleTheme } = useTheme();
     const { favorites, removeFavorite } = useFavorites();
 
@@ -46,9 +45,6 @@ const ProfilePage = () => {
     const favoriteInstruments: (MarketInstrument & { symbol: string })[] = favorites
         .map((sym) => instruments.find((i) => i.symbol === sym))
         .filter(Boolean) as MarketInstrument[];
-
-    // Keycloak token info
-    const email = keycloak.tokenParsed?.email ?? '';
 
     const cardStyle: React.CSSProperties = {
         background: 'hsl(var(--card))',

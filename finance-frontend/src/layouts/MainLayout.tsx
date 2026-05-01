@@ -129,14 +129,14 @@ const MainLayout = () => {
                         {!isAuthenticated ? (
                             <div className="flex items-center gap-2">
                                 <button
-                                    onClick={login}
+                                    onClick={() => login()}
                                     className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
                                 >
                                     <LogIn size={14} />
                                     <span className="hidden sm:inline">Giriş</span>
                                 </button>
                                 <button
-                                    onClick={register}
+                                    onClick={() => register()}
                                     className="flex items-center gap-1.5 px-4 h-9 text-[13px] font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                                 >
                                     <UserPlus size={14} />

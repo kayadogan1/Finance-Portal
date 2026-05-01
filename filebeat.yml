@@ -1,10 +1,21 @@
-filebeat.autodiscover:
-  providers:
-    - type: docker
-      hints.enabled: true
+filebeat.inputs:
+  - type: filestream
+    id: local-spring-logs
+    enabled: true
+    paths:
+      - /logs/*.log
+    parsers:
+      - ndjson:
+          target: ""
+          overwrite_keys: true
+          add_error_key: true
 
 output.elasticsearch:
-  hosts: ["elasticsearch:9200"]
+  hosts: ["http://63.176.49.3:9200"]
+  index: "finance-logs-%{+yyyy.MM.dd}"
 
-setup.kibana:
-  host: "kibana:5601"
+setup.ilm.enabled: false
+setup.template.name: "finance-logs"
+setup.template.pattern: "finance-logs-*"
+
+logging.level: info

@@ -6,11 +6,13 @@ import {
     Crosshair,
     Globe2,
     MapPin,
+    Star,
 } from 'lucide-react';
 import { belongsToMarket, formatChangePercent, getMarketInstruments, hasChange, type MarketInstrument } from '../services/marketService';
 import { getNews, ASSET_TYPE_COLORS, type FilteredArticleDto } from '../services/newsService';
 import { formatMarketPrice } from '../utils/currency';
 import { getSourceColor } from '../components/news/SourceAvatar';
+import { useFavorites } from '../hooks/useFavorites';
 
 function timeAgo(dateStr: string): string {
     const now = new Date();
@@ -31,7 +33,9 @@ const ListWidget = ({
     onClick,
     actionLink,
     actionText,
-    isLoading
+    isLoading,
+    isFavorite,
+    onFavoriteToggle,
 }: {
     title: string;
     items: MarketInstrument[];
@@ -39,6 +43,8 @@ const ListWidget = ({
     actionLink?: string;
     actionText?: string;
     isLoading: boolean;
+    isFavorite?: (symbol: string) => boolean;
+    onFavoriteToggle?: (symbol: string) => void;
 }) => {
     return (
         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -55,6 +61,7 @@ const ListWidget = ({
 
             {/* Table Header */}
             <div style={{ display: 'flex', alignItems: 'center', fontSize: 10, color: 'hsl(var(--muted-foreground))', fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5, paddingBottom: 10, borderBottom: '1px solid hsl(var(--border))' }}>
+                {onFavoriteToggle && <div style={{ width: 36, flexShrink: 0 }} />}
                 <div style={{ flex: 1 }}>Sembol</div>
                 <div style={{ textAlign: 'right', width: 90 }}>Fiyat</div>
                 <div style={{ textAlign: 'right', width: 70 }}>Değişim</div>
@@ -81,6 +88,7 @@ const ListWidget = ({
                         const hasChangeValue = hasChange(inst);
                         const isPositive = hasChangeValue && inst.change24h >= 0;
                         const changeColor = !hasChangeValue ? 'hsl(var(--muted-foreground))' : isPositive ? '#10b981' : '#ef4444';
+                        const fav = isFavorite?.(inst.symbol) ?? false;
                         return (
                             <div
                                 key={inst.symbol}
@@ -93,6 +101,30 @@ const ListWidget = ({
                                 }}
                                 className="hover:bg-white/[0.02] -mx-3 px-3 rounded-lg"
                             >
+                                {onFavoriteToggle && (
+                                    <button
+                                        type="button"
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            onFavoriteToggle(inst.symbol);
+                                        }}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            width: 24,
+                                            height: 24,
+                                            border: 'none',
+                                            background: 'transparent',
+                                            color: fav ? '#eab308' : 'hsl(var(--ghost-foreground))',
+                                            cursor: 'pointer',
+                                            flexShrink: 0,
+                                        }}
+                                        title={fav ? 'Favorilerden çıkar' : 'Favorilere ekle'}
+                                    >
+                                        <Star size={14} fill={fav ? '#eab308' : 'none'} />
+                                    </button>
+                                )}
                                 {/* Icon / Avatar */}
                                 <div style={{
                                     width: 30, height: 30, borderRadius: 15,
@@ -140,6 +172,7 @@ const ListWidget = ({
 const DashboardPage = () => {
     const navigate = useNavigate();
     const [region, setRegion] = useState<'TR' | 'US'>('TR');
+    const { favorites, isFavorite, toggleFavorite } = useFavorites();
 
     /* Cache instruments globally — 5min staleTime prevents refetch on every page visit */
     const { data: instruments = [], isLoading } = useQuery({
@@ -166,6 +199,12 @@ const DashboardPage = () => {
     const cryptos = useMemo(() => regionalInstruments.filter(i => i.type === 'CRYPTO').slice(0, 6), [regionalInstruments]);
     const indices = useMemo(() => regionalInstruments.filter(i => i.type === 'INDEX').slice(0, 6), [regionalInstruments]);
     const commodities = useMemo(() => regionalInstruments.filter(i => i.type === 'COMMODITY' || i.type === 'FIAT' || i.type === 'FOREX').slice(0, 6), [regionalInstruments]);
+    const favoriteInstruments = useMemo(() => {
+        const favoriteSet = new Set(favorites);
+        return instruments
+            .filter((instrument) => favoriteSet.has(instrument.symbol))
+            .sort((a, b) => favorites.indexOf(a.symbol) - favorites.indexOf(b.symbol));
+    }, [favorites, instruments]);
 
     const gainers = [...regionalInstruments]
         .filter(i => hasChange(i) && i.change24h > 0)
@@ -219,14 +258,24 @@ const DashboardPage = () => {
                 High-Density Matrix (TradingView Style)
                 ════════════════════════════════════ */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', columnGap: 64, rowGap: 48 }}>
-                <ListWidget title="Hisse Senetleri" items={stocks} isLoading={isLoading} onClick={goToInstrument} actionLink="/market" />
-                <ListWidget title="Kripto Paralar" items={cryptos} isLoading={isLoading} onClick={goToInstrument} actionLink="/market" />
+                <ListWidget
+                    title="Favorilerim"
+                    items={favoriteInstruments}
+                    isLoading={isLoading}
+                    onClick={goToInstrument}
+                    actionLink="/market"
+                    actionText="Piyasalara Git"
+                    isFavorite={isFavorite}
+                    onFavoriteToggle={toggleFavorite}
+                />
+                <ListWidget title="Hisse Senetleri" items={stocks} isLoading={isLoading} onClick={goToInstrument} actionLink="/market" isFavorite={isFavorite} onFavoriteToggle={toggleFavorite} />
+                <ListWidget title="Kripto Paralar" items={cryptos} isLoading={isLoading} onClick={goToInstrument} actionLink="/market" isFavorite={isFavorite} onFavoriteToggle={toggleFavorite} />
                 
-                <ListWidget title="En Çok Artanlar" items={gainers} isLoading={isLoading} onClick={goToInstrument} />
-                <ListWidget title="En Çok Düşenler" items={losers} isLoading={isLoading} onClick={goToInstrument} />
+                <ListWidget title="En Çok Artanlar" items={gainers} isLoading={isLoading} onClick={goToInstrument} isFavorite={isFavorite} onFavoriteToggle={toggleFavorite} />
+                <ListWidget title="En Çok Düşenler" items={losers} isLoading={isLoading} onClick={goToInstrument} isFavorite={isFavorite} onFavoriteToggle={toggleFavorite} />
                 
-                <ListWidget title="Endeksler" items={indices} isLoading={isLoading} onClick={goToInstrument} actionLink="/market" />
-                <ListWidget title="Emtia ve Döviz" items={commodities} isLoading={isLoading} onClick={goToInstrument} actionLink="/market" />
+                <ListWidget title="Endeksler" items={indices} isLoading={isLoading} onClick={goToInstrument} actionLink="/market" isFavorite={isFavorite} onFavoriteToggle={toggleFavorite} />
+                <ListWidget title="Emtia ve Döviz" items={commodities} isLoading={isLoading} onClick={goToInstrument} actionLink="/market" isFavorite={isFavorite} onFavoriteToggle={toggleFavorite} />
             </div>
 
             {/* ─── News Feed (Grid layout to fit dense aesthetic) ─── */}
