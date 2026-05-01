@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
     Activity,
+    Check,
     LayoutDashboard,
     Wallet,
     TrendingUp,
@@ -31,7 +32,7 @@ const EXPLORE_ITEMS = [
 ];
 
 const MainLayout = () => {
-    const { isAuthenticated, username, isAdmin, login, logout, register } = useAuth();
+    const { isAuthenticated, username, isAdmin, rememberMe, setRememberMe, login, logout, register } = useAuth();
     const { isDark, toggle: toggleTheme } = useTheme();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [exploreOpen, setExploreOpen] = useState(false);
@@ -127,7 +128,23 @@ const MainLayout = () => {
                             {isDark ? <Sun size={16} /> : <Moon size={16} />}
                         </button>
                         {!isAuthenticated ? (
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-3">
+                                <label className="hidden md:flex items-center gap-2 text-[12px] text-muted-foreground cursor-pointer select-none">
+                                    <button
+                                        type="button"
+                                        onClick={() => setRememberMe(!rememberMe)}
+                                        className={`flex items-center justify-center w-4 h-4 rounded border transition-colors ${
+                                            rememberMe
+                                                ? 'border-primary bg-primary text-primary-foreground'
+                                                : 'border-border bg-transparent text-transparent'
+                                        }`}
+                                        aria-pressed={rememberMe}
+                                        title="Beni hatırla"
+                                    >
+                                        <Check size={11} />
+                                    </button>
+                                    <span>Beni hatırla</span>
+                                </label>
                                 <button
                                     onClick={() => login()}
                                     className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"

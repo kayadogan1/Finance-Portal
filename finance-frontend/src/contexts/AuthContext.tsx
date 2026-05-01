@@ -4,6 +4,8 @@ import keycloak from '../utils/keycloak';
 import { AuthContext, type AuthInfo } from './authContextValue';
 
 let keycloakInitPromise: Promise<boolean> | null = null;
+const REMEMBER_ME_KEY = 'finance-portal-remember-me';
+const REMEMBERED_USERNAME_KEY = 'finance-portal-remembered-username';
 
 const getRoles = () => {
     const token = keycloak.tokenParsed;
@@ -34,6 +36,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [email, setEmail] = useState('');
     const [roles, setRoles] = useState<string[]>([]);
     const [authError, setAuthError] = useState<string | null>(null);
+    const [rememberMe, setRememberMeState] = useState(() => {
+        if (typeof window === 'undefined') return false;
+        return window.localStorage.getItem(REMEMBER_ME_KEY) === 'true';
+    });
 
     const syncAuthState = useCallback(() => {
         const authenticated = keycloak.authenticated ?? false;
@@ -50,6 +56,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRoles(nextRoles);
     }, []);
 
+    const setRememberMe = useCallback((value: boolean) => {
+        setRememberMeState(value);
+        if (typeof window !== 'undefined') {
+            window.localStorage.setItem(REMEMBER_ME_KEY, String(value));
+            if (!value) {
+                window.localStorage.removeItem(REMEMBERED_USERNAME_KEY);
+            }
+        }
+    }, []);
+
     const refreshToken = useCallback(async () => {
         if (!keycloak.authenticated) return false;
         const refreshed = await keycloak.updateToken(30);
@@ -58,10 +74,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, [syncAuthState]);
 
     const login = useCallback((redirectUri?: string) => {
+        const rememberedUsername = typeof window !== 'undefined'
+            ? window.localStorage.getItem(REMEMBERED_USERNAME_KEY) ?? undefined
+            : undefined;
         keycloak.login({
             redirectUri: redirectUri ?? `${window.location.origin}/dashboard`,
+            loginHint: rememberMe ? rememberedUsername : undefined,
+            scope: rememberMe ? 'openid profile email offline_access' : 'openid profile email',
         });
-    }, []);
+    }, [rememberMe]);
 
     const logout = useCallback(() => {
         keycloak.logout({ redirectUri: window.location.origin });
@@ -70,8 +91,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const register = useCallback((redirectUri?: string) => {
         keycloak.register({
             redirectUri: redirectUri ?? `${window.location.origin}/dashboard`,
+            scope: rememberMe ? 'openid profile email offline_access' : 'openid profile email',
         });
-    }, []);
+    }, [rememberMe]);
 
     useEffect(() => {
         let mounted = true;
@@ -107,6 +129,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
     }, [refreshToken, syncAuthState]);
 
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        if (rememberMe && username) {
+            window.localStorage.setItem(REMEMBERED_USERNAME_KEY, username);
+        }
+        if (!rememberMe) {
+            window.localStorage.removeItem(REMEMBERED_USERNAME_KEY);
+        }
+    }, [rememberMe, username]);
+
     const value = useMemo<AuthInfo>(() => ({
         isInitialized,
         isAuthenticated,
@@ -115,6 +147,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAdmin: isAdminRole(roles),
         roles,
         authError,
+        rememberMe,
+        setRememberMe,
         login,
         logout,
         register,
@@ -126,9 +160,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isInitialized,
         login,
         logout,
+        rememberMe,
         refreshToken,
         register,
         roles,
+        setRememberMe,
         username,
     ]);
 

@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Globe2, Search, ChevronLeft, ChevronRight, Star, ArrowUpRight } from 'lucide-react';
+import { MapPin, Globe2, Search, ChevronLeft, ChevronRight, ArrowUpRight } from 'lucide-react';
 import {
     belongsToMarket,
     formatChangePercent,
@@ -13,7 +13,6 @@ import {
 } from '../services/marketService';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatMarketPrice } from '../utils/currency';
-import { useFavorites } from '../hooks/useFavorites';
 
 const PAGE_SIZE = 20;
 
@@ -66,10 +65,8 @@ const InstrumentRow = ({
     onNavigate: (symbol: string) => void;
     formatPrice: (price: number, baseCurrency: string) => string;
 }) => {
-    const { isFavorite, toggleFavorite } = useFavorites();
     const hasChangeValue = hasChange(inst);
     const isPositive = hasChangeValue && inst.change24h >= 0;
-    const fav = isFavorite(inst.symbol);
 
     return (
         <div
@@ -88,14 +85,6 @@ const InstrumentRow = ({
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.025)'; }}
             onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
         >
-            {/* Fav star */}
-            <button
-                onClick={e => { e.stopPropagation(); toggleFavorite(inst.symbol); }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px 0 0', display: 'flex', alignItems: 'center' }}
-            >
-                <Star size={12} fill={fav ? '#eab308' : 'none'} color={fav ? '#eab308' : 'hsl(var(--ghost-foreground))'} style={{ transition: 'all 0.15s' }} />
-            </button>
-
             {/* Symbol + change indicator */}
             <div style={{ width: 68, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 5 }}>
                 <span style={{

@@ -80,7 +80,7 @@ public class FundScraperService {
             }
         });
     }
-    private Instrument  firstSaveToDatabase(String instrumentName) {
+    private Instrument firstSaveToDatabase(String instrumentName) {
 
         String name;
         InstrumentType type;
@@ -129,7 +129,9 @@ public class FundScraperService {
                 logger.info("Data for {} is already strictly up to date. Skipping API call.", instrumentName);
                 return;
             }
-            String apiSymbol = instrumentName.replace("F_","");
+            String apiSymbol = instrumentName.contains(".")?
+                    instrumentName.substring(instrumentName.lastIndexOf(".")+1) :
+                    instrumentName.replace("F_","");
             FundHistoryResponse response = restClient.get()
                     .uri(API_URL + "?symbol={symbol}&resolution=D&from={from}&to={to}", apiSymbol, fromUnix, toUnix)
                     .header("Accept", "application/json")

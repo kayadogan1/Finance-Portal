@@ -3,7 +3,6 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
     ArrowLeft,
-    Star,
     TrendingUp,
     TrendingDown,
     Activity,
@@ -17,7 +16,6 @@ import TradeWidget from '../components/trade/TradeWidget';
 import { formatChangePercent, getInstrumentBySymbol, hasChange, normalizeInstrument, type MarketInstrument } from '../services/marketService';
 import { articleMatchesInstrument, getNews, normalizeNewsCategory, TOPIC_LABELS, ASSET_TYPE_COLORS } from '../services/newsService';
 import { formatMarketPrice } from '../utils/currency';
-import { useFavorites } from '../hooks/useFavorites';
 import { getSourceColor } from '../components/news/SourceAvatar';
 
 /* ─── Instrument type → news topic mapping ─── */
@@ -86,7 +84,6 @@ function timeAgo(dateStr: string): string {
 const InstrumentDetailPage = () => {
     const { symbol } = useParams<{ symbol: string }>();
     const navigate = useNavigate();
-    const { isFavorite, toggleFavorite } = useFavorites();
 
     const { data: fetchedInstrument, isLoading: loading } = useQuery({
         queryKey: ['instrument-detail', symbol],
@@ -134,8 +131,6 @@ const InstrumentDetailPage = () => {
     const isPositive = hasChangeValue && (instrument?.change24h ?? 0) >= 0;
     const changeColor = !hasChangeValue ? 'hsl(var(--muted-foreground))' : isPositive ? '#10b981' : '#ef4444';
     const ChangIcon = isPositive ? TrendingUp : TrendingDown;
-    const fav = isFavorite(symbol);
-
     return (
         <div className="space-y-6 pb-10">
 
@@ -201,23 +196,6 @@ const InstrumentDetailPage = () => {
                                     </div>
                                 </div>
 
-                                {/* Favorite star */}
-                                <button
-                                    onClick={() => toggleFavorite(symbol)}
-                                    style={{
-                                        background: 'none', border: 'none', cursor: 'pointer',
-                                        padding: '6px', borderRadius: 8,
-                                        transition: 'all 0.15s',
-                                    }}
-                                    title={fav ? 'Favorilerden çıkar' : 'Favorilere ekle'}
-                                >
-                                    <Star
-                                        size={18}
-                                        fill={fav ? '#eab308' : 'none'}
-                                        color={fav ? '#eab308' : 'hsl(var(--subtle-foreground))'}
-                                        style={{ transition: 'all 0.2s' }}
-                                    />
-                                </button>
                             </div>
 
                             {/* Price */}

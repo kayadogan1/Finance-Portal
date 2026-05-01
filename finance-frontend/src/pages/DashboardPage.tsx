@@ -13,6 +13,7 @@ import { getNews, ASSET_TYPE_COLORS, type FilteredArticleDto } from '../services
 import { formatMarketPrice } from '../utils/currency';
 import { getSourceColor } from '../components/news/SourceAvatar';
 import { useFavorites } from '../hooks/useFavorites';
+import ComparisonChart from '../components/market/ComparisonChart';
 
 function timeAgo(dateStr: string): string {
     const now = new Date();
@@ -202,9 +203,9 @@ const DashboardPage = () => {
     const favoriteInstruments = useMemo(() => {
         const favoriteSet = new Set(favorites);
         return instruments
-            .filter((instrument) => favoriteSet.has(instrument.symbol))
+            .filter((instrument) => favoriteSet.has(instrument.symbol) && belongsToMarket(instrument, region))
             .sort((a, b) => favorites.indexOf(a.symbol) - favorites.indexOf(b.symbol));
-    }, [favorites, instruments]);
+    }, [favorites, instruments, region]);
 
     const gainers = [...regionalInstruments]
         .filter(i => hasChange(i) && i.change24h > 0)
@@ -258,16 +259,18 @@ const DashboardPage = () => {
                 High-Density Matrix (TradingView Style)
                 ════════════════════════════════════ */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', columnGap: 64, rowGap: 48 }}>
-                <ListWidget
-                    title="Favorilerim"
-                    items={favoriteInstruments}
-                    isLoading={isLoading}
-                    onClick={goToInstrument}
-                    actionLink="/market"
-                    actionText="Piyasalara Git"
-                    isFavorite={isFavorite}
-                    onFavoriteToggle={toggleFavorite}
-                />
+                {favoriteInstruments.length > 0 && (
+                    <ListWidget
+                        title="Favorilerim"
+                        items={favoriteInstruments}
+                        isLoading={isLoading}
+                        onClick={goToInstrument}
+                        actionLink="/market"
+                        actionText="Piyasalara Git"
+                        isFavorite={isFavorite}
+                        onFavoriteToggle={toggleFavorite}
+                    />
+                )}
                 <ListWidget title="Hisse Senetleri" items={stocks} isLoading={isLoading} onClick={goToInstrument} actionLink="/market" isFavorite={isFavorite} onFavoriteToggle={toggleFavorite} />
                 <ListWidget title="Kripto Paralar" items={cryptos} isLoading={isLoading} onClick={goToInstrument} actionLink="/market" isFavorite={isFavorite} onFavoriteToggle={toggleFavorite} />
                 
@@ -276,6 +279,10 @@ const DashboardPage = () => {
                 
                 <ListWidget title="Endeksler" items={indices} isLoading={isLoading} onClick={goToInstrument} actionLink="/market" isFavorite={isFavorite} onFavoriteToggle={toggleFavorite} />
                 <ListWidget title="Emtia ve Döviz" items={commodities} isLoading={isLoading} onClick={goToInstrument} actionLink="/market" isFavorite={isFavorite} onFavoriteToggle={toggleFavorite} />
+            </div>
+
+            <div style={{ marginTop: 16 }}>
+                <ComparisonChart />
             </div>
 
             {/* ─── News Feed (Grid layout to fit dense aesthetic) ─── */}

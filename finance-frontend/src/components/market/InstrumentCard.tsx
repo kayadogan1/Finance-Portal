@@ -1,6 +1,4 @@
-import { Star } from 'lucide-react';
 import { formatChangePercent, hasChange, type MarketInstrument } from '@/services/marketService';
-import { useFavorites } from '@/hooks/useFavorites';
 
 interface InstrumentCardProps {
     instrument: MarketInstrument;
@@ -10,10 +8,8 @@ interface InstrumentCardProps {
 }
 
 export function InstrumentCard({ instrument, isSelected, onSelect, formatPrice }: InstrumentCardProps) {
-    const { isFavorite, toggleFavorite } = useFavorites();
     const hasChangeValue = hasChange(instrument);
     const isPositive = hasChangeValue && instrument.change24h >= 0;
-    const fav = isFavorite(instrument.symbol);
 
     return (
         <div
@@ -53,18 +49,6 @@ export function InstrumentCard({ instrument, isSelected, onSelect, formatPrice }
                         {instrument.name}
                     </span>
                 </div>
-                <button
-                    onClick={(e) => { e.stopPropagation(); toggleFavorite(instrument.symbol); }}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, display: 'flex' }}
-                    title={fav ? 'Favorilerden çıkar' : 'Favorilere ekle'}
-                >
-                    <Star
-                        size={14}
-                        fill={fav ? '#eab308' : 'none'}
-                        color={fav ? '#eab308' : 'hsl(var(--subtle-foreground))'}
-                        style={{ transition: 'all 0.15s' }}
-                    />
-                </button>
             </div>
             
             <div className="mt-4 flex flex-col gap-1">

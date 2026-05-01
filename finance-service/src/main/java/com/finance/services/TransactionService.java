@@ -28,6 +28,7 @@ public class TransactionService {
         LocalDateTime startDate = date.atStartOfDay();
         List<Transaction> userTransactionList = transactionRepository.findByUserIdAndTimestampAfterOrderByTimestampDesc(userId,startDate);
         return userTransactionList.stream()
+                .filter(transaction -> transaction.getInstrument()!=null)
                 .map(userTransaction -> {
                     Instrument instrument = userTransaction.getInstrument();
                     return new TransactionDto(

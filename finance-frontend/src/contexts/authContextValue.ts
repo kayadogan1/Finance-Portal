@@ -8,6 +8,8 @@ export interface AuthInfo {
     isAdmin: boolean;
     roles: string[];
     authError: string | null;
+    rememberMe: boolean;
+    setRememberMe: (value: boolean) => void;
     login: (redirectUri?: string) => void;
     logout: () => void;
     register: (redirectUri?: string) => void;

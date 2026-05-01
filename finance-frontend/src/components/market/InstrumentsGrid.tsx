@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
-import { Search, ChevronLeft, ChevronRight, Star } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatChangePercent, hasChange, type MarketInstrument } from '@/services/marketService';
-import { useFavorites } from '@/hooks/useFavorites';
 
 interface InstrumentsGridProps {
     instruments: MarketInstrument[];
@@ -35,10 +34,8 @@ const InstrumentRow = ({
     onSelect: (s: string) => void;
     formatPrice: (price: number, baseCurrency: string) => string;
 }) => {
-    const { isFavorite, toggleFavorite } = useFavorites();
     const hasChangeValue = hasChange(inst);
     const isPositive = hasChangeValue && inst.change24h >= 0;
-    const fav = isFavorite(inst.symbol);
 
     return (
         <div
@@ -61,14 +58,6 @@ const InstrumentRow = ({
                 if (!isSelected) e.currentTarget.style.background = 'transparent';
             }}
         >
-            {/* Fav star */}
-            <button
-                onClick={(e) => { e.stopPropagation(); toggleFavorite(inst.symbol); }}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 8px 0 0', display: 'flex', alignItems: 'center' }}
-            >
-                <Star size={12} fill={fav ? '#eab308' : 'none'} color={fav ? '#eab308' : 'hsl(var(--ghost-foreground))'} style={{ transition: 'all 0.15s' }} />
-            </button>
-
             {/* Symbol + change indicator */}
             <div style={{ width: 96, flexShrink: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <span style={{
@@ -210,7 +199,6 @@ export function InstrumentsGrid({
                 borderBottom: '1px solid hsl(var(--border))',
                 background: 'rgba(255,255,255,0.015)',
             }}>
-                <div style={{ width: 20 }} />
                 <div style={{ width: 96, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5 }}>Sembol</div>
                 <div style={{ flex: 1, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5 }}>Ad</div>
                 <div style={{ width: 64, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' }}>Tip</div>
