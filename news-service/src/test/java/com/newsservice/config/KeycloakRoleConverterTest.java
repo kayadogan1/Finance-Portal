@@ -70,4 +70,30 @@ class KeycloakRoleConverterTest {
         assertTrue(result.getAuthorities().isEmpty());
         verify(userService).getOrCreateUser(jwt);
     }
+
+    @Test
+    void convert_whenClientEntryMissing_returnsTokenWithNoAuthorities() {
+        Jwt jwt = mock(Jwt.class);
+        when(jwt.getSubject()).thenReturn("user-456");
+        when(jwt.getClaim("resource_access")).thenReturn(Map.of("other-client", Map.of("roles", List.of("user"))));
+
+        AbstractAuthenticationToken result = keycloakRoleConverter.convert(jwt);
+
+        assertNotNull(result);
+        assertTrue(result.getAuthorities().isEmpty());
+        verify(userService).getOrCreateUser(jwt);
+    }
+
+    @Test
+    void convert_whenRolesEntryInvalid_returnsTokenWithNoAuthorities() {
+        Jwt jwt = mock(Jwt.class);
+        when(jwt.getSubject()).thenReturn("user-789");
+        when(jwt.getClaim("resource_access")).thenReturn(Map.of(clientId, Map.of("roles", "admin")));
+
+        AbstractAuthenticationToken result = keycloakRoleConverter.convert(jwt);
+
+        assertNotNull(result);
+        assertTrue(result.getAuthorities().isEmpty());
+        verify(userService).getOrCreateUser(jwt);
+    }
 }
