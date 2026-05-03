@@ -1,5 +1,7 @@
 package com.example;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +16,7 @@ import java.time.Instant;
 public class ClassificationAuditLogger {
 
     private static final String HEADER = "createdAt,headline,assetType,symbol,assetScore,symbolScore,lexiconSymbol,topCandidates,unknown,modelVersion";
+    private static final Logger logger = LogManager.getLogger(ClassificationAuditLogger.class);
 
     private final Path auditPath;
     private final Object lock = new Object();
@@ -38,7 +41,7 @@ public class ClassificationAuditLogger {
                         StandardOpenOption.APPEND);
             }
         } catch (IOException e) {
-            System.err.println("Classification audit log write failed: " + e.getMessage());
+            logger.error("Classification audit log write failed. path={}", auditPath, e);
         }
     }
 
@@ -48,6 +51,7 @@ public class ClassificationAuditLogger {
             Files.createDirectories(parent);
         }
         if (!Files.exists(auditPath)) {
+            logger.info("Creating classification audit file. path={}", auditPath);
             Files.writeString(
                     auditPath,
                     HEADER + System.lineSeparator(),

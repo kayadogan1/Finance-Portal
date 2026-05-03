@@ -2,6 +2,8 @@ package com.example;
 
 import opennlp.tools.doccat.DoccatModel;
 import opennlp.tools.doccat.DocumentCategorizerME;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -19,6 +21,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 public class HierarchicalPredictor {
+
+    private static final Logger logger = LogManager.getLogger(HierarchicalPredictor.class);
 
     private static final String MODEL_DIR = "src/main/resources/models/";
     private static final String EXTERNAL_MODEL_DIR_PROP = "classification.model.dir";
@@ -63,6 +67,7 @@ public class HierarchicalPredictor {
     }
 
     static Prediction predictInternal(String text, boolean conservative) throws Exception {
+        long startedAt = System.currentTimeMillis();
         List<InstrumentCatalog.Instrument> instruments = loadInstruments(InstrumentCatalog.INSTRUMENTS);
         List<LexiconMatcher.MatchedInstrument> lexiconMatches =
                 LexiconMatcher.matchHeadline(text, instruments);
@@ -104,7 +109,7 @@ public class HierarchicalPredictor {
 
         List<String> topCandidates = relatedLexiconCandidates(text, lexiconMatches, symbol);
 
-        return new Prediction(
+        Prediction prediction = new Prediction(
                 text,
                 assetType,
                 symbol,
@@ -112,6 +117,17 @@ public class HierarchicalPredictor {
                 scoreOf(symbol, symbolScoreMap),
                 lexiconSymbol,
                 topCandidates);
+
+        logger.debug(
+                "Prediction resolved. mode={}, assetType={}, symbol={}, lexiconSymbol={}, candidateCount={}, durationMs={}",
+                conservative ? "conservative" : "standard",
+                prediction.assetType(),
+                prediction.symbol(),
+                prediction.lexiconSymbol(),
+                prediction.topCandidates() != null ? prediction.topCandidates().size() : 0,
+                System.currentTimeMillis() - startedAt
+        );
+        return prediction;
     }
 
     static DocumentCategorizerME load(String modelName) throws IOException {
@@ -137,12 +153,14 @@ public class HierarchicalPredictor {
         String cacheKey = modelCacheKey(modelName);
         DoccatModel cached = MODEL_CACHE.get(cacheKey);
         if (cached != null) {
+            logger.debug("Model cache hit. model={}", modelName);
             return cached;
         }
 
         try (InputStream input = openModelStream(modelName)) {
             DoccatModel loaded = new DoccatModel(input);
             DoccatModel existing = MODEL_CACHE.putIfAbsent(cacheKey, loaded);
+            logger.info("Model loaded. model={}, sourceKey={}", modelName, cacheKey);
             return existing == null ? loaded : existing;
         }
     }
@@ -174,21 +192,25 @@ public class HierarchicalPredictor {
         if (externalModelDir != null && !externalModelDir.isBlank()) {
             File externalFile = new File(externalModelDir, modelName);
             if (externalFile.exists()) {
+                logger.debug("Opening model from external directory. model={}, dir={}", modelName, externalModelDir);
                 return new FileInputStream(externalFile);
             }
         }
 
         File localFile = new File(MODEL_DIR + modelName);
         if (localFile.exists()) {
+            logger.debug("Opening model from local filesystem. model={}", modelName);
             return new FileInputStream(localFile);
         }
 
         InputStream resource = HierarchicalPredictor.class.getClassLoader()
                 .getResourceAsStream("models/" + modelName);
         if (resource != null) {
+            logger.debug("Opening model from classpath resource. model={}", modelName);
             return resource;
         }
 
+        logger.error("Model could not be found. model={}", modelName);
         throw new IOException("Model bulunamadi: " + modelName);
     }
 
