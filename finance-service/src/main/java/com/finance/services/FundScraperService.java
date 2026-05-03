@@ -7,6 +7,8 @@ import com.finance.repositories.MarketDataRepository;
 import com.finance.shared.Currency;
 import com.finance.shared.FundHistoryResponse;
 import com.finance.shared.InstrumentType;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,6 +34,7 @@ public class FundScraperService {
     private final InstrumentRepository instrumentRepository;
     private final MarketDataRepository marketDataRepository;
     private final RestClient restClient;
+    private final Tracer tracer;
 
     @Value("${finance.FINTABLES.API_URL}")
     private String API_URL;
@@ -41,44 +44,81 @@ public class FundScraperService {
 
     public FundScraperService(MarketDataPersistenceService marketDataPersistenceService,
                               RestClient restClient,
-                              InstrumentPropertiesConfig instrumentPropertiesConfig, MarketDataRepository marketDataRepository, InstrumentRepository instrumentRepository) {
+                              InstrumentPropertiesConfig instrumentPropertiesConfig, MarketDataRepository marketDataRepository, InstrumentRepository instrumentRepository, Tracer tracer) {
         this.restClient = restClient;
         this.marketDataRepository = marketDataRepository;
         this.marketDataPersistenceService = marketDataPersistenceService;
         this.instrumentRepository = instrumentRepository;
         this.funds = instrumentPropertiesConfig.getFund();
         this.viops = instrumentPropertiesConfig.getViop();
+        this.tracer = tracer;
     }
 
-    @Scheduled(cron = "0 30 18 * * *", zone = "Europe/Istanbul")
+    @Scheduled(cron = "0 44 19 * * *", zone = "Europe/Istanbul")
     public void scrapeFunds() {
         logger.info("Starting one-time scrape for Funds and VIOPs...");
+        Span parentSpan = tracer.nextSpan()
+                .name("fund-scraper-job")
+                .tag("funds.count", String.valueOf(funds.size()))
+                .tag("viops.count", String.valueOf(viops.size()))
+                .start();
+        try (Tracer.SpanInScope scope = tracer.withSpan(parentSpan)) {
 
-        try (ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
-            Semaphore rateLimitSemaphore = new Semaphore(MAX_CONCURRENT_REQUESTS);
+            try (ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor()) {
+                Semaphore rateLimitSemaphore = new Semaphore(MAX_CONCURRENT_REQUESTS);
 
-            funds.keySet().forEach(key -> submitTask(executorService, rateLimitSemaphore, key));
-            viops.keySet().forEach(key -> submitTask(executorService, rateLimitSemaphore, key));
+                funds.keySet().forEach(key -> submitTask(executorService, rateLimitSemaphore, key, parentSpan));
+                viops.keySet().forEach(key -> submitTask(executorService, rateLimitSemaphore, key, parentSpan));
 
-        } catch (Exception e) {
-            logger.error("Error during data scraping process", e);
+            } catch (Exception e) {
+                parentSpan.error(e);
+                logger.error("Error during data scraping process", e);
+            }
+
+        }
+        finally {
+            parentSpan.end();
         }
         logger.info("All scraping tasks completed.");
     }
 
-    private void submitTask(ExecutorService executor, Semaphore semaphore, String instrumentName) {
-        executor.submit(() -> {
-            try {
+    private void submitTask(ExecutorService executor, Semaphore semaphore, String instrumentName, Span parentSpan) {
+        executor.submit(tracer.currentTraceContext().wrap(() -> {
+            Span childSpan = tracer.nextSpan(parentSpan)
+                    .name("scrape-symbol")
+                    .tag("symbol", instrumentName)
+                    .tag("instrument.type", resolveInstrumentKind(instrumentName))
+                    .start();
+            boolean permitAcquired = false;
+            try (Tracer.SpanInScope ignored = tracer.withSpan(childSpan)) {
                 semaphore.acquire();
+                permitAcquired = true;
                 fetchAndProcess(instrumentName);
                 TimeUnit.MILLISECONDS.sleep(DELAY_BETWEEN_REQUESTS_MS);
             } catch (InterruptedException e) {
+                childSpan.error(e);
                 Thread.currentThread().interrupt();
                 logger.error("Task interrupted for instrument: {}", instrumentName);
+            } catch (Exception e) {
+                childSpan.error(e);
+                logger.error("Unhandled scrape task error for instrument: {}", instrumentName, e);
             } finally {
-                semaphore.release();
+                if (permitAcquired) {
+                    semaphore.release();
+                }
+                childSpan.end();
             }
-        });
+        }));
+    }
+
+    private String resolveInstrumentKind(String instrumentName) {
+        if (funds.containsKey(instrumentName)) {
+            return "fund";
+        }
+        if (viops.containsKey(instrumentName)) {
+            return "viop";
+        }
+        return "unknown";
     }
     private Instrument firstSaveToDatabase(String instrumentName) {
 
