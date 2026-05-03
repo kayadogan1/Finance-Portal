@@ -21,8 +21,8 @@ RUN adduser -S appuser
 
 WORKDIR /app
 
-COPY --from=builder /build/finance-service/target/*.jar app.jar
-RUN chown appuser app.jar
+COPY --from=builder --chown=appuser /build/finance-service/target/*.jar app.jar
+
 
 USER appuser
 
