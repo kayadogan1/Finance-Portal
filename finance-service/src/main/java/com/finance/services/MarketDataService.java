@@ -13,6 +13,8 @@ import org.apache.logging.log4j.Logger;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -200,6 +202,65 @@ public class MarketDataService {
                 .toList();
     }
 
+    public HypotheticalReturnDto calculateHypotheticalReturn(
+            String symbol,
+            LocalDate purchaseDate,
+            BigDecimal quantity,
+            Currency displayCurrency
+    ) {
+        if (symbol == null || symbol.isBlank()) {
+            throw new BadRequestException("symbol can not empty or null");
+        }
+        if (purchaseDate == null) {
+            throw new BadRequestException("purchaseDate can not be null");
+        }
+        if (purchaseDate.isAfter(LocalDate.now())) {
+            throw new BadRequestException("purchaseDate can not be in the future");
+        }
+        if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BadRequestException("quantity must be greater than zero");
+        }
+
+        Instrument instrument = instrumentRepository.findInstrumentBySymbol(symbol)
+                .orElseThrow(() -> new BadRequestException("Instrument not found"));
+
+        Currency instrumentCurrency = normalizeCurrency(instrument.getBaseCurrency());
+        Currency targetCurrency = displayCurrency == null ? instrumentCurrency : normalizeCurrency(displayCurrency);
+        BigDecimal usdTryRate = resolveUsdTryRate();
+        LocalDateTime purchaseStart = purchaseDate.atStartOfDay();
+
+        MarketData purchaseData = marketDataRepository
+                .findFirstByInstrumentSymbolAndTimestampGreaterThanEqualOrderByTimestampAsc(symbol, purchaseStart)
+                .orElseThrow(() -> new BadRequestException("No market data found on or after selected date"));
+
+        BigDecimal purchasePriceRaw = Optional.ofNullable(purchaseData.getPrice()).orElse(BigDecimal.ZERO);
+        BigDecimal currentPriceRaw = Optional.ofNullable(instrument.getCurrentPrice()).orElse(BigDecimal.ZERO);
+        BigDecimal costValue = convertValue(purchasePriceRaw.multiply(quantity), instrumentCurrency, targetCurrency, usdTryRate);
+        BigDecimal currentValue = convertValue(currentPriceRaw.multiply(quantity), instrumentCurrency, targetCurrency, usdTryRate);
+        BigDecimal profitLoss = currentValue.subtract(costValue);
+        BigDecimal profitLossPercent = costValue.compareTo(BigDecimal.ZERO) == 0
+                ? null
+                : profitLoss.multiply(BigDecimal.valueOf(100)).divide(costValue, 2, RoundingMode.HALF_UP);
+
+        return new HypotheticalReturnDto(
+                instrument.getSymbol(),
+                instrument.getName(),
+                instrument.getType(),
+                instrumentCurrency,
+                targetCurrency,
+                purchaseDate,
+                purchaseData.getTimestamp(),
+                quantity,
+                convertValue(purchasePriceRaw, instrumentCurrency, targetCurrency, usdTryRate),
+                convertValue(currentPriceRaw, instrumentCurrency, targetCurrency, usdTryRate),
+                costValue,
+                currentValue,
+                profitLoss,
+                profitLossPercent,
+                resolveFxRate(instrumentCurrency, targetCurrency, usdTryRate)
+        );
+    }
+
 
     private LocalDateTime truncateTime(LocalDateTime dateTime, TimeSlot slot) {
         return switch (slot){
@@ -263,6 +324,49 @@ public class MarketDataService {
                 logger.info("Created new Instrument: {} - Type: {}", symbol, type);
             }
         });
+    }
+
+    private Currency normalizeCurrency(Currency currency) {
+        if (currency == null) return Currency.TRY;
+        return switch (currency) {
+            case USDT, XAU, XAG -> Currency.USD;
+            default -> currency;
+        };
+    }
+
+    private BigDecimal resolveUsdTryRate() {
+        return instrumentRepository.findInstrumentBySymbol("USDTRY")
+                .or(() -> instrumentRepository.findInstrumentBySymbol("TRY"))
+                .map(Instrument::getCurrentPrice)
+                .filter(price -> price.compareTo(BigDecimal.ZERO) > 0)
+                .orElse(BigDecimal.ONE);
+    }
+
+    private BigDecimal convertValue(BigDecimal value, Currency sourceCurrency, Currency displayCurrency, BigDecimal usdTryRate) {
+        Currency source = normalizeCurrency(sourceCurrency);
+        Currency target = normalizeCurrency(displayCurrency);
+        if (value == null) return BigDecimal.ZERO;
+        if (source == target) return value;
+        if (source == Currency.USD && target == Currency.TRY) return value.multiply(usdTryRate);
+        if (source == Currency.TRY && target == Currency.USD) {
+            return usdTryRate.compareTo(BigDecimal.ZERO) == 0
+                    ? value
+                    : value.divide(usdTryRate, 8, RoundingMode.HALF_UP);
+        }
+        return value;
+    }
+
+    private BigDecimal resolveFxRate(Currency sourceCurrency, Currency displayCurrency, BigDecimal usdTryRate) {
+        Currency source = normalizeCurrency(sourceCurrency);
+        Currency target = normalizeCurrency(displayCurrency);
+        if (source == target) return BigDecimal.ONE;
+        if (source == Currency.USD && target == Currency.TRY) return usdTryRate;
+        if (source == Currency.TRY && target == Currency.USD) {
+            return usdTryRate.compareTo(BigDecimal.ZERO) == 0
+                    ? BigDecimal.ONE
+                    : BigDecimal.ONE.divide(usdTryRate, 8, RoundingMode.HALF_UP);
+        }
+        return BigDecimal.ONE;
     }
 
 }

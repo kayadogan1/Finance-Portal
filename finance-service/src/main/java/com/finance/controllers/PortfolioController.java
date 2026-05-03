@@ -115,6 +115,16 @@ public class PortfolioController {
                 200
         ));
     }
+    @GetMapping("/currentProfit/{portfolioId}")
+    @PreAuthorize("hasAnyRole('USER')")
+    public ResponseEntity<ApiResult<List<PortfolioCurrentProfitDto>>> getCurrentProfit(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID portfolioId,
+            @RequestParam(defaultValue = "TRY") Currency displayCurrency
+    ){
+        return ResponseEntity.ok(ApiResult.success(portfolioService.calculateCurrentPortfolioProfit(jwt.getSubject(), portfolioId, displayCurrency),"user portfolio profit calculated ",200));
+
+    }
 
     @GetMapping("/transactions")
     @PreAuthorize("hasAnyRole('USER','ADMIN')")

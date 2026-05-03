@@ -6,12 +6,12 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Repository
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
 
     List<Transaction> findByPortfolioIdOrderByTimestampAsc(UUID portfolioId);
-
     List<Transaction> findByUserIdAndTimestampAfterOrderByTimestampDesc(String userId, LocalDateTime from);
 }

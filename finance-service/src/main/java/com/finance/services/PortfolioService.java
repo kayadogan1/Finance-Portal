@@ -70,6 +70,63 @@ public class PortfolioService {
                 .map(portfolio -> toPortfolioReadDto(portfolio, displayCurrency))
                 .collect(Collectors.toList());
     }
+    public List<PortfolioCurrentProfitDto> calculateCurrentPortfolioProfit(String userId, UUID portfolioId, Currency displayCurrency) {
+        Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
+        Currency targetCurrency = normalizeCurrency(displayCurrency);
+        BigDecimal usdTryRate = resolveUsdTryRate();
+
+        return portfolio.getItems().stream()
+                .filter(portfolioItem -> portfolioItem.getInstrument() != null && portfolioItem.getInstrument().getId() != null)
+                .map(portfolioItem -> toPortfolioCurrentProfitDto(portfolioItem, targetCurrency, usdTryRate))
+                .sorted(Comparator.comparing(
+                        PortfolioCurrentProfitDto::profitLoss,
+                        Comparator.nullsLast(BigDecimal::compareTo)
+                ).reversed())
+                .toList();
+    }
+
+    private PortfolioCurrentProfitDto toPortfolioCurrentProfitDto(PortfolioItem portfolioItem, Currency displayCurrency, BigDecimal usdTryRate) {
+        Instrument instrument = portfolioItem.getInstrument();
+        Currency instrumentCurrency = normalizeCurrency(instrument.getBaseCurrency());
+        BigDecimal quantity = Optional.ofNullable(portfolioItem.getQuantity()).orElse(BigDecimal.ZERO);
+        BigDecimal currentPriceRaw = Optional.ofNullable(instrument.getCurrentPrice()).orElse(BigDecimal.ZERO);
+        BigDecimal averageCostRaw = Optional.ofNullable(portfolioItem.getAverageCost()).orElse(BigDecimal.ZERO);
+        BigDecimal costValue = convertValue(
+                averageCostRaw.multiply(quantity),
+                instrumentCurrency,
+                displayCurrency,
+                usdTryRate
+        );
+        BigDecimal currentValue = convertValue(
+                currentPriceRaw.multiply(quantity),
+                instrumentCurrency,
+                displayCurrency,
+                usdTryRate
+        );
+        BigDecimal profitLoss = currentValue.subtract(costValue);
+        BigDecimal profitLossPercent = costValue.compareTo(BigDecimal.ZERO) == 0
+                ? null
+                : profitLoss
+                .multiply(BigDecimal.valueOf(100))
+                .divide(costValue, 2, RoundingMode.HALF_UP);
+
+        return new PortfolioCurrentProfitDto(
+                instrument.getName(),
+                instrument.getSymbol(),
+                instrument.getType(),
+                instrumentCurrency,
+                displayCurrency,
+                quantity,
+                convertValue(averageCostRaw, instrumentCurrency, displayCurrency, usdTryRate),
+                convertValue(currentPriceRaw, instrumentCurrency, displayCurrency, usdTryRate),
+                costValue,
+                currentValue,
+                profitLoss,
+                profitLossPercent,
+                resolveFxRate(instrumentCurrency, displayCurrency, usdTryRate)
+        );
+    }
+
 
     private PortfolioReadDto toPortfolioReadDto(Portfolio portfolio, Currency displayCurrency) {
         Currency targetCurrency = normalizeCurrency(displayCurrency);
@@ -374,32 +431,6 @@ public class PortfolioService {
             case CRYPTO -> "Kripto";
             case INDEX -> "Endeks";
         };
-    }
-
-    private record AllocationAccumulator(
-            String label,
-            String marketCode,
-            InstrumentType instrumentType,
-            Currency originalCurrency,
-            BigDecimal displayValue,
-            BigDecimal originalValue,
-            BigDecimal fxRateToDisplayCurrency
-    ) {
-        private AllocationAccumulator(String label, String marketCode, InstrumentType instrumentType, Currency originalCurrency) {
-            this(label, marketCode, instrumentType, originalCurrency, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ONE);
-        }
-
-        private AllocationAccumulator add(BigDecimal displayValue, BigDecimal originalValue, BigDecimal fxRateToDisplayCurrency) {
-            return new AllocationAccumulator(
-                    label,
-                    marketCode,
-                    instrumentType,
-                    originalCurrency,
-                    this.displayValue.add(displayValue),
-                    this.originalValue.add(originalValue),
-                    fxRateToDisplayCurrency
-            );
-        }
     }
 
     private LocalDate resolveStartDate(PortfolioRange portfolioRange){

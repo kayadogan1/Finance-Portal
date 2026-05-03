@@ -13,6 +13,9 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -45,8 +48,14 @@ class MarketDataPersistenceServiceTest {
         Instrument instrument = new Instrument();
         instrument.setSymbol(symbol);
         instrument.setCurrentPrice(new BigDecimal("140.0"));
+        instrument.setPreviousPrice(new BigDecimal("130.0"));
+
+        MarketData previousClose = new MarketData();
+        previousClose.setPrice(new BigDecimal("145.0"));
 
         when(instrumentRepository.findInstrumentBySymbol(symbol)).thenReturn(Optional.of(instrument));
+        when(marketDataRepository.findFirstByInstrumentAndTimestampBeforeOrderByTimestampDesc(eq(instrument), any(LocalDateTime.class)))
+                .thenReturn(Optional.of(previousClose));
         when(instrumentRepository.save(any(Instrument.class))).thenAnswer(inv -> inv.getArgument(0));
         when(marketDataRepository.save(any(MarketData.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -57,6 +66,7 @@ class MarketDataPersistenceServiceTest {
         verify(instrumentRepository).findInstrumentBySymbol(symbol);
         verify(instrumentRepository).save(instrument);
         assertEquals(price, instrument.getCurrentPrice());
+        assertEquals(new BigDecimal("145.0"), instrument.getPreviousPrice());
         assertNotNull(instrument.getLastUpdateTime());
         
         verify(redisCacheService).save(symbol, instrument);
@@ -79,5 +89,62 @@ class MarketDataPersistenceServiceTest {
         verify(instrumentRepository, never()).save(any(Instrument.class));
         verify(redisCacheService, never()).save(anyString(), any());
         verify(marketDataRepository, never()).save(any(MarketData.class));
+    }
+
+    @Test
+    void saveHistoricalDataBatch_whenArraysInvalid_doesNothing() {
+        marketDataPersistenceService.saveHistoricalDataBatch("AAPL", List.of(BigDecimal.ONE), List.of());
+
+        verify(instrumentRepository, never()).findInstrumentBySymbol(anyString());
+        verify(marketDataRepository, never()).saveAll(any());
+        verify(redisCacheService, never()).save(anyString(), any());
+    }
+
+    @Test
+    void saveHistoricalDataBatch_whenAllClosesNull_doesNothing() {
+        Instrument instrument = new Instrument();
+        instrument.setSymbol("AAPL");
+        instrument.setPreviousPrice(new BigDecimal("10.0"));
+
+        when(instrumentRepository.findInstrumentBySymbol("AAPL")).thenReturn(Optional.of(instrument));
+
+        marketDataPersistenceService.saveHistoricalDataBatch(
+                "AAPL",
+                Arrays.asList(null, null),
+                List.of(1_000L, 2_000L)
+        );
+
+        verify(marketDataRepository, never()).saveAll(any());
+        verify(instrumentRepository, never()).save(any(Instrument.class));
+        verify(redisCacheService, never()).save(anyString(), any());
+    }
+
+    @Test
+    void saveHistoricalDataBatch_whenValidData_updatesInstrumentAndSavesRedis() {
+        Instrument instrument = new Instrument();
+        instrument.setSymbol("AAPL");
+        instrument.setPreviousPrice(new BigDecimal("90.0"));
+
+        when(instrumentRepository.findInstrumentBySymbol("AAPL")).thenReturn(Optional.of(instrument));
+        when(instrumentRepository.save(any(Instrument.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        marketDataPersistenceService.saveHistoricalDataBatch(
+                "AAPL",
+                Arrays.asList(new BigDecimal("100.0"), null, new BigDecimal("105.5")),
+                List.of(1_700_000_000L, 1_700_086_400L, 1_700_172_800L)
+        );
+
+        verify(marketDataRepository).saveAll(argThat(iterable -> {
+            int count = 0;
+            for (MarketData ignored : iterable) {
+                count++;
+            }
+            return count == 2;
+        }));
+        verify(instrumentRepository).save(instrument);
+        verify(redisCacheService).save("AAPL", instrument);
+        assertEquals(new BigDecimal("105.5"), instrument.getCurrentPrice());
+        assertEquals(new BigDecimal("100.0"), instrument.getPreviousPrice());
+        assertNotNull(instrument.getLastUpdateTime());
     }
 }

@@ -13,6 +13,8 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -77,7 +79,6 @@ public class MarketController {
     }
 
 
-
     @GetMapping("/history/{symbol}")
     public ResponseEntity<ApiResult<List<MarketData>>> getMarketDataHistory(
             @PathVariable String symbol,
@@ -91,5 +92,21 @@ public class MarketController {
                 ? marketDataRepository.findByInstrumentSymbolAndTimestampGreaterThanEqualOrderByTimestampAsc(symbol, from)
                 : marketDataRepository.findByInstrumentSymbolOrderByTimestampAsc(symbol);
         return ResponseEntity.ok(ApiResult.success(marketDataList,"all market data fetched",200));
+    }
+
+    @GetMapping("/hypothetical-return/{symbol}")
+    public ResponseEntity<ApiResult<HypotheticalReturnDto>> getHypotheticalReturn(
+            @PathVariable String symbol,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate purchaseDate,
+            @RequestParam(defaultValue = "1") BigDecimal quantity,
+            @RequestParam(required = false) Currency displayCurrency
+    ) {
+        HypotheticalReturnDto result = marketDataService.calculateHypotheticalReturn(
+                symbol,
+                purchaseDate,
+                quantity,
+                displayCurrency
+        );
+        return ResponseEntity.ok(ApiResult.success(result, "hypothetical return calculated", 200));
     }
 }

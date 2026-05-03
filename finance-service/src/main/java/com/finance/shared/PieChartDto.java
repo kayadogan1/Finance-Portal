@@ -1,7 +1,9 @@
 package com.finance.shared;
 
-import java.math.BigDecimal;
+import lombok.Builder;
 
+import java.math.BigDecimal;
+@Builder
 public record PieChartDto(
         String label,
         String symbol,

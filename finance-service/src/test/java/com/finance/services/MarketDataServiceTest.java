@@ -17,6 +17,7 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
@@ -167,5 +168,62 @@ class MarketDataServiceTest {
         assertEquals(new BigDecimal("110"), result.get(0).high());
         assertEquals(new BigDecimal("100"), result.get(0).low());
         assertEquals(new BigDecimal("110"), result.get(0).close());
+    }
+
+    @Test
+    void calculateHypotheticalReturn_whenValidInputs_returnsConvertedProfit() {
+        Instrument instrument = new Instrument();
+        instrument.setSymbol("AAPL");
+        instrument.setName("Apple");
+        instrument.setType(InstrumentType.STOCK);
+        instrument.setBaseCurrency(Currency.USD);
+        instrument.setCurrentPrice(new BigDecimal("120"));
+
+        Instrument usdtry = new Instrument();
+        usdtry.setCurrentPrice(new BigDecimal("40"));
+
+        MarketData purchaseData = new MarketData();
+        purchaseData.setTimestamp(LocalDateTime.of(2026, 4, 2, 10, 0));
+        purchaseData.setPrice(new BigDecimal("100"));
+
+        when(instrumentRepository.findInstrumentBySymbol("AAPL")).thenReturn(Optional.of(instrument));
+        when(instrumentRepository.findInstrumentBySymbol("USDTRY")).thenReturn(Optional.of(usdtry));
+        when(marketDataRepository.findFirstByInstrumentSymbolAndTimestampGreaterThanEqualOrderByTimestampAsc(eq("AAPL"), any()))
+                .thenReturn(Optional.of(purchaseData));
+
+        HypotheticalReturnDto result = marketDataService.calculateHypotheticalReturn(
+                "AAPL",
+                LocalDate.of(2026, 4, 1),
+                BigDecimal.valueOf(2),
+                Currency.TRY
+        );
+
+        assertEquals("AAPL", result.symbol());
+        assertEquals(new BigDecimal("8000"), result.costValue());
+        assertEquals(new BigDecimal("9600"), result.currentValue());
+        assertEquals(new BigDecimal("1600"), result.profitLoss());
+        assertEquals(new BigDecimal("20.00"), result.profitLossPercent());
+    }
+
+    @Test
+    void calculateHypotheticalReturn_whenQuantityInvalid_throwsBadRequestException() {
+        assertThrows(BadRequestException.class, () ->
+                marketDataService.calculateHypotheticalReturn("AAPL", LocalDate.now().minusDays(1), BigDecimal.ZERO, Currency.USD)
+        );
+    }
+
+    @Test
+    void calculateHypotheticalReturn_whenNoMarketData_throwsBadRequestException() {
+        Instrument instrument = new Instrument();
+        instrument.setSymbol("AAPL");
+        instrument.setBaseCurrency(Currency.USD);
+        when(instrumentRepository.findInstrumentBySymbol("AAPL")).thenReturn(Optional.of(instrument));
+        when(instrumentRepository.findInstrumentBySymbol("USDTRY")).thenReturn(Optional.empty());
+        when(marketDataRepository.findFirstByInstrumentSymbolAndTimestampGreaterThanEqualOrderByTimestampAsc(eq("AAPL"), any()))
+                .thenReturn(Optional.empty());
+
+        assertThrows(BadRequestException.class, () ->
+                marketDataService.calculateHypotheticalReturn("AAPL", LocalDate.now().minusDays(10), BigDecimal.ONE, Currency.USD)
+        );
     }
 }

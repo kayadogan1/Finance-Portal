@@ -127,6 +127,45 @@ class PortfolioServiceTest {
     }
 
     @Test
+    void calculateCurrentPortfolioProfit_whenUsdInstrumentAndTryDisplay_returnsConvertedProfit() {
+        String userId = "user123";
+        UUID portfolioId = UUID.randomUUID();
+
+        Instrument instrument = new Instrument();
+        instrument.setId(UUID.randomUUID());
+        instrument.setSymbol("AAPL");
+        instrument.setName("Apple");
+        instrument.setType(InstrumentType.STOCK);
+        instrument.setBaseCurrency(com.finance.shared.Currency.USD);
+        instrument.setCurrentPrice(new BigDecimal("120"));
+
+        PortfolioItem item = new PortfolioItem();
+        item.setInstrument(instrument);
+        item.setQuantity(new BigDecimal("2"));
+        item.setAverageCost(new BigDecimal("100"));
+
+        Portfolio portfolio = new Portfolio();
+        portfolio.setId(portfolioId);
+        portfolio.setItems(List.of(item));
+
+        Instrument usdtry = new Instrument();
+        usdtry.setCurrentPrice(new BigDecimal("40"));
+
+        when(portfolioRepository.findByIdAndUserId(portfolioId, userId)).thenReturn(Optional.of(portfolio));
+        when(instrumentRepository.findInstrumentBySymbol("USDTRY")).thenReturn(Optional.of(usdtry));
+
+        List<PortfolioCurrentProfitDto> result = portfolioService.calculateCurrentPortfolioProfit(userId, portfolioId, com.finance.shared.Currency.TRY);
+
+        assertEquals(1, result.size());
+        PortfolioCurrentProfitDto row = result.getFirst();
+        assertEquals("AAPL", row.symbol());
+        assertEquals(new BigDecimal("8000"), row.costValue());
+        assertEquals(new BigDecimal("9600"), row.currentValue());
+        assertEquals(new BigDecimal("1600"), row.profitLoss());
+        assertEquals(new BigDecimal("20.00"), row.profitLossPercent());
+    }
+
+    @Test
     void depositCash_whenValid_updatesBalanceAndSavesTransaction() {
         // Arrange
         String userId = "user123";

@@ -22,6 +22,7 @@ public interface MarketDataRepository extends JpaRepository<MarketData, UUID> {
             Instrument instrument,
             LocalDateTime before
     );
+    Optional<MarketData> findFirstByInstrumentSymbolAndTimestampGreaterThanEqualOrderByTimestampAsc(String symbol, LocalDateTime timestamp);
     List<MarketData> findByInstrumentSymbolAndTimestampAfterOrderByTimestampAsc(String symbol, LocalDateTime timestamp);
     List<MarketData> findByInstrumentSymbolAndTimestampGreaterThanEqualOrderByTimestampAsc(String symbol, LocalDateTime timestamp);
     List<MarketData> findByInstrumentSymbolOrderByTimestampAsc(String symbol);

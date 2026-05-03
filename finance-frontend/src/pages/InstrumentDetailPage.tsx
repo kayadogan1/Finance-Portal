@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from 'react-router-dom';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
     ArrowLeft,
@@ -10,10 +10,11 @@ import {
     ExternalLink,
     RefreshCw,
     Clock,
+    Calculator,
 } from 'lucide-react';
 import CandlestickChart from '../components/market/CandlestickChart';
 import TradeWidget from '../components/trade/TradeWidget';
-import { formatChangePercent, getInstrumentBySymbol, hasChange, normalizeInstrument, type MarketInstrument } from '../services/marketService';
+import { formatChangePercent, getHypotheticalReturn, getInstrumentBySymbol, hasChange, normalizeInstrument, type MarketInstrument } from '../services/marketService';
 import { articleMatchesInstrument, getNews, normalizeNewsCategory, TOPIC_LABELS, ASSET_TYPE_COLORS } from '../services/newsService';
 import { formatMarketPrice } from '../utils/currency';
 import { getSourceColor } from '../components/news/SourceAvatar';
@@ -84,6 +85,13 @@ function timeAgo(dateStr: string): string {
 const InstrumentDetailPage = () => {
     const { symbol } = useParams<{ symbol: string }>();
     const navigate = useNavigate();
+    const [purchaseDate, setPurchaseDate] = useState(() => {
+        const defaultDate = new Date();
+        defaultDate.setDate(defaultDate.getDate() - 30);
+        return defaultDate.toISOString().slice(0, 10);
+    });
+    const [quantity, setQuantity] = useState('1');
+    const [displayCurrency, setDisplayCurrency] = useState('');
 
     const { data: fetchedInstrument, isLoading: loading } = useQuery({
         queryKey: ['instrument-detail', symbol],
@@ -96,10 +104,24 @@ const InstrumentDetailPage = () => {
     const instrument: MarketInstrument | null = useMemo(() => {
         return fetchedInstrument ? normalizeInstrument(fetchedInstrument) : null;
     }, [fetchedInstrument]);
+    const selectedDisplayCurrency = displayCurrency || instrument?.baseCurrency || 'USD';
 
     /* News topic from instrument type */
     const newsTopic = instrument ? typeToNewsTopic[instrument.type] ?? undefined : undefined;
     const newsCountry = instrument ? countryToNewsCountry(instrument.market) : undefined;
+
+    const parsedQuantity = Number(quantity);
+
+    const {
+        data: hypotheticalReturn,
+        isLoading: hypotheticalLoading,
+        isError: hypotheticalError,
+    } = useQuery({
+        queryKey: ['hypothetical-return', symbol, purchaseDate, quantity, selectedDisplayCurrency],
+        queryFn: () => getHypotheticalReturn(symbol!, purchaseDate, parsedQuantity, selectedDisplayCurrency),
+        enabled: !!symbol && !!purchaseDate && Number.isFinite(parsedQuantity) && parsedQuantity > 0,
+        staleTime: 0,
+    });
 
     /* Fetch all news (by topic) and filter by instrument symbol on frontend */
     const { data: allNews = [], isLoading: newsLoading } = useQuery({
@@ -279,6 +301,102 @@ const InstrumentDetailPage = () => {
                         />
                     </div>
                 </div>
+            </div>
+
+            <div
+                style={{
+                    background: 'hsl(var(--card))',
+                    borderRadius: 14,
+                    border: '1px solid hsl(var(--border))',
+                    padding: 20,
+                }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                    <Calculator size={14} style={{ color: '#6366f1' }} />
+                    <span style={{ fontSize: 14, fontWeight: 700, color: 'hsl(var(--foreground))' }}>
+                        Tarihe Gore Getiri Analizi
+                    </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 18 }}>
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>Alim Tarihi</span>
+                        <input
+                            type="date"
+                            value={purchaseDate}
+                            onChange={(event) => setPurchaseDate(event.target.value)}
+                            max={new Date().toISOString().slice(0, 10)}
+                            className="h-10 bg-background border border-border rounded px-3 text-[13px] text-foreground"
+                        />
+                    </label>
+
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>Miktar</span>
+                        <input
+                            type="number"
+                            min="0.0001"
+                            step="0.0001"
+                            value={quantity}
+                            onChange={(event) => setQuantity(event.target.value)}
+                            className="h-10 bg-background border border-border rounded px-3 text-[13px] text-foreground"
+                        />
+                    </label>
+
+                    <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'hsl(var(--muted-foreground))' }}>Gosterim Para Birimi</span>
+                        <select
+                            value={selectedDisplayCurrency}
+                            onChange={(event) => setDisplayCurrency(event.target.value)}
+                            className="h-10 bg-background border border-border rounded px-3 text-[13px] text-foreground"
+                        >
+                            {Array.from(new Set([instrument?.baseCurrency || 'USD', 'TRY', 'USD'])).map((currency) => (
+                                <option key={currency} value={currency}>{currency}</option>
+                            ))}
+                        </select>
+                    </label>
+                </div>
+
+                {hypotheticalLoading && (
+                    <div className="flex items-center justify-center h-28 text-meta">
+                        <RefreshCw size={14} className="animate-spin mr-2 text-primary" />
+                        Hesaplaniyor...
+                    </div>
+                )}
+
+                {!hypotheticalLoading && hypotheticalError && (
+                    <div className="rounded-md border border-border bg-background/60 px-4 py-5 text-[13px] text-meta">
+                        Secilen tarih icin yeterli veri bulunamadi. Bir sonraki islem gununu deneyebilir veya daha yeni bir tarih secebilirsin.
+                    </div>
+                )}
+
+                {!hypotheticalLoading && !hypotheticalError && hypotheticalReturn && (
+                    <>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+                            <StatPill label="Alim Fiyati" value={formatMarketPrice(hypotheticalReturn.purchasePrice, hypotheticalReturn.displayCurrency)} />
+                            <StatPill label="Guncel Fiyat" value={formatMarketPrice(hypotheticalReturn.currentPrice, hypotheticalReturn.displayCurrency)} />
+                            <StatPill label="Maliyet" value={formatMarketPrice(hypotheticalReturn.costValue, hypotheticalReturn.displayCurrency)} />
+                            <StatPill label="Guncel Deger" value={formatMarketPrice(hypotheticalReturn.currentValue, hypotheticalReturn.displayCurrency)} />
+                            <StatPill
+                                label="Kar / Zarar"
+                                value={formatMarketPrice(hypotheticalReturn.profitLoss, hypotheticalReturn.displayCurrency)}
+                                highlight={(hypotheticalReturn.profitLoss ?? 0) >= 0 ? '#10b981' : '#ef4444'}
+                            />
+                            <StatPill
+                                label="Getiri"
+                                value={hypotheticalReturn.profitLossPercent == null ? '—' : formatChangePercent(hypotheticalReturn.profitLossPercent)}
+                                highlight={(hypotheticalReturn.profitLossPercent ?? 0) >= 0 ? '#10b981' : '#ef4444'}
+                            />
+                        </div>
+
+                        <p style={{ marginTop: 16, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
+                            Secilen tarih icin ilk uygun fiyat kaydi{' '}
+                            <strong style={{ color: 'hsl(var(--foreground))' }}>
+                                {new Date(hypotheticalReturn.executedAt).toLocaleString('tr-TR')}
+                            </strong>{' '}
+                            zamanindan alindi.
+                        </p>
+                    </>
+                )}
             </div>
 
             {/* ─── Related News — filtered by instrument symbol ─── */}

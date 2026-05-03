@@ -144,6 +144,24 @@ export interface ParsedLinePoint {
     close: number;
 }
 
+export interface HypotheticalReturnDto {
+    symbol: string;
+    name: string;
+    instrumentType: BackendInstrumentType;
+    instrumentCurrency: string;
+    displayCurrency: string;
+    purchaseDate: string;
+    executedAt: string;
+    quantity: number;
+    purchasePrice: number;
+    currentPrice: number;
+    costValue: number;
+    currentValue: number;
+    profitLoss: number;
+    profitLossPercent: number | null;
+    fxRateToDisplayCurrency: number;
+}
+
 const parseOptionalNumber = (value: unknown): number | undefined => {
     if (value === null || value === undefined || value === '') return undefined;
     const parsed = Number(value);
@@ -489,4 +507,20 @@ export const getInstrumentBySymbol = async (symbol: string): Promise<BackendInst
         ...data,
         name: cleanInstrumentDisplayName(data.name, data.symbol),
     };
+};
+
+export const getHypotheticalReturn = async (
+    symbol: string,
+    purchaseDate: string,
+    quantity = 1,
+    displayCurrency?: string,
+): Promise<HypotheticalReturnDto> => {
+    const { data } = await publicApi.get<HypotheticalReturnDto>(`/api/market/hypothetical-return/${symbol}`, {
+        params: {
+            purchaseDate,
+            quantity,
+            ...(displayCurrency ? { displayCurrency } : {}),
+        },
+    });
+    return data;
 };
