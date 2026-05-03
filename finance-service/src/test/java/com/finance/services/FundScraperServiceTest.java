@@ -8,6 +8,9 @@ import com.finance.repositories.MarketDataRepository;
 import com.finance.shared.Currency;
 import com.finance.shared.FundHistoryResponse;
 import com.finance.shared.InstrumentType;
+import io.micrometer.tracing.CurrentTraceContext;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -53,6 +56,18 @@ class FundScraperServiceTest {
     @Mock
     private RestClient.ResponseSpec responseSpec;
 
+    @Mock
+    private Tracer tracer;
+
+    @Mock
+    private CurrentTraceContext currentTraceContext;
+
+    @Mock
+    private Span span;
+
+    @Mock
+    private Tracer.SpanInScope spanInScope;
+
     private FundScraperService fundScraperService;
 
     @BeforeEach
@@ -66,9 +81,19 @@ class FundScraperServiceTest {
                 restClient,
                 propertiesConfig,
                 marketDataRepository,
-                instrumentRepository
+                instrumentRepository,
+                tracer
         );
         ReflectionTestUtils.setField(fundScraperService, "API_URL", "http://example.test/history");
+
+        when(tracer.nextSpan()).thenReturn(span);
+        when(tracer.nextSpan(any(Span.class))).thenReturn(span);
+        when(tracer.withSpan(any(Span.class))).thenReturn(spanInScope);
+        when(span.name(anyString())).thenReturn(span);
+        when(span.tag(anyString(), anyString())).thenReturn(span);
+        when(span.start()).thenReturn(span);
+        when(tracer.currentTraceContext()).thenReturn(currentTraceContext);
+        when(currentTraceContext.wrap(any(Runnable.class))).thenAnswer(invocation -> invocation.getArgument(0));
     }
 
     @Test
@@ -90,6 +115,7 @@ class FundScraperServiceTest {
         verify(instrumentRepository).findInstrumentBySymbol("TCD");
         verify(instrumentRepository).findInstrumentBySymbol("F_TEST");
         verify(instrumentRepository).findInstrumentBySymbol("F_SISE");
+        verify(currentTraceContext, atLeastOnce()).wrap(any(Runnable.class));
         verify(restClient, never()).get();
         verify(marketDataPersistenceService, never()).saveHistoricalDataBatch(anyString(), anyList(), anyList());
     }

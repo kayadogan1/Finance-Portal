@@ -20,9 +20,7 @@ WORKDIR /app
 COPY keycloak/conf/keycloak.crt /tmp/keycloak.crt
 RUN keytool -importcert -file /tmp/keycloak.crt -alias keycloak-final -cacerts -storepass changeit -noprompt
 
-COPY --from=builder /build/news-service/target/*.jar app.jar
-
-RUN chown appuser app.jar
+COPY --from=builder --chown=appuser /build/news-service/target/*.jar app.jar
 
 USER appuser
 

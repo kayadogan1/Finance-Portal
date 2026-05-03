@@ -22,9 +22,7 @@ RUN adduser -S appuser
 
 WORKDIR /app
 
-COPY --from=builder /build/api-gateway/target/*.jar app.jar
-
-RUN chown appuser app.jar
+COPY --from=builder --chown=appuser /build/api-gateway/target/*.jar app.jar
 
 USER appuser
 
