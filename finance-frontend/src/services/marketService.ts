@@ -173,6 +173,7 @@ const US_EXCHANGES = new Set(['NASDAQ', 'NYSE', 'AMEX', 'ARCA', 'CBOE']);
 const TR_EXCHANGES = new Set(['BIST', 'BORSA_ISTANBUL', 'ISTANBUL', 'VIOP', 'TEFAS']);
 
 const TR_SYMBOL_HINTS = new Set([
+    'BIST100', 'BIST30', 'BIST50', 'BISTBANK', 'BISTSINAI',
     'XU030', 'XU050', 'XU100', 'XUSIN', 'XBANK', 'XGMYO',
     'AKBNK', 'ARCLK', 'ASELS', 'BIMAS', 'DOAS', 'EKGYO', 'ENKAI', 'EREGL',
     'FROTO', 'GARAN', 'GUBRF', 'HALKB', 'ISCTR', 'KCHOL', 'KOZAL', 'KRDMD',
@@ -184,6 +185,7 @@ const TR_NAME_HINTS = [
     'TURK', 'TURKIYE', 'TÜRK', 'TÜRKİYE', 'ANADOLU', 'YATIRIM', 'MENKUL',
     'SANAY', 'TICARET', 'TİCARET', 'GAYRIMENKUL', 'GAYRİMENKUL', 'BANKASI',
     'HOLDING A', 'HOLDİNG A', 'ORTAKLIGI', 'ORTAKLIĞI', 'A.O', 'A.S', 'A.Ş',
+    'BIST 100', 'BIST100', 'BORSA ISTANBUL', 'BORSA İSTANBUL',
 ];
 
 const normalizeString = (value?: string | null) => (value ?? '').trim().toUpperCase();
@@ -238,8 +240,15 @@ const inferExchange = (inst: InstrumentDto): string => {
     const rawSymbol = normalizeString(inst.symbol);
     const symbol = rawSymbol.replace(/\.IS$/, '');
     const type = normalizeInstrumentType(inst.instrumentType ?? inst.type);
+    const name = normalizeString(cleanInstrumentDisplayName(inst.name, inst.symbol));
 
-    if (rawSymbol.endsWith('.IS') || symbol.startsWith('XU') || TR_SYMBOL_HINTS.has(symbol) || looksLikeTurkishName(inst.name)) {
+    if (
+        rawSymbol.endsWith('.IS')
+        || symbol.startsWith('XU')
+        || TR_SYMBOL_HINTS.has(symbol)
+        || name.includes('BIST')
+        || looksLikeTurkishName(inst.name)
+    ) {
         return type === 'FUND' ? 'TEFAS' : type === 'VIOP' ? 'VIOP' : 'BIST';
     }
     if (type === 'CRYPTO') return 'CRYPTO';
@@ -258,6 +267,7 @@ export const inferBaseCurrency = (inst: Partial<InstrumentDto>): string => {
     const exchange = normalizeString(inst.exchange);
     const country = normalizeString(inst.country);
     const market = normalizeString(inst.market);
+    const name = normalizeString(cleanInstrumentDisplayName(inst.name, inst.symbol));
 
     if (type === 'CRYPTO') return 'USDT';
     if (type === 'FOREX' || type === 'FIAT') {
@@ -271,6 +281,7 @@ export const inferBaseCurrency = (inst: Partial<InstrumentDto>): string => {
         rawSymbol.endsWith('.IS') ||
         symbol.startsWith('XU') ||
         TR_SYMBOL_HINTS.has(symbol) ||
+        name.includes('BIST') ||
         looksLikeTurkishName(inst.name)
     ) {
         return 'TRY';

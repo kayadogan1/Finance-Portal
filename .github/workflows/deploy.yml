@@ -31,7 +31,9 @@ jobs:
             gateway:
               - 'api-gateway/**'
               - 'pom.xml'
-
+            classification:
+              - 'classification-api/**'
+              - 'pom.xml'
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
@@ -80,6 +82,13 @@ jobs:
           IMAGE=ghcr.io/${{ github.repository_owner }}/api-gateway
           docker buildx build --platform linux/arm64 -t $IMAGE:${{ github.sha }} -t $IMAGE:latest -f api-gateway/Dockerfile --push .
 
+      - name: Build & Push Ai News Analysis Service
+        if: steps.changes.outputs.classification == 'true'
+        run: |
+          IMAGE=ghcr.io/${{ github.repository_owner }}/classification-api
+          docker buildx build --platform linux/arm64 -t $IMAGE:${{ github.sha }} -t $IMAGE:latest -f classification-api/Dockerfile --push .
+      
+
       - name: Copy SSL Files to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
@@ -100,7 +109,6 @@ jobs:
             cd ~/myapp
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             
-            # İmajları çek ve sistemi başlat
             docker compose pull
             docker compose up -d --remove-orphans
             docker image prune -af

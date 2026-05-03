@@ -122,6 +122,12 @@ const PortfolioPage = () => {
 
     const hasPortfolio = portfolios && portfolios.length > 0;
     const active: PortfolioDto | null = hasPortfolio ? portfolios[selectedIndex] ?? portfolios[0] : null;
+    const totalPortfolioValue = Number(active?.totalPortfolioValue ?? 0);
+    const holdingsValue = Number(active?.holdingsValue ?? 0);
+    const totalCost = Number(active?.totalCost ?? 0);
+    const totalProfitLoss = Number(active?.profitLoss ?? holdingsValue - totalCost);
+    const totalProfitLossPercent = active?.profitLossPercent ?? (totalCost > 0 ? (totalProfitLoss / totalCost) * 100 : null);
+    const isPortfolioPositive = totalProfitLoss >= 0;
 
     const { data: pieData, isLoading: pieLoading, isError: pieError } = useQuery({
         queryKey: ['portfolio-pie', active?.id, allocationMode, displayCurrency],
@@ -209,7 +215,7 @@ const PortfolioPage = () => {
                     )}
 
                     {/* Balance — left border accent, no colored bg */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                         <div className="py-4 px-5 border-l-2 border-primary">
                             <span className="text-label">NAKİT BAKİYE</span>
                             <div className="flex items-baseline gap-2 mt-1.5">
@@ -219,8 +225,40 @@ const PortfolioPage = () => {
                                 <span className="text-label">{active?.displayCurrency ?? displayCurrency}</span>
                             </div>
                         </div>
+                        <div className="card-base">
+                            <span className="text-label">TOPLAM PORTFÖY DEĞERİ</span>
+                            <div className="flex items-baseline gap-2 mt-1.5">
+                                <span className="text-price">{formatMarketPrice(totalPortfolioValue, displayCurrency)}</span>
+                            </div>
+                            <p className="text-[11px] text-subtle mt-2">
+                                Varlıklar {formatMarketPrice(holdingsValue, displayCurrency)} + nakit
+                            </p>
+                        </div>
+                        <div className="card-base">
+                            <span className="text-label">TOPLAM KÂR / ZARAR</span>
+                            <div className="mt-1.5">
+                                <span className={`inline-flex items-center gap-1.5 text-[20px] font-semibold tabular-nums ${isPortfolioPositive ? 'text-positive' : 'text-negative'}`}>
+                                    {isPortfolioPositive ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                                    {isPortfolioPositive ? '+' : '-'}{formatMarketPrice(Math.abs(totalProfitLoss), displayCurrency)}
+                                </span>
+                            </div>
+                            <p className="text-[11px] mt-2 text-subtle">
+                                {totalProfitLossPercent == null
+                                    ? 'Maliyet verisi oluşmadı'
+                                    : `${isPortfolioPositive ? '+' : ''}${totalProfitLossPercent.toFixed(2)}% toplam getiri`}
+                            </p>
+                        </div>
+                        <div className="card-base">
+                            <span className="text-label">TOPLAM MALİYET</span>
+                            <div className="flex items-baseline gap-2 mt-1.5">
+                                <span className="text-price">{formatMarketPrice(totalCost, displayCurrency)}</span>
+                            </div>
+                            <p className="text-[11px] text-subtle mt-2">
+                                Kullanıcıyı oran hesabına boğmadan referans maliyet
+                            </p>
+                        </div>
                         {!isAdmin && (
-                            <div className="card-base">
+                            <div className="card-base md:col-span-2 xl:col-span-4">
                                 <span className="text-label">Hızlı İşlemler</span>
                                 <div className="flex gap-2 mt-3">
                                     <button onClick={() => setDepositModalOpen(true)} className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded text-[12px] font-medium bg-transparent border border-border text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">

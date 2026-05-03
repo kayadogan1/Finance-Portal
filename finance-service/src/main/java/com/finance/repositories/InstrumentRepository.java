@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 @Repository
@@ -63,5 +64,5 @@ ORDER BY ((i.currentPrice - i.previousPrice) / i.previousPrice) ASC
             @Param("currency") Currency currency,
             Pageable pageable
     );
-
+    List<Instrument> findByIsActiveFalse();
 }

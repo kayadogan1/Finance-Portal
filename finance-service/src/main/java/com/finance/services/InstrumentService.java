@@ -13,6 +13,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -26,7 +27,6 @@ public class InstrumentService {
         this.instrumentRepository = instrumentRepository;
         this.redisCacheService = redisCacheService;
     }
-
     public Page<InstrumentDto> getAllInstruments(
             String q, InstrumentType type, String market, Currency currency,
             int page, int size) {
@@ -101,6 +101,22 @@ public class InstrumentService {
         }
 
         return dbInstrument.orElseThrow(() -> new InstrumentNotFoundException("Instrument not found in DB"));
+    }
+
+    public List<InstrumentDto> getInactiveInstruments() {
+        return instrumentRepository.findByIsActiveFalse()
+                .stream()
+                .map(this::toInstrumentDto)
+                .toList();
+    }
+
+    public InstrumentDto updateInstrumentActiveStatus(String symbol, boolean active) {
+        Instrument instrument = instrumentRepository.findInstrumentBySymbol(symbol)
+                .orElseThrow(() -> new InstrumentNotFoundException("Instrument not found: " + symbol));
+
+        instrument.setActive(active);
+        Instrument savedInstrument = instrumentRepository.save(instrument);
+        return toInstrumentDto(savedInstrument);
     }
 
     public InstrumentDto toInstrumentDto(Instrument instrument) {

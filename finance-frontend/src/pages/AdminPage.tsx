@@ -3,7 +3,6 @@ import type { AxiosError } from 'axios';
 import toast from 'react-hot-toast';
 import {
     Activity,
-    BarChart3,
     FolderOpen,
     Layers3,
     Plus,
@@ -34,6 +33,19 @@ interface InstrumentPreview {
 }
 
 type CategoryMode = 'writable' | 'readonly-topics';
+type ProviderHealthState = 'ready' | 'warning' | 'error';
+
+interface ProviderStatus {
+    key: string;
+    label: string;
+    state: ProviderHealthState;
+    detail: string;
+}
+
+interface ProviderStatusResponse {
+    service: string;
+    providers: ProviderStatus[];
+}
 
 const TOPIC_LABELS: Record<string, string> = {
     STOCK: 'Hisse',
@@ -72,9 +84,16 @@ const AdminPage = () => {
     const [isRefreshingNews, setIsRefreshingNews] = useState(false);
     const [instruments, setInstruments] = useState<InstrumentPreview[]>([]);
     const [instrumentsLoading, setInstrumentsLoading] = useState(true);
+    const [totalMembers, setTotalMembers] = useState<number | null>(null);
+    const [totalMembersLoading, setTotalMembersLoading] = useState(true);
+    const [instrumentAdminAvailable, setInstrumentAdminAvailable] = useState(false);
+    const [newsRefreshAvailable, setNewsRefreshAvailable] = useState(true);
+    const [lastNewsRefreshAt, setLastNewsRefreshAt] = useState<string | null>(null);
+    const [providerStatuses, setProviderStatuses] = useState<ProviderStatus[]>([]);
+    const [providerStatusesLoading, setProviderStatusesLoading] = useState(true);
 
     useEffect(() => {
-        void Promise.all([fetchCategories(), fetchInstrumentPreview()]);
+        void Promise.all([fetchCategories(), fetchInactiveInstruments(), fetchTotalMembers(), fetchProviderStatuses()]);
     }, []);
 
     const categorySummary = useMemo(() => {
@@ -115,17 +134,42 @@ const AdminPage = () => {
         }
     };
 
-    const fetchInstrumentPreview = async () => {
+    const fetchTotalMembers = async () => {
+        setTotalMembersLoading(true);
+        try {
+            const { data } = await privateApi.get<{ data?: number }>('/api/admin/totalMember');
+            setTotalMembers(typeof data?.data === 'number' ? data.data : null);
+        } catch {
+            setTotalMembers(null);
+            toast.error('Toplam kullanici sayisi yuklenemedi.');
+        } finally {
+            setTotalMembersLoading(false);
+        }
+    };
+
+    const fetchInactiveInstruments = async () => {
         setInstrumentsLoading(true);
         try {
-            const { data } = await publicApi.get<{ content?: InstrumentPreview[] }>('/api/market', {
-                params: { page: 0, size: 8 },
-            });
-            setInstruments(Array.isArray(data?.content) ? data.content : []);
+            const { data } = await privateApi.get<{ data?: InstrumentPreview[] } | InstrumentPreview[]>('/api/admin/nonactiveInstruments');
+            const payload = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+            setInstruments(payload);
+            setInstrumentAdminAvailable(true);
         } catch {
-            toast.error('Enstruman onizleme listesi yuklenemedi.');
+            setInstrumentAdminAvailable(false);
+            setInstruments([]);
+            toast.error('Inactive enstruman listesi yuklenemedi.');
         } finally {
             setInstrumentsLoading(false);
+        }
+    };
+
+    const handleInstrumentActivation = async (symbol: string, nextActive: boolean) => {
+        try {
+            await privateApi.patch(`/api/admin/instruments/${symbol}/active`, { active: nextActive });
+            toast.success(nextActive ? 'Enstruman tekrar aktif edildi.' : 'Enstruman pasife alindi.');
+            setInstruments((prev) => prev.filter((instrument) => instrument.symbol !== symbol));
+        } catch {
+            toast.error('Enstruman durumu guncellenemedi.');
         }
     };
 
@@ -164,11 +208,51 @@ const AdminPage = () => {
         try {
             setIsRefreshingNews(true);
             await privateApi.post('/api/news/refresh');
+            setNewsRefreshAvailable(true);
+            setLastNewsRefreshAt(new Date().toLocaleString('tr-TR'));
+            await fetchProviderStatuses();
             toast.success('Haber guncelleme tetiklendi.');
         } catch {
+            setNewsRefreshAvailable(false);
             toast.error('Haber guncelleme baslatilamadi.');
         } finally {
             setIsRefreshingNews(false);
+        }
+    };
+
+    const fetchProviderStatuses = async () => {
+        setProviderStatusesLoading(true);
+        try {
+            const [{ data: financeStatus }, { data: newsStatus }] = await Promise.all([
+                privateApi.get<ProviderStatusResponse>('/api/admin/providers/status'),
+                privateApi.get<ProviderStatusResponse>('/api/news/admin/providers/status'),
+            ]);
+
+            const merged = [
+                ...(financeStatus.providers ?? []),
+                ...(newsStatus.providers ?? []),
+                {
+                    key: 'news-refresh',
+                    label: 'Manuel Haber Refresh',
+                    state: newsRefreshAvailable ? 'ready' : 'error',
+                    detail: newsRefreshAvailable
+                        ? `Admin panelinden manuel tetikleme hazir${lastNewsRefreshAt ? ` • Son tetikleme: ${lastNewsRefreshAt}` : ''}`
+                        : 'Refresh endpointi veya haber akisi kontrol edilmeli.',
+                } satisfies ProviderStatus,
+            ];
+
+            setProviderStatuses(merged);
+        } catch {
+            setProviderStatuses([
+                {
+                    key: 'provider-status-fallback',
+                    label: 'Provider Status',
+                    state: 'error',
+                    detail: 'Provider status endpointleri okunamadi.',
+                },
+            ]);
+        } finally {
+            setProviderStatusesLoading(false);
         }
     };
 
@@ -182,24 +266,32 @@ const AdminPage = () => {
         },
         {
             title: 'Toplam Kullanici',
-            value: 'Backend gerekli',
-            note: 'GET /api/admin/users/count gibi bir endpoint gerekli.',
+            value: totalMembersLoading ? 'Yukleniyor...' : totalMembers?.toLocaleString('tr-TR') ?? 'Bilinmiyor',
+            note: totalMembersLoading
+                ? 'Kullanici sayisi getiriliyor.'
+                : totalMembers == null
+                    ? 'Toplam kullanici endpointi cevap vermedi.'
+                    : 'Admin controller uzerinden canli kullanici sayisi.',
             icon: Users,
-            accent: 'text-muted-foreground',
+            accent: totalMembers == null ? 'text-muted-foreground' : 'text-foreground',
         },
         {
-            title: 'En Cok Islem Gorenler',
-            value: 'Backend gerekli',
-            note: 'Global transaction aggregate endpointi su an yok.',
-            icon: BarChart3,
-            accent: 'text-muted-foreground',
+            title: 'Provider Status',
+            value: providerStatusesLoading
+                ? 'Yukleniyor...'
+                : `${providerStatuses.filter((status) => status.state === 'ready').length}/${providerStatuses.length}`,
+            note: 'Bagli admin akislari icin temel saglik gorunumu.',
+            icon: Radio,
+            accent: 'text-primary',
         },
         {
             title: 'Instrument Aktivasyon',
-            value: 'Kismi hazir',
-            note: 'Liste alinabiliyor, toggle icin admin patch endpointi gerekli.',
+            value: instrumentAdminAvailable ? `${instruments.length} inactive` : 'Kontrol gerekli',
+            note: instrumentAdminAvailable
+                ? 'Inactive instrument listesi admin panelinde yonetiliyor.'
+                : 'Instrument admin endpointi kontrol edilmeli.',
             icon: ShieldCheck,
-            accent: 'text-emerald-400',
+            accent: instrumentAdminAvailable ? 'text-emerald-400' : 'text-muted-foreground',
         },
     ];
 
@@ -371,12 +463,26 @@ const AdminPage = () => {
                             </div>
 
                             <div className="rounded-md border border-border bg-background/60 p-3">
-                                <p className="text-[13px] font-medium text-foreground">Gerekli backend ekleri</p>
-                                <ul className="mt-2 space-y-2 text-[12px] text-meta leading-relaxed">
-                                    <li><code>PUT /api/admin/news-categories/{"{id}"}</code>: kategori adini / slug alanini guncellemek icin</li>
-                                    <li><code>POST /api/admin/news/providers/refresh?provider=...</code>: provider bazli kismi yenileme icin</li>
-                                    <li><code>GET /api/admin/news/providers/status</code>: son cekim zamani ve durum bilgisi icin</li>
-                                </ul>
+                                <p className="text-[13px] font-medium text-foreground">Provider Status</p>
+                                <div className="mt-3 space-y-2">
+                                    {providerStatuses.map((status) => (
+                                        <div key={status.key} className="flex items-start justify-between gap-3 rounded-md border border-border/60 bg-white/[0.02] px-3 py-2">
+                                            <div>
+                                                <p className="text-[12px] font-medium text-foreground">{status.label}</p>
+                                                <p className="text-[11px] text-meta mt-1">{status.detail}</p>
+                                            </div>
+                                            <span className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
+                                                status.state === 'ready'
+                                                    ? 'bg-emerald-500/10 text-emerald-400'
+                                                    : status.state === 'warning'
+                                                        ? 'bg-amber-500/10 text-amber-400'
+                                                        : 'bg-red-500/10 text-red-400'
+                                            }`}>
+                                                {status.state === 'ready' ? 'Hazir' : status.state === 'warning' ? 'Uyari' : 'Hata'}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -413,8 +519,14 @@ const AdminPage = () => {
                                                 {formatCurrency(instrument.currentPrice, instrument.baseCurrency)}
                                             </p>
                                             <p className="text-meta mt-1 text-[12px]">
-                                                {instrument.market ?? '-'} • sadece goruntu
+                                                {instrument.market ?? '-'} • {instrument.isActive ? 'aktif' : 'inactive'}
                                             </p>
+                                            <button
+                                                onClick={() => handleInstrumentActivation(instrument.symbol, true)}
+                                                className="mt-2 px-2.5 h-7 rounded text-[11px] font-medium bg-primary/10 text-primary hover:bg-primary/15 transition-colors"
+                                            >
+                                                Aktif Et
+                                            </button>
                                         </div>
                                     </div>
                                 ))}
@@ -428,9 +540,9 @@ const AdminPage = () => {
                         )}
 
                         <div className="mt-4 rounded-md border border-dashed border-border px-3 py-3 text-[12px] text-meta leading-relaxed">
-                            Aktif / pasif toggle icin backend tarafinda en az su endpointler gerekli:
+                            Aktif / pasif toggle akisi su endpoint varsayimiyla baglandi:
                             <div className="mt-2 space-y-1 font-mono text-[11px]">
-                                <div>GET /api/admin/instruments?includeInactive=true</div>
+                                <div>GET /api/admin/nonactiveInstruments</div>
                                 <div>PATCH /api/admin/instruments/{'{symbol}'}/active</div>
                             </div>
                         </div>

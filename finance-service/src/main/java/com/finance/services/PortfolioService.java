@@ -88,27 +88,13 @@ public class PortfolioService {
     private PortfolioCurrentProfitDto toPortfolioCurrentProfitDto(PortfolioItem portfolioItem, Currency displayCurrency, BigDecimal usdTryRate) {
         Instrument instrument = portfolioItem.getInstrument();
         Currency instrumentCurrency = normalizeCurrency(instrument.getBaseCurrency());
-        BigDecimal quantity = Optional.ofNullable(portfolioItem.getQuantity()).orElse(BigDecimal.ZERO);
-        BigDecimal currentPriceRaw = Optional.ofNullable(instrument.getCurrentPrice()).orElse(BigDecimal.ZERO);
-        BigDecimal averageCostRaw = Optional.ofNullable(portfolioItem.getAverageCost()).orElse(BigDecimal.ZERO);
-        BigDecimal costValue = convertValue(
-                averageCostRaw.multiply(quantity),
-                instrumentCurrency,
-                displayCurrency,
-                usdTryRate
-        );
-        BigDecimal currentValue = convertValue(
-                currentPriceRaw.multiply(quantity),
-                instrumentCurrency,
-                displayCurrency,
-                usdTryRate
-        );
+        BigDecimal quantity = valueOrZero(portfolioItem.getQuantity());
+        BigDecimal currentPriceRaw = valueOrZero(instrument.getCurrentPrice());
+        BigDecimal averageCostRaw = valueOrZero(portfolioItem.getAverageCost());
+        BigDecimal costValue = convertInstrumentValue(averageCostRaw.multiply(quantity), instrumentCurrency, displayCurrency, usdTryRate);
+        BigDecimal currentValue = convertInstrumentValue(currentPriceRaw.multiply(quantity), instrumentCurrency, displayCurrency, usdTryRate);
         BigDecimal profitLoss = currentValue.subtract(costValue);
-        BigDecimal profitLossPercent = costValue.compareTo(BigDecimal.ZERO) == 0
-                ? null
-                : profitLoss
-                .multiply(BigDecimal.valueOf(100))
-                .divide(costValue, 2, RoundingMode.HALF_UP);
+        BigDecimal profitLossPercent = calculatePercentage(profitLoss, costValue);
 
         return new PortfolioCurrentProfitDto(
                 instrument.getName(),
@@ -117,8 +103,8 @@ public class PortfolioService {
                 instrumentCurrency,
                 displayCurrency,
                 quantity,
-                convertValue(averageCostRaw, instrumentCurrency, displayCurrency, usdTryRate),
-                convertValue(currentPriceRaw, instrumentCurrency, displayCurrency, usdTryRate),
+                convertInstrumentValue(averageCostRaw, instrumentCurrency, displayCurrency, usdTryRate),
+                convertInstrumentValue(currentPriceRaw, instrumentCurrency, displayCurrency, usdTryRate),
                 costValue,
                 currentValue,
                 profitLoss,
@@ -147,19 +133,9 @@ public class PortfolioService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         BigDecimal profitLoss = holdingsValue.subtract(totalCost);
+        BigDecimal profitLossPercent = calculatePercentage(profitLoss, totalCost);
 
-        BigDecimal profitLossPercent = totalCost.compareTo(BigDecimal.ZERO) == 0
-                ? null
-                : profitLoss
-                .multiply(BigDecimal.valueOf(100))
-                .divide(totalCost, 2, RoundingMode.HALF_UP);
-
-        BigDecimal cash = convertValue(
-                Optional.ofNullable(portfolio.getCashBalance()).orElse(BigDecimal.ZERO),
-                Currency.TRY,
-                targetCurrency,
-                usdTryRate
-        );
+        BigDecimal cash = convertInstrumentValue(valueOrZero(portfolio.getCashBalance()), Currency.TRY, targetCurrency, usdTryRate);
         BigDecimal totalPortfolioValue = cash.add(holdingsValue);
 
         return PortfolioReadDto.builder()
@@ -190,19 +166,14 @@ public class PortfolioService {
         Instrument instrument = item.getInstrument();
         Currency instrumentCurrency = normalizeCurrency(instrument.getBaseCurrency());
 
-        BigDecimal quantity = Optional.ofNullable(item.getQuantity()).orElse(BigDecimal.ZERO);
-        BigDecimal avgCost = Optional.ofNullable(item.getAverageCost()).orElse(BigDecimal.ZERO);
-        BigDecimal currentPrice = Optional.ofNullable(instrument.getCurrentPrice()).orElse(BigDecimal.ZERO);
+        BigDecimal quantity = valueOrZero(item.getQuantity());
+        BigDecimal avgCost = valueOrZero(item.getAverageCost());
+        BigDecimal currentPrice = valueOrZero(instrument.getCurrentPrice());
 
-        BigDecimal currentValue = convertValue(currentPrice.multiply(quantity), instrumentCurrency, displayCurrency, usdTryRate);
-        BigDecimal costValue = convertValue(avgCost.multiply(quantity), instrumentCurrency, displayCurrency, usdTryRate);
+        BigDecimal currentValue = convertInstrumentValue(currentPrice.multiply(quantity), instrumentCurrency, displayCurrency, usdTryRate);
+        BigDecimal costValue = convertInstrumentValue(avgCost.multiply(quantity), instrumentCurrency, displayCurrency, usdTryRate);
         BigDecimal profitLoss = currentValue.subtract(costValue);
-
-        BigDecimal profitLossPercent = costValue.compareTo(BigDecimal.ZERO) == 0
-                ? null
-                : profitLoss
-                .multiply(BigDecimal.valueOf(100))
-                .divide(costValue, 2, RoundingMode.HALF_UP);
+        BigDecimal profitLossPercent = calculatePercentage(profitLoss, costValue);
 
         InstrumentDto instrumentDto = instrumentService.toInstrumentDto(instrument);
         return new PortfolioItemDto(
@@ -280,9 +251,8 @@ public class PortfolioService {
             Instrument instrument = item.getInstrument();
             Currency instrumentCurrency = normalizeCurrency(instrument.getBaseCurrency());
             Currency marketCurrency = resolveMarketCurrency(instrumentCurrency);
-            BigDecimal originalValue = Optional.ofNullable(instrument.getCurrentPrice()).orElse(BigDecimal.ZERO)
-                    .multiply(Optional.ofNullable(item.getQuantity()).orElse(BigDecimal.ZERO));
-            BigDecimal displayValue = convertValue(originalValue, instrumentCurrency, targetCurrency, usdTryRate);
+            BigDecimal originalValue = calculateRawItemValue(item);
+            BigDecimal displayValue = convertInstrumentValue(originalValue, instrumentCurrency, targetCurrency, usdTryRate);
             if (displayValue.compareTo(BigDecimal.ZERO) <= 0) continue;
 
             String marketCode = marketCurrency == Currency.TRY ? "TR" : marketCurrency == Currency.USD ? "US" : "GLOBAL";
@@ -329,9 +299,8 @@ public class PortfolioService {
     private PieChartDto toInstrumentPieSlice(PortfolioItem item, Currency displayCurrency, BigDecimal usdTryRate) {
         Instrument instrument = item.getInstrument();
         Currency instrumentCurrency = normalizeCurrency(instrument.getBaseCurrency());
-        BigDecimal originalValue = Optional.ofNullable(instrument.getCurrentPrice()).orElse(BigDecimal.ZERO)
-                .multiply(Optional.ofNullable(item.getQuantity()).orElse(BigDecimal.ZERO));
-        BigDecimal displayValue = convertValue(originalValue, instrumentCurrency, displayCurrency, usdTryRate);
+        BigDecimal originalValue = calculateRawItemValue(item);
+        BigDecimal displayValue = convertInstrumentValue(originalValue, instrumentCurrency, displayCurrency, usdTryRate);
 
         return new PieChartDto(
                 instrument.getName(),
@@ -410,6 +379,28 @@ public class PortfolioService {
                     : BigDecimal.ONE.divide(usdTryRate, 8, RoundingMode.HALF_UP);
         }
         return BigDecimal.ONE;
+    }
+
+    private BigDecimal convertInstrumentValue(BigDecimal value, Currency sourceCurrency, Currency displayCurrency, BigDecimal usdTryRate) {
+        return convertValue(value, sourceCurrency, displayCurrency, usdTryRate);
+    }
+
+    private BigDecimal calculateRawItemValue(PortfolioItem item) {
+        return valueOrZero(item.getInstrument().getCurrentPrice())
+                .multiply(valueOrZero(item.getQuantity()));
+    }
+
+    private BigDecimal calculatePercentage(BigDecimal numerator, BigDecimal denominator) {
+        if (denominator == null || denominator.compareTo(BigDecimal.ZERO) == 0) {
+            return null;
+        }
+        return numerator
+                .multiply(BigDecimal.valueOf(100))
+                .divide(denominator, 2, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal valueOrZero(BigDecimal value) {
+        return Optional.ofNullable(value).orElse(BigDecimal.ZERO);
     }
 
     private String marketLabel(String marketCode) {
@@ -549,8 +540,7 @@ public class PortfolioService {
         BigDecimal commission = totalProceeds.multiply(COMMISSION_RATE)
                 .setScale(2, RoundingMode.HALF_UP);
         BigDecimal totalAmount = totalProceeds.subtract(commission);
-        Portfolio portfolio = portfolioRepository.findByIdAndUserId(portfolioId,userId)
-                .orElseThrow(() -> new RuntimeException("Portfolio not found for user: " + userId));
+        Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
 
         PortfolioItem portfolioItem = portfolio.getItems().stream()
                 .filter(item -> item.getInstrument().getSymbol().equals(instrumentSymbol))
@@ -599,8 +589,7 @@ public class PortfolioService {
         BigDecimal commission = totalCost.multiply(COMMISSION_RATE)
                 .setScale(2, RoundingMode.HALF_UP);
         BigDecimal totalAmount = totalCost.add(commission);
-        Portfolio portfolio = portfolioRepository.findByIdAndUserId(portfolioId,userId)
-                .orElseThrow(() -> new RuntimeException("Portfolio not found for user: " + userId));
+        Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
 
         if (portfolio.getCashBalance().compareTo(totalAmount) < 0) {
             logger.warn("Insufficient balance for user {}. Required: {}, Available: {}",
