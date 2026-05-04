@@ -43,7 +43,7 @@ const TradeWidget = ({ symbol, instrumentName, currentPrice, baseCurrency }: Tra
     const [errorMsg, setErrorMsg] = useState('');
 
     const { data: rawPortfolios = [], isLoading: pLoading } = useQuery<PortfolioDto[]>({
-        queryKey: ['portfolios'], queryFn: getPortfolios, staleTime: 1000 * 60 * 2,
+        queryKey: ['portfolios'], queryFn: () => getPortfolios('TRY'), staleTime: 1000 * 60 * 2,
     });
     const portfolios = useMemo(() => Array.isArray(rawPortfolios) ? rawPortfolios : [], [rawPortfolios]);
 
@@ -72,8 +72,14 @@ const TradeWidget = ({ symbol, instrumentName, currentPrice, baseCurrency }: Tra
         setQuantity(formatQty(isBuy ? (cash * pct) / currentPrice : holdQty * pct));
     }, [isBuy, cash, holdQty, currentPrice]);
 
-    const onSuccess = () => {
-        qc.invalidateQueries({ queryKey: ['portfolios'] });
+    const onSuccess = async () => {
+        await Promise.all([
+            qc.invalidateQueries({ queryKey: ['portfolios'], refetchType: 'active' }),
+            qc.invalidateQueries({ queryKey: ['portfolio'], refetchType: 'active' }),
+            qc.invalidateQueries({ queryKey: ['portfolio-history'], refetchType: 'active' }),
+            qc.invalidateQueries({ queryKey: ['portfolio-pie'], refetchType: 'active' }),
+            qc.invalidateQueries({ queryKey: ['portfolio-transactions'], refetchType: 'active' }),
+        ]);
         setQuantity(''); setErrorMsg(''); setShowSuccess(true);
         setTimeout(() => setShowSuccess(false), 3000);
     };

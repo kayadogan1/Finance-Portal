@@ -6,6 +6,7 @@ import PortfolioPage from './pages/PortfolioPage';
 import ProfilePage from './pages/ProfilePage';
 import MarketPage from './pages/MarketPage';
 import NewsPage from './pages/NewsPage';
+import NewsArticleDetailPage from './pages/NewsArticleDetailPage';
 import AdminPage from './pages/AdminPage';
 import BitcoinPage from './pages/BitcoinPage';
 import ForexPage from './pages/ForexPage';
@@ -26,6 +27,7 @@ function App() {
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/market" element={<MarketPage />} />
                 <Route path="/news" element={<NewsPage />} />
+                <Route path="/news/article" element={<NewsArticleDetailPage />} />
                 <Route path="/bitcoin" element={<BitcoinPage />} />
                 <Route path="/forex" element={<ForexPage />} />
                 <Route path="/bonds" element={<BondsPage />} />

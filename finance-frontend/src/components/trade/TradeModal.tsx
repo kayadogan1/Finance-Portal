@@ -30,9 +30,17 @@ export function TradeModal({ isOpen, onClose, symbol, side, portfolioId }: Trade
             const endpoint = side === "BUY" ? "/api/portfolio/buy" : "/api/portfolio/sell";
             return (await privateApi.post(endpoint, { instrumentSymbol: symbol, quantity: data.quantity, portfolioId: resolvedPortfolioId })).data;
         },
-        onSuccess: () => {
-            ["portfolio", "portfolio-history", "portfolio-pie", "market"].forEach(k => queryClient.invalidateQueries({ queryKey: [k] }));
-            onClose(); reset();
+        onSuccess: async () => {
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["portfolio"], refetchType: 'active' }),
+                queryClient.invalidateQueries({ queryKey: ["portfolio-history"], refetchType: 'active' }),
+                queryClient.invalidateQueries({ queryKey: ["portfolio-pie"], refetchType: 'active' }),
+                queryClient.invalidateQueries({ queryKey: ["portfolio-transactions"], refetchType: 'active' }),
+                queryClient.invalidateQueries({ queryKey: ["portfolios"], refetchType: 'active' }),
+                queryClient.invalidateQueries({ queryKey: ["market"], refetchType: 'active' }),
+            ]);
+            onClose();
+            reset();
         },
         onError: (error: AxiosError<{ message?: string }>) => { setErrorText(error.response?.data?.message || error.message || "İşlem başarısız oldu."); },
     });

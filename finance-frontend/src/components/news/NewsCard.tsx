@@ -1,6 +1,6 @@
 import { ExternalLink, Clock, Crosshair } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { TOPIC_LABELS, ASSET_TYPE_COLORS, type NewsInstrumentDto } from '../../services/newsService';
+import { Link, useNavigate } from 'react-router-dom';
+import { TOPIC_LABELS, ASSET_TYPE_COLORS, buildNewsDetailPath, resolveNewsImage, type NewsInstrumentDto } from '../../services/newsService';
 import SourceAvatar from './SourceAvatar';
 
 export interface NewsCardProps {
@@ -15,8 +15,6 @@ export interface NewsCardProps {
     instrumentSymbol?: string;
     instruments?: NewsInstrumentDto[];
 }
-
-const fallbackImage = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgNDAwIDIwMCI+PHJlY3Qgd2lkdGg9IjQwMCIgaGVpZ2h0PSIyMDAiIGZpbGw9IiMxNzFEMjciLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgZG9taW5hbnQtYmFzZWxpbmU9Im1pZGRsZSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZm9udC1mYW1pbHk9InNhbnMtc2VyaWYiIGZvbnQtc2l6ZT0iMTQiIGZpbGw9IiMzMjNCNEMiPk5vIEltYWdlPC90ZXh0Pjwvc3ZnPg==';
 
 function timeAgo(dateStr: string): string {
     const now = new Date();
@@ -65,14 +63,16 @@ export default function NewsCard({
 }: NewsCardProps) {
     const navigate = useNavigate();
     const visibleInstruments = (instruments || []).slice(0, 4);
+    const imageUrl = resolveNewsImage(urlToImage, sourceName, category);
+    const detailPath = buildNewsDetailPath(url);
 
     return (
-        <a href={url} target="_blank" rel="noopener noreferrer"
+        <Link to={detailPath} state={{ article: { title, description, url, urlToImage, sourceName, publishedAt, category, instruments } }}
             className="group block card-base !p-0 overflow-hidden">
             {/* Thumbnail */}
-            <div className="relative h-36 overflow-hidden bg-card">
-                <img src={urlToImage || fallbackImage} alt="" className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                    onError={e => { (e.target as HTMLImageElement).src = fallbackImage; }} />
+            <div className="relative h-28 overflow-hidden bg-card">
+                <img src={imageUrl} alt={title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                    onError={e => { (e.target as HTMLImageElement).src = resolveNewsImage(undefined, sourceName, category); }} />
 
                 {/* Source badge — sol üst */}
                 {sourceName && (
@@ -92,9 +92,9 @@ export default function NewsCard({
 
             </div>
 
-            <div className="p-4 space-y-2">
+            <div className="p-4 space-y-2.5">
                 <h3 className="text-[13px] font-medium text-foreground leading-snug line-clamp-2">{title}</h3>
-                {description && <p className="text-meta line-clamp-2 leading-relaxed">{description}</p>}
+                {description && <p className="text-meta text-[12px] line-clamp-2 leading-6">{description}</p>}
 
                 {/* Enstrüman tag'leri */}
                 {visibleInstruments.length > 0 && (
@@ -119,6 +119,6 @@ export default function NewsCard({
                     <ExternalLink size={10} className="text-ghost opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
             </div>
-        </a>
+        </Link>
     );
 }

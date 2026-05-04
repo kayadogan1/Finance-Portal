@@ -259,7 +259,6 @@ const inferExchange = (inst: InstrumentDto): string => {
 
 export const inferBaseCurrency = (inst: Partial<InstrumentDto>): string => {
     const explicit = normalizeString(inst.baseCurrency ?? inst.currency);
-    if (explicit) return explicit;
 
     const rawSymbol = normalizeString(inst.symbol);
     const symbol = rawSymbol.replace(/\.IS$/, '');
@@ -268,13 +267,7 @@ export const inferBaseCurrency = (inst: Partial<InstrumentDto>): string => {
     const country = normalizeString(inst.country);
     const market = normalizeString(inst.market);
     const name = normalizeString(cleanInstrumentDisplayName(inst.name, inst.symbol));
-
-    if (type === 'CRYPTO') return 'USDT';
-    if (type === 'FOREX' || type === 'FIAT') {
-        if (symbol.endsWith('TRY')) return 'TRY';
-        return symbol.slice(-3) || 'USD';
-    }
-    if (
+    const isStrongTRInstrument =
         country === 'TR' ||
         market === 'TR' ||
         TR_EXCHANGES.has(exchange) ||
@@ -282,10 +275,17 @@ export const inferBaseCurrency = (inst: Partial<InstrumentDto>): string => {
         symbol.startsWith('XU') ||
         TR_SYMBOL_HINTS.has(symbol) ||
         name.includes('BIST') ||
-        looksLikeTurkishName(inst.name)
-    ) {
+        looksLikeTurkishName(inst.name);
+
+    if (type === 'CRYPTO') return 'USDT';
+    if (type === 'FOREX' || type === 'FIAT') {
+        if (symbol.endsWith('TRY')) return 'TRY';
+        return symbol.slice(-3) || 'USD';
+    }
+    if (isStrongTRInstrument) {
         return 'TRY';
     }
+    if (explicit) return explicit;
     if (type === 'COMMODITY') return 'USD';
     return 'USD';
 };

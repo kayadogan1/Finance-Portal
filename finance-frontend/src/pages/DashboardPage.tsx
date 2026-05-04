@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import {
     Clock,
     Crosshair,
@@ -9,7 +9,7 @@ import {
     Star,
 } from 'lucide-react';
 import { belongsToMarket, formatChangePercent, getMarketInstruments, hasChange, type MarketInstrument } from '../services/marketService';
-import { getNews, ASSET_TYPE_COLORS, type FilteredArticleDto } from '../services/newsService';
+import { buildNewsDetailPath, getNews, resolveNewsImage, ASSET_TYPE_COLORS, type FilteredArticleDto } from '../services/newsService';
 import { formatMarketPrice } from '../utils/currency';
 import { getSourceColor } from '../components/news/SourceAvatar';
 import { useFavorites } from '../hooks/useFavorites';
@@ -313,11 +313,10 @@ const DashboardPage = () => {
                         : latestNews.map((article, idx) => {
                             const instruments = (article.instruments || []).slice(0, 3);
                             return (
-                            <a
+                            <Link
                                 key={`${article.url}-${idx}`}
-                                href={article.url}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                                to={buildNewsDetailPath(article.url)}
+                                state={{ article }}
                                 className="group"
                                 style={{
                                     display: 'flex', gap: 16, background: 'hsl(var(--card))', borderRadius: 12, padding: 16,
@@ -332,13 +331,11 @@ const DashboardPage = () => {
                                     e.currentTarget.style.transform = 'translateY(0)';
                                 }}
                             >
-                                {article.urlToImage && (
-                                    <img
-                                        src={article.urlToImage} alt=""
-                                        style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, background: 'hsl(var(--background))', flexShrink: 0 }}
-                                        onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                    />
-                                )}
+                                <img
+                                    src={resolveNewsImage(article.urlToImage, article.source?.name, article.category)} alt={article.title}
+                                    style={{ width: 72, height: 72, objectFit: 'cover', borderRadius: 8, background: 'hsl(var(--background))', flexShrink: 0 }}
+                                    onError={e => { (e.target as HTMLImageElement).src = resolveNewsImage(undefined, article.source?.name, article.category); }}
+                                />
                                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                                     <h4 style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--foreground))', lineHeight: 1.4, marginBottom: 6 }} className="line-clamp-2">
                                         {article.title}
@@ -380,7 +377,7 @@ const DashboardPage = () => {
                                         </span>
                                     </div>
                                 </div>
-                            </a>
+                            </Link>
                             );
                         })}
                 </div>

@@ -122,7 +122,6 @@ const AdminPage = () => {
                     }));
                     setCategories(topicCategories);
                     setCategoryMode('readonly-topics');
-                    toast('Kategori CRUD endpointi henuz yok, konu listesi salt okunur gosteriliyor.', { icon: 'i' });
                 } catch {
                     toast.error('Kategori veya konu listesi yuklenemedi.');
                 }
@@ -141,7 +140,6 @@ const AdminPage = () => {
             setTotalMembers(typeof data?.data === 'number' ? data.data : null);
         } catch {
             setTotalMembers(null);
-            toast.error('Toplam kullanici sayisi yuklenemedi.');
         } finally {
             setTotalMembersLoading(false);
         }
@@ -157,7 +155,6 @@ const AdminPage = () => {
         } catch {
             setInstrumentAdminAvailable(false);
             setInstruments([]);
-            toast.error('Inactive enstruman listesi yuklenemedi.');
         } finally {
             setInstrumentsLoading(false);
         }
@@ -223,14 +220,32 @@ const AdminPage = () => {
     const fetchProviderStatuses = async () => {
         setProviderStatusesLoading(true);
         try {
-            const [{ data: financeStatus }, { data: newsStatus }] = await Promise.all([
+            const [financeResult, newsResult] = await Promise.allSettled([
                 privateApi.get<ProviderStatusResponse>('/api/admin/providers/status'),
                 privateApi.get<ProviderStatusResponse>('/api/news/admin/providers/status'),
             ]);
 
+            const financeProviders = financeResult.status === 'fulfilled'
+                ? financeResult.value.data.providers ?? []
+                : [{
+                    key: 'finance-provider-status',
+                    label: 'Finance Service',
+                    state: 'error' as const,
+                    detail: 'Finance provider status endpointi okunamadi.',
+                }];
+
+            const newsProviders = newsResult.status === 'fulfilled'
+                ? newsResult.value.data.providers ?? []
+                : [{
+                    key: 'news-provider-status',
+                    label: 'News Service',
+                    state: 'error' as const,
+                    detail: 'News provider status endpointi okunamadi.',
+                }];
+
             const merged = [
-                ...(financeStatus.providers ?? []),
-                ...(newsStatus.providers ?? []),
+                ...financeProviders,
+                ...newsProviders,
                 {
                     key: 'news-refresh',
                     label: 'Manuel Haber Refresh',
@@ -313,13 +328,15 @@ const AdminPage = () => {
                         <RefreshCw size={15} className={isRefreshingNews ? 'animate-spin' : ''} />
                         Haberleri Yenile
                     </button>
-                    <button
-                        onClick={() => setIsCreating(true)}
-                        className="flex items-center gap-1.5 px-4 h-9 rounded text-[13px] font-medium bg-transparent border border-border text-foreground hover:bg-white/5 transition-colors"
-                    >
-                        <Plus size={15} />
-                        Kategori Ekle
-                    </button>
+                    {categoryMode === 'writable' && (
+                        <button
+                            onClick={() => setIsCreating(true)}
+                            className="flex items-center gap-1.5 px-4 h-9 rounded text-[13px] font-medium bg-transparent border border-border text-foreground hover:bg-white/5 transition-colors"
+                        >
+                            <Plus size={15} />
+                            Kategori Ekle
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -464,25 +481,32 @@ const AdminPage = () => {
 
                             <div className="rounded-md border border-border bg-background/60 p-3">
                                 <p className="text-[13px] font-medium text-foreground">Provider Status</p>
-                                <div className="mt-3 space-y-2">
-                                    {providerStatuses.map((status) => (
-                                        <div key={status.key} className="flex items-start justify-between gap-3 rounded-md border border-border/60 bg-white/[0.02] px-3 py-2">
-                                            <div>
-                                                <p className="text-[12px] font-medium text-foreground">{status.label}</p>
-                                                <p className="text-[11px] text-meta mt-1">{status.detail}</p>
+                                {providerStatusesLoading ? (
+                                    <div className="mt-3 flex items-center justify-center py-6 text-meta">
+                                        <RefreshCw className="animate-spin text-primary mr-2" size={15} />
+                                        Provider durumu yukleniyor...
+                                    </div>
+                                ) : (
+                                    <div className="mt-3 space-y-2">
+                                        {providerStatuses.map((status) => (
+                                            <div key={status.key} className="flex items-start justify-between gap-3 rounded-md border border-border/60 bg-white/[0.02] px-3 py-2">
+                                                <div>
+                                                    <p className="text-[12px] font-medium text-foreground">{status.label}</p>
+                                                    <p className="text-[11px] text-meta mt-1">{status.detail}</p>
+                                                </div>
+                                                <span className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
+                                                    status.state === 'ready'
+                                                        ? 'bg-emerald-500/10 text-emerald-400'
+                                                        : status.state === 'warning'
+                                                            ? 'bg-amber-500/10 text-amber-400'
+                                                            : 'bg-red-500/10 text-red-400'
+                                                }`}>
+                                                    {status.state === 'ready' ? 'Hazir' : status.state === 'warning' ? 'Uyari' : 'Hata'}
+                                                </span>
                                             </div>
-                                            <span className={`rounded px-2 py-0.5 text-[10px] font-semibold ${
-                                                status.state === 'ready'
-                                                    ? 'bg-emerald-500/10 text-emerald-400'
-                                                    : status.state === 'warning'
-                                                        ? 'bg-amber-500/10 text-amber-400'
-                                                        : 'bg-red-500/10 text-red-400'
-                                            }`}>
-                                                {status.state === 'ready' ? 'Hazir' : status.state === 'warning' ? 'Uyari' : 'Hata'}
-                                            </span>
-                                        </div>
-                                    ))}
-                                </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -533,19 +557,11 @@ const AdminPage = () => {
 
                                 {instruments.length === 0 && (
                                     <div className="flex items-center justify-center rounded-md border border-dashed border-border py-10 text-meta">
-                                        Gosterilecek enstruman bulunamadi.
+                                        Pasif enstruman bulunmuyor; liste temiz gorunuyor.
                                     </div>
                                 )}
                             </div>
                         )}
-
-                        <div className="mt-4 rounded-md border border-dashed border-border px-3 py-3 text-[12px] text-meta leading-relaxed">
-                            Aktif / pasif toggle akisi su endpoint varsayimiyla baglandi:
-                            <div className="mt-2 space-y-1 font-mono text-[11px]">
-                                <div>GET /api/admin/nonactiveInstruments</div>
-                                <div>PATCH /api/admin/instruments/{'{symbol}'}/active</div>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>

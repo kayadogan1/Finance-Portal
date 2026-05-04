@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -11,13 +11,16 @@ import {
     RefreshCw,
     Clock,
     Calculator,
+    Gauge,
+    Sparkles,
 } from 'lucide-react';
 import CandlestickChart from '../components/market/CandlestickChart';
 import TradeWidget from '../components/trade/TradeWidget';
-import { formatChangePercent, getHypotheticalReturn, getInstrumentBySymbol, hasChange, normalizeInstrument, type MarketInstrument } from '../services/marketService';
-import { articleMatchesInstrument, getNews, normalizeNewsCategory, TOPIC_LABELS, ASSET_TYPE_COLORS } from '../services/newsService';
+import { formatChangePercent, getCandleData, getHypotheticalReturn, getInstrumentBySymbol, hasChange, normalizeInstrument, type MarketInstrument } from '../services/marketService';
+import { articleMatchesInstrument, buildNewsDetailPath, getNews, normalizeNewsCategory, resolveNewsImage, TOPIC_LABELS, ASSET_TYPE_COLORS } from '../services/newsService';
 import { formatMarketPrice } from '../utils/currency';
 import { getSourceColor } from '../components/news/SourceAvatar';
+import { calculateEMA, calculateRSI, calculateSMA } from '../utils/indicators';
 
 /* ─── Instrument type → news topic mapping ─── */
 const typeToNewsTopic: Record<string, string> = {
@@ -78,6 +81,188 @@ function timeAgo(dateStr: string): string {
     return then.toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' });
 }
 
+const oneYearAgoIso = () => {
+    const date = new Date();
+    date.setFullYear(date.getFullYear() - 1);
+    return date.toISOString().replace('Z', '').split('.')[0];
+};
+
+type TechnicalSignal = {
+    label: 'Guclu Al' | 'Al' | 'Notr' | 'Sat' | 'Guclu Sat';
+    color: string;
+    score: number;
+    meterPercent: number;
+    summary: string;
+    reasons: string[];
+    rsi?: number;
+    sma20?: number;
+    sma50?: number;
+    ema12?: number;
+    ema26?: number;
+};
+
+const getLastValue = (values: { value: number }[]) => values.at(-1)?.value;
+
+const buildTechnicalSignal = (
+    closePrice: number | undefined,
+    candles: Array<{ time: number; open: number; high: number; low: number; close: number }>,
+): TechnicalSignal | null => {
+    if (!Number.isFinite(closePrice) || candles.length < 60) return null;
+
+    const sma20 = getLastValue(calculateSMA(candles, 20));
+    const sma50 = getLastValue(calculateSMA(candles, 50));
+    const ema12 = getLastValue(calculateEMA(candles, 12));
+    const ema26 = getLastValue(calculateEMA(candles, 26));
+    const rsi = getLastValue(calculateRSI(candles, 14));
+
+    if (![sma20, sma50, ema12, ema26, rsi].every(Number.isFinite)) return null;
+
+    const reasons: string[] = [];
+    let score = 0;
+
+    if (sma20! > sma50!) {
+        score += 1;
+        reasons.push('SMA20, SMA50 ustunde; orta vadeli trend pozitif.');
+    } else {
+        score -= 1;
+        reasons.push('SMA20, SMA50 altinda; orta vadeli trend zayif.');
+    }
+
+    if (ema12! > ema26!) {
+        score += 1;
+        reasons.push('EMA12, EMA26 ustunde; kisa vadeli momentum destekliyor.');
+    } else {
+        score -= 1;
+        reasons.push('EMA12, EMA26 altinda; kisa vadeli momentum baskili.');
+    }
+
+    if (closePrice! > sma20!) {
+        score += 1;
+        reasons.push('Fiyat, SMA20 ustunde kapaniyor.');
+    } else {
+        score -= 1;
+        reasons.push('Fiyat, SMA20 altinda kaliyor.');
+    }
+
+    if (closePrice! > ema12!) {
+        score += 1;
+        reasons.push('Fiyat, EMA12 ustunde; alicilar halen aktif.');
+    } else {
+        score -= 1;
+        reasons.push('Fiyat, EMA12 altinda; satis baskisi daha guclu.');
+    }
+
+    if (rsi! >= 70) {
+        score -= 1;
+        reasons.push(`RSI ${rsi!.toFixed(1)} ile asiri alima yakin.`);
+    } else if (rsi! >= 55) {
+        score += 1;
+        reasons.push(`RSI ${rsi!.toFixed(1)} ile momentum pozitif bolgede.`);
+    } else if (rsi! <= 30) {
+        score += 1;
+        reasons.push(`RSI ${rsi!.toFixed(1)} ile asiri satimdan tepki potansiyeli var.`);
+    } else if (rsi! <= 45) {
+        score -= 1;
+        reasons.push(`RSI ${rsi!.toFixed(1)} ile momentum zayif tarafta.`);
+    } else {
+        reasons.push(`RSI ${rsi!.toFixed(1)} ile notr bolgede.`);
+    }
+
+    let label: TechnicalSignal['label'] = 'Notr';
+    let color = '#94a3b8';
+    let summary = 'Teknik gorunum dengeli, net bir yon teyidi yok.';
+
+    if (score >= 4) {
+        label = 'Guclu Al';
+        color = '#10b981';
+        summary = 'Trend ve momentum ayni yone bakiyor; teknik gorunum guclu.';
+    } else if (score >= 2) {
+        label = 'Al';
+        color = '#22c55e';
+        summary = 'Trend lehine sinyaller agir basiyor ama teyit halen onemli.';
+    } else if (score <= -4) {
+        label = 'Guclu Sat';
+        color = '#ef4444';
+        summary = 'Momentum ve ortalamalar belirgin sekilde negatif tarafta.';
+    } else if (score <= -2) {
+        label = 'Sat';
+        color = '#f97316';
+        summary = 'Teknik gorunum zayif, yukari donus teyidi beklemek daha saglikli.';
+    }
+
+    const meterPercent = Math.max(0, Math.min(100, ((score + 5) / 10) * 100));
+
+    return {
+        label,
+        color,
+        score,
+        meterPercent,
+        summary,
+        reasons: reasons.slice(0, 4),
+        rsi,
+        sma20,
+        sma50,
+        ema12,
+        ema26,
+    };
+};
+
+const SignalGauge = ({ percent, color }: { percent: number; color: string }) => {
+    const angle = -90 + (180 * percent) / 100;
+    return (
+        <div style={{ width: 200, margin: '0 auto' }}>
+            <div style={{ position: 'relative', width: 200, height: 110, overflow: 'hidden' }}>
+                <div
+                    style={{
+                        position: 'absolute',
+                        inset: 0,
+                        borderRadius: '200px 200px 0 0',
+                        background: 'conic-gradient(from 180deg, #dc2626 0deg, #f97316 40deg, #facc15 75deg, #86efac 120deg, #16a34a 180deg)',
+                    }}
+                />
+                <div
+                    style={{
+                        position: 'absolute',
+                        left: 22,
+                        right: 22,
+                        top: 22,
+                        bottom: -58,
+                        borderRadius: '999px',
+                        background: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                    }}
+                />
+                <div
+                    style={{
+                        position: 'absolute',
+                        left: '50%',
+                        bottom: 12,
+                        width: 3,
+                        height: 74,
+                        borderRadius: 999,
+                        background: color,
+                        transformOrigin: 'bottom center',
+                        transform: `translateX(-50%) rotate(${angle}deg)`,
+                        boxShadow: `0 0 16px ${color}55`,
+                    }}
+                />
+                <div
+                    style={{
+                        position: 'absolute',
+                        left: '50%',
+                        bottom: 6,
+                        width: 14,
+                        height: 14,
+                        borderRadius: '50%',
+                        background: 'hsl(var(--foreground))',
+                        transform: 'translateX(-50%)',
+                    }}
+                />
+            </div>
+        </div>
+    );
+};
+
 /* ════════════════════════════════════════
    Instrument Detail Page
    ════════════════════════════════════════ */
@@ -123,6 +308,13 @@ const InstrumentDetailPage = () => {
         staleTime: 0,
     });
 
+    const { data: technicalCandles = [], isLoading: technicalLoading } = useQuery({
+        queryKey: ['instrument-technical-signal', symbol],
+        queryFn: () => getCandleData(symbol!, 'D1', oneYearAgoIso()),
+        enabled: !!symbol,
+        staleTime: 1000 * 60 * 10,
+    });
+
     /* Fetch all news (by topic) and filter by instrument symbol on frontend */
     const { data: allNews = [], isLoading: newsLoading } = useQuery({
         queryKey: ['news', newsTopic ?? 'all', newsCountry ?? 'all'],
@@ -143,6 +335,11 @@ const InstrumentDetailPage = () => {
 
         return { relatedNews: allNews.slice(0, 9), hasExactNews: false };
     }, [allNews, instrument, symbol]);
+
+    const technicalSignal = useMemo(
+        () => buildTechnicalSignal(instrument?.currentPrice, technicalCandles),
+        [instrument?.currentPrice, technicalCandles],
+    );
 
     if (!symbol) {
         navigate('/market');
@@ -266,6 +463,99 @@ const InstrumentDetailPage = () => {
                                 />
                             </div>
                         )}
+                    </div>
+                )}
+            </div>
+
+            <div
+                style={{
+                    background: 'hsl(var(--card))',
+                    borderRadius: 14,
+                    border: '1px solid hsl(var(--border))',
+                    padding: 20,
+                }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
+                    <Gauge size={14} style={{ color: '#6366f1' }} />
+                    <span style={{ fontSize: 14, fontWeight: 700, color: 'hsl(var(--foreground))' }}>
+                        Teknik Sinyal
+                    </span>
+                    {technicalLoading && <RefreshCw size={12} style={{ color: 'hsl(var(--subtle-foreground))', animation: 'spin 1s linear infinite' }} />}
+                </div>
+
+                {!technicalLoading && !technicalSignal && (
+                    <div className="rounded-md border border-border bg-background/60 px-4 py-5 text-[13px] text-meta">
+                        Bu sinyal icin yeterli mum verisi bulunamadi. En azindan son 50-60 kapanis kaydina ihtiyacimiz var.
+                    </div>
+                )}
+
+                {technicalSignal && (
+                    <div className="grid grid-cols-1 xl:grid-cols-[240px,1fr,260px] gap-6 items-center">
+                        <div style={{ textAlign: 'center' }}>
+                            <SignalGauge percent={technicalSignal.meterPercent} color={technicalSignal.color} />
+                            <div
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    padding: '6px 12px',
+                                    borderRadius: 999,
+                                    background: `${technicalSignal.color}18`,
+                                    color: technicalSignal.color,
+                                    fontSize: 18,
+                                    fontWeight: 800,
+                                    marginTop: 6,
+                                }}
+                            >
+                                <Sparkles size={16} />
+                                {technicalSignal.label}
+                            </div>
+                            <p style={{ marginTop: 8, fontSize: 12, color: 'hsl(var(--muted-foreground))' }}>
+                                Skor {technicalSignal.score > 0 ? '+' : ''}{technicalSignal.score} / 5
+                            </p>
+                        </div>
+
+                        <div>
+                            <p style={{ fontSize: 15, fontWeight: 700, color: 'hsl(var(--foreground))', marginBottom: 6 }}>
+                                {technicalSignal.summary}
+                            </p>
+                            <div style={{ display: 'grid', gap: 8 }}>
+                                {technicalSignal.reasons.map((reason) => (
+                                    <div
+                                        key={reason}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'flex-start',
+                                            gap: 8,
+                                            fontSize: 13,
+                                            color: 'hsl(var(--muted-foreground))',
+                                            lineHeight: 1.5,
+                                        }}
+                                    >
+                                        <span
+                                            style={{
+                                                width: 7,
+                                                height: 7,
+                                                borderRadius: '50%',
+                                                background: technicalSignal.color,
+                                                marginTop: 6,
+                                                flexShrink: 0,
+                                            }}
+                                        />
+                                        <span>{reason}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+                            <StatPill label="RSI 14" value={technicalSignal.rsi?.toFixed(1) ?? '—'} highlight={technicalSignal.color} />
+                            <StatPill label="SMA 20" value={technicalSignal.sma20 ? formatMarketPrice(technicalSignal.sma20, instrument?.baseCurrency) : '—'} />
+                            <StatPill label="SMA 50" value={technicalSignal.sma50 ? formatMarketPrice(technicalSignal.sma50, instrument?.baseCurrency) : '—'} />
+                            <StatPill label="EMA 12" value={technicalSignal.ema12 ? formatMarketPrice(technicalSignal.ema12, instrument?.baseCurrency) : '—'} />
+                            <StatPill label="EMA 26" value={technicalSignal.ema26 ? formatMarketPrice(technicalSignal.ema26, instrument?.baseCurrency) : '—'} />
+                            <StatPill label="Baz" value="SMA / EMA / RSI" />
+                        </div>
                     </div>
                 )}
             </div>
@@ -472,11 +762,10 @@ const InstrumentDetailPage = () => {
                             const category = normalizeNewsCategory(article);
                             const sourceBadgeColor = article.source?.name ? getSourceColor(article.source.name) : 'hsl(var(--muted-foreground))';
                             return (
-                                <a
+                                <Link
                                     key={`${article.url}-${idx}`}
-                                    href={article.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
+                                    to={buildNewsDetailPath(article.url)}
+                                    state={{ article }}
                                     className="group"
                                     style={{
                                         display: 'flex', gap: 14, background: 'hsl(var(--card))', borderRadius: 12, padding: 16,
@@ -491,13 +780,11 @@ const InstrumentDetailPage = () => {
                                         e.currentTarget.style.transform = 'translateY(0)';
                                     }}
                                 >
-                                    {article.urlToImage && (
-                                        <img
-                                            src={article.urlToImage} alt=""
-                                            style={{ width: 68, height: 68, objectFit: 'cover', borderRadius: 8, background: 'hsl(var(--background))', flexShrink: 0 }}
-                                            onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                        />
-                                    )}
+                                    <img
+                                        src={resolveNewsImage(article.urlToImage, article.source?.name, article.category)} alt={article.title}
+                                        style={{ width: 68, height: 68, objectFit: 'cover', borderRadius: 8, background: 'hsl(var(--background))', flexShrink: 0 }}
+                                        onError={e => { (e.target as HTMLImageElement).src = resolveNewsImage(undefined, article.source?.name, article.category); }}
+                                    />
                                     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
                                         <h4 style={{ fontSize: 13, fontWeight: 600, color: 'hsl(var(--foreground))', lineHeight: 1.4, marginBottom: 6 }} className="line-clamp-2">
                                             {article.title}
@@ -549,7 +836,7 @@ const InstrumentDetailPage = () => {
                                             </span>
                                         </div>
                                     </div>
-                                </a>
+                                </Link>
                             );
                         })}
                     </div>

@@ -10,7 +10,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
+import org.springframework.web.client.*;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -27,7 +27,6 @@ public class NewsRssService {
     private final RestClient restClient;
     private final NewsArticleRepository newsArticleRepository;
     private final AtomicBoolean fetchRunning = new AtomicBoolean(false);
-
     @Value("${news.api.yahoo.url}")
     private String yahooRssBaseUrl;
 
@@ -102,21 +101,41 @@ public class NewsRssService {
             logger.error("RSS source fetch failed. source={}, url={}", source.name(), source.url(), e);
         }
     }
-
     private List<NewsItem> fetchYahooItems(RssSource source) {
-        YahooRssFilteredResponse response = restClient.get()
-                .uri(source.url())
-                .header("User-Agent", "Finance-Portal RSS Reader")
-                .accept(MediaType.APPLICATION_XML, MediaType.TEXT_XML, MediaType.ALL)
-                .retrieve()
-                .body(YahooRssFilteredResponse.class);
+        try {
+            YahooRssFilteredResponse response = restClient.get()
+                    .uri(source.url())
+                    .header("User-Agent", "Finance-Portal RSS Reader")
+                    .accept(MediaType.APPLICATION_XML, MediaType.TEXT_XML, MediaType.ALL)
+                    .retrieve()
+                    .body(YahooRssFilteredResponse.class);
 
-        if (response == null || response.channel() == null || response.channel().items() == null) {
-            logger.warn("Yahoo RSS response empty. url={}", source.url());
+            if (response == null || response.channel() == null || response.channel().items() == null) {
+                logger.warn("Yahoo RSS response empty. url={}", source.url());
+                return List.of();
+            }
+
+            return response.channel().items();
+
+        } catch (HttpClientErrorException e) {
+            logger.error("Client error fetching Yahoo RSS. url={}, status={}, body={}",
+                    source.url(), e.getStatusCode(), e.getResponseBodyAsString());
+            return List.of();
+
+        } catch (HttpServerErrorException e) {
+            logger.error("Server error fetching Yahoo RSS. url={}, status={}",
+                    source.url(), e.getStatusCode());
+            return List.of();
+
+        } catch (ResourceAccessException e) {
+            logger.error("Connection error fetching Yahoo RSS. url={}, cause={}",
+                    source.url(), e.getMessage());
+            return List.of();
+
+        } catch (RestClientException e) {
+            logger.error("Unexpected error fetching Yahoo RSS. url={}", source.url(), e);
             return List.of();
         }
-
-        return response.channel().items();
     }
 
     private List<NewsItem> fetchSozcuItems(RssSource source) {

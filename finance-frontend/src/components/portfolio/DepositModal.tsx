@@ -22,7 +22,17 @@ export function DepositModal({ isOpen, onClose, portfolioId }: DepositModalProps
 
     const mutation = useMutation({
         mutationFn: async (data: DepositFormValues) => depositFunds(data.amount, portfolioId),
-        onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["portfolio"] }); queryClient.invalidateQueries({ queryKey: ["portfolio-history"] }); onClose(); reset(); },
+        onSuccess: async () => {
+            await Promise.all([
+                queryClient.invalidateQueries({ queryKey: ["portfolio"], refetchType: 'active' }),
+                queryClient.invalidateQueries({ queryKey: ["portfolio-history"], refetchType: 'active' }),
+                queryClient.invalidateQueries({ queryKey: ["portfolio-pie"], refetchType: 'active' }),
+                queryClient.invalidateQueries({ queryKey: ["portfolio-transactions"], refetchType: 'active' }),
+                queryClient.invalidateQueries({ queryKey: ["portfolios"], refetchType: 'active' }),
+            ]);
+            onClose();
+            reset();
+        },
         onError: (error: AxiosError<{ message?: string }>) => { setErrorText(error.response?.data?.message || "Para yatırma işlemi başarısız."); },
     });
 

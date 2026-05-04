@@ -100,6 +100,17 @@ export const ASSET_TYPE_COLORS: Record<string, string> = {
     VIOP: '#ec4899',      // pink
 };
 
+const PLACEHOLDER_BACKGROUNDS: Record<string, string> = {
+    STOCK: '#162033',
+    INDEX: '#221a36',
+    CRYPTO: '#2e1f14',
+    BOND: '#14251f',
+    COMMODITY: '#2f2612',
+    FOREX: '#10252f',
+    FUND: '#132b28',
+    GENERAL: '#171d27',
+};
+
 const normalize = (value?: string | null) => (value ?? '').trim().toUpperCase();
 
 export const normalizeNewsCategory = (article: Pick<FilteredArticleDto, 'category' | 'title' | 'description' | 'instrumentSymbol' | 'instruments'>): string => {
@@ -120,6 +131,55 @@ export const normalizeNewsCategory = (article: Pick<FilteredArticleDto, 'categor
 
 export const getNewsCategoryLabel = (category?: string): string => {
     return TOPIC_LABELS[normalize(category)] ?? category ?? 'Genel Piyasa';
+};
+
+export const buildNewsDetailPath = (url: string): string => `/news/article?url=${encodeURIComponent(url)}`;
+
+export const buildNewsImageFallback = (sourceName?: string, category?: string): string => {
+    const normalizedCategory = normalizeNewsCategory({
+        category: category ?? 'GENERAL',
+        title: '',
+        description: '',
+        instrumentSymbol: '',
+        instruments: [],
+    });
+    const background = PLACEHOLDER_BACKGROUNDS[normalizedCategory] ?? PLACEHOLDER_BACKGROUNDS.GENERAL;
+    const label = (sourceName ?? 'Finance News').slice(0, 28);
+    const subLabel = getNewsCategoryLabel(normalizedCategory);
+
+    const initials = label
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((part) => part[0]?.toUpperCase() ?? '')
+        .join('') || 'FN';
+
+    const svg = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+            <rect width="1200" height="630" fill="${background}" />
+            <rect x="48" y="48" width="1104" height="534" rx="24" fill="rgba(255,255,255,0.03)" stroke="rgba(255,255,255,0.08)" />
+            <circle cx="126" cy="126" r="42" fill="rgba(255,255,255,0.08)" stroke="rgba(255,255,255,0.12)" />
+            <text x="126" y="138" text-anchor="middle" fill="#D9E3F0" font-family="Arial, sans-serif" font-size="28" font-weight="700">${initials}</text>
+            <text x="186" y="114" fill="#F5F7FA" font-family="Arial, sans-serif" font-size="32" font-weight="700">${label}</text>
+            <text x="186" y="150" fill="#8B9DC3" font-family="Arial, sans-serif" font-size="22" font-weight="600">${subLabel}</text>
+            <rect x="72" y="462" width="164" height="34" rx="10" fill="rgba(255,255,255,0.06)" />
+            <text x="154" y="485" text-anchor="middle" fill="#C8D3E1" font-family="Arial, sans-serif" font-size="17" font-weight="600">No image feed</text>
+            <rect x="72" y="518" width="360" height="10" rx="5" fill="rgba(255,255,255,0.05)" />
+            <rect x="72" y="540" width="248" height="10" rx="5" fill="rgba(255,255,255,0.04)" />
+        </svg>
+    `.trim();
+
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+};
+
+export const resolveNewsImage = (
+    urlToImage?: string,
+    sourceName?: string,
+    category?: string,
+): string => {
+    if (urlToImage && urlToImage.trim().length > 0) {
+        return urlToImage.trim();
+    }
+    return buildNewsImageFallback(sourceName, category);
 };
 
 const symbolVariants = (symbol?: string | null) => {

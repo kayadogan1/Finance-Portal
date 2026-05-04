@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
     PieChart as PieChartIcon, TrendingUp, TrendingDown, Wallet,
     ArrowDownToLine, ArrowUpFromLine, RefreshCw, Plus, ChevronDown, Clock,
@@ -106,6 +107,7 @@ const normalizeCurrency = (currency?: string) => {
 
 const PortfolioPage = () => {
     const { isAdmin } = useAuth();
+    const navigate = useNavigate();
     const [createModalOpen, setCreateModalOpen] = useState(false);
     const [depositModalOpen, setDepositModalOpen] = useState(false);
     const [sellSymbol, setSellSymbol] = useState<string | null>(null);
@@ -371,7 +373,11 @@ const PortfolioPage = () => {
                                             const pnlPct = Number(item.profitLossPercent ?? (totalCost > 0 ? (pnl / totalCost) * 100 : 0));
                                             const isProfit = pnl >= 0;
                                             return (
-                                                <tr key={idx} className="h-11 hover:bg-white/[0.02] transition-colors">
+                                                <tr
+                                                    key={idx}
+                                                    className="h-11 cursor-pointer hover:bg-white/[0.02] transition-colors"
+                                                    onClick={() => symbol !== '—' && navigate(`/instrument/${symbol}`)}
+                                                >
                                                     <td className="px-4 py-0">
                                                         <span className="text-[13px] font-semibold text-foreground">{symbol}</span>
                                                         {item.instrumentDto?.name && <p className="text-[10px] text-subtle mt-0.5">{item.instrumentDto.name}</p>}
@@ -396,9 +402,26 @@ const PortfolioPage = () => {
                                                     </td>
                                                     {!isAdmin && (
                                                         <td className="px-4 py-0 text-center">
-                                                            <button onClick={() => setSellSymbol(symbol)} className="text-[12px] font-medium text-negative hover:bg-negative/[0.06] px-2 py-1 rounded transition-colors">
+                                                            <div className="flex items-center justify-center gap-2">
+                                                                <button
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation();
+                                                                        navigate(`/instrument/${symbol}`);
+                                                                    }}
+                                                                    className="text-[12px] font-medium text-primary hover:bg-primary/[0.06] px-2 py-1 rounded transition-colors"
+                                                                >
+                                                                    Detay
+                                                                </button>
+                                                                <button
+                                                                    onClick={(event) => {
+                                                                        event.stopPropagation();
+                                                                        setSellSymbol(symbol);
+                                                                    }}
+                                                                    className="text-[12px] font-medium text-negative hover:bg-negative/[0.06] px-2 py-1 rounded transition-colors"
+                                                                >
                                                                 Sat
-                                                            </button>
+                                                                </button>
+                                                            </div>
                                                         </td>
                                                     )}
                                                 </tr>
