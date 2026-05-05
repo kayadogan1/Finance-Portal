@@ -29,7 +29,7 @@ interface InstrumentPreview {
     currentPrice: number | null;
     baseCurrency?: string | null;
     market?: string | null;
-    isActive?: boolean;
+    active?: boolean;   // InstrumentDto serializes as "active" (not "isActive")
 }
 
 type CategoryMode = 'writable' | 'readonly-topics';
@@ -136,8 +136,9 @@ const AdminPage = () => {
     const fetchTotalMembers = async () => {
         setTotalMembersLoading(true);
         try {
-            const { data } = await privateApi.get<{ data?: number }>('/api/admin/totalMember');
-            setTotalMembers(typeof data?.data === 'number' ? data.data : null);
+            // privateApi interceptor already unwraps ApiResult — `data` is the number directly
+            const { data } = await privateApi.get<number>('/api/admin/totalMember');
+            setTotalMembers(typeof data === 'number' ? data : null);
         } catch {
             setTotalMembers(null);
         } finally {
@@ -148,8 +149,9 @@ const AdminPage = () => {
     const fetchInactiveInstruments = async () => {
         setInstrumentsLoading(true);
         try {
-            const { data } = await privateApi.get<{ data?: InstrumentPreview[] } | InstrumentPreview[]>('/api/admin/nonactiveInstruments');
-            const payload = Array.isArray(data) ? data : Array.isArray(data?.data) ? data.data : [];
+            // privateApi interceptor already unwraps ApiResult — `data` is the array directly
+            const { data } = await privateApi.get<InstrumentPreview[]>('/api/admin/nonactiveInstruments');
+            const payload = Array.isArray(data) ? data : [];
             setInstruments(payload);
             setInstrumentAdminAvailable(true);
         } catch {
@@ -225,6 +227,7 @@ const AdminPage = () => {
                 privateApi.get<ProviderStatusResponse>('/api/news/admin/providers/status'),
             ]);
 
+            // interceptor unwraps ApiResult → data IS ProviderStatusResponse directly
             const financeProviders = financeResult.status === 'fulfilled'
                 ? financeResult.value.data.providers ?? []
                 : [{
@@ -543,7 +546,7 @@ const AdminPage = () => {
                                                 {formatCurrency(instrument.currentPrice, instrument.baseCurrency)}
                                             </p>
                                             <p className="text-meta mt-1 text-[12px]">
-                                                {instrument.market ?? '-'} • {instrument.isActive ? 'aktif' : 'inactive'}
+                                                {instrument.market ?? '-'} • {instrument.active ? 'aktif' : 'inactive'}
                                             </p>
                                             <button
                                                 onClick={() => handleInstrumentActivation(instrument.symbol, true)}

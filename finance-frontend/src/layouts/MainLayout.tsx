@@ -64,7 +64,7 @@ const MainLayout = () => {
                 <div className="max-w-7xl mx-auto px-4 md:px-6 w-full flex items-center justify-between">
                     <NavLink to="/dashboard" className="shrink-0 flex items-center gap-2">
                         <Activity size={22} className="text-primary" />
-                        <span className="hidden md:inline text-[14px] font-semibold text-foreground tracking-tight">Finans Portalı</span>
+                        <span className="hidden md:inline text-[14px] font-semibold text-foreground tracking-tight">TradeChart</span>
                     </NavLink>
 
                     {/* Nav links */}
