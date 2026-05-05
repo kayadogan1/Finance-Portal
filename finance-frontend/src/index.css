@@ -254,3 +254,65 @@ input::placeholder, textarea::placeholder {
 .shadow-2xl {
   box-shadow: none !important;
 }
+
+/* ─── Price Flash Animations ─── */
+
+@keyframes flashGreen {
+  0%   { background-color: rgba(16, 185, 129, 0.2); }
+  100% { background-color: transparent; }
+}
+
+@keyframes flashRed {
+  0%   { background-color: rgba(239, 68, 68, 0.2); }
+  100% { background-color: transparent; }
+}
+
+.price-flash-up   { animation: flashGreen 1.4s ease-out forwards; }
+.price-flash-down { animation: flashRed   1.4s ease-out forwards; }
+
+/* ─── Market Summary Cards ─── */
+
+.market-summary-strip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+}
+.market-summary-strip::-webkit-scrollbar { display: none; }
+
+.market-summary-card {
+  flex-shrink: 0;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: border-color 150ms, transform 150ms;
+  min-width: 130px;
+  text-decoration: none;
+}
+.market-summary-card:hover {
+  border-color: hsl(var(--border-subtle));
+  transform: translateY(-1px);
+}
+
+/* ─── Sortable column headers ─── */
+
+.sort-header {
+  cursor: pointer;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  transition: color 120ms;
+}
+.sort-header:hover { color: hsl(var(--foreground)); }
+
+/* ─── Dropdown slide animation ─── */
+
+@keyframes dropdownIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.dropdown-anim { animation: dropdownIn 150ms ease-out forwards; }

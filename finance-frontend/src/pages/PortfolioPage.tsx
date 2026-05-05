@@ -16,6 +16,7 @@ import { DepositModal } from '../components/portfolio/DepositModal';
 import { TradeModal } from '../components/trade/TradeModal';
 import useAuth from '../hooks/useAuth';
 import { formatMarketPrice } from '../utils/currency';
+import { useCountUp } from '../hooks/useCountUp';
 
 /* ─── Transaction History (inline component) ─── */
 
@@ -157,6 +158,12 @@ const PortfolioPage = () => {
         return lookup;
     }, [active?.portfolioItems]);
 
+    // CountUp animations for the 4 key metrics — declared before any early returns
+    const animBalance    = useCountUp(Number(active?.portfolioBalance ?? 0), 1000);
+    const animPortValue  = useCountUp(totalPortfolioValue, 1000);
+    const animProfitLoss = useCountUp(Math.abs(totalProfitLoss), 1000);
+    const animCost       = useCountUp(totalCost, 1000);
+
     if (portsLoading) {
         return <div className="flex items-center justify-center h-64"><RefreshCw className="animate-spin text-primary" size={24} /></div>;
     }
@@ -222,7 +229,7 @@ const PortfolioPage = () => {
                             <span className="text-label">NAKİT BAKİYE</span>
                             <div className="flex items-baseline gap-2 mt-1.5">
                                 <span className="text-price">
-                                    {Number(active?.portfolioBalance ?? 0).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    {animBalance.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </span>
                                 <span className="text-label">{active?.displayCurrency ?? displayCurrency}</span>
                             </div>
@@ -230,7 +237,7 @@ const PortfolioPage = () => {
                         <div className="card-base">
                             <span className="text-label">TOPLAM PORTFÖY DEĞERİ</span>
                             <div className="flex items-baseline gap-2 mt-1.5">
-                                <span className="text-price">{formatMarketPrice(totalPortfolioValue, displayCurrency)}</span>
+                                <span className="text-price">{formatMarketPrice(animPortValue, displayCurrency)}</span>
                             </div>
                             <p className="text-[11px] text-subtle mt-2">
                                 Varlıklar {formatMarketPrice(holdingsValue, displayCurrency)} + nakit
@@ -241,7 +248,7 @@ const PortfolioPage = () => {
                             <div className="mt-1.5">
                                 <span className={`inline-flex items-center gap-1.5 text-[20px] font-semibold tabular-nums ${isPortfolioPositive ? 'text-positive' : 'text-negative'}`}>
                                     {isPortfolioPositive ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                                    {isPortfolioPositive ? '+' : '-'}{formatMarketPrice(Math.abs(totalProfitLoss), displayCurrency)}
+                                    {isPortfolioPositive ? '+' : '-'}{formatMarketPrice(animProfitLoss, displayCurrency)}
                                 </span>
                             </div>
                             <p className="text-[11px] mt-2 text-subtle">
@@ -253,7 +260,7 @@ const PortfolioPage = () => {
                         <div className="card-base">
                             <span className="text-label">TOPLAM MALİYET</span>
                             <div className="flex items-baseline gap-2 mt-1.5">
-                                <span className="text-price">{formatMarketPrice(totalCost, displayCurrency)}</span>
+                                <span className="text-price">{formatMarketPrice(animCost, displayCurrency)}</span>
                             </div>
                             <p className="text-[11px] text-subtle mt-2">
                                 Kullanıcıyı oran hesabına boğmadan referans maliyet

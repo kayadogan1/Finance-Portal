@@ -62,9 +62,9 @@ const MainLayout = () => {
             {/* ─── NAV — 52px, border-bottom, blur ─── */}
             <header className="sticky top-0 z-40 h-13 bg-background/80 backdrop-blur-sm border-b border-border flex items-center">
                 <div className="max-w-7xl mx-auto px-4 md:px-6 w-full flex items-center justify-between">
-                    {/* Logo — icon only */}
-                    <NavLink to="/dashboard" className="shrink-0">
-                        <Activity size={28} className="text-primary" />
+                    <NavLink to="/dashboard" className="shrink-0 flex items-center gap-2">
+                        <Activity size={22} className="text-primary" />
+                        <span className="hidden md:inline text-[14px] font-semibold text-foreground tracking-tight">Finans Portalı</span>
                     </NavLink>
 
                     {/* Nav links */}
@@ -74,8 +74,10 @@ const MainLayout = () => {
                                 key={to}
                                 to={to}
                                 className={({ isActive }) =>
-                                    `flex items-center gap-1.5 px-3 h-full text-[13px] font-medium transition-colors duration-150 ${
-                                        isActive ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
+                                    `relative flex items-center gap-1.5 px-3 h-full text-[13px] font-medium transition-colors duration-150 ${
+                                        isActive
+                                            ? 'text-foreground after:absolute after:bottom-0 after:left-2 after:right-2 after:h-[2px] after:bg-primary after:rounded-full'
+                                            : 'text-muted-foreground hover:text-foreground'
                                     }`
                                 }
                             >
@@ -95,7 +97,7 @@ const MainLayout = () => {
                                 <ChevronDown size={11} className={`text-subtle transition-transform duration-150 ${exploreOpen ? 'rotate-180' : ''}`} />
                             </button>
                             {exploreOpen && (
-                                <div className="absolute right-0 top-full mt-1 w-44 bg-card border border-border rounded shadow-none z-50">
+                                <div className="absolute right-0 top-full mt-1 w-44 bg-card border border-border rounded shadow-none z-50 dropdown-anim">
                                     <div className="py-1">
                                         {EXPLORE_ITEMS.map(({ to, label, icon: Icon }) => (
                                             <NavLink
@@ -157,7 +159,7 @@ const MainLayout = () => {
                                     <ChevronDown size={11} className={`text-subtle transition-transform duration-150 ${dropdownOpen ? 'rotate-180' : ''}`} />
                                 </button>
                                 {dropdownOpen && (
-                                    <div className="absolute right-0 mt-1 w-44 bg-card border border-border rounded shadow-none z-50">
+                                    <div className="absolute right-0 mt-1 w-44 bg-card border border-border rounded shadow-none z-50 dropdown-anim">
                                         <div className="px-3 py-2 border-b border-border">
                                             <p className="text-[13px] font-medium text-foreground truncate">{username}</p>
                                             <p className="text-[11px] text-subtle mt-0.5">{isAdmin ? 'Yönetici' : 'Kullanıcı'}</p>

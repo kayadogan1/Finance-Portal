@@ -7,6 +7,8 @@ import {
     Globe2,
     MapPin,
     Star,
+    TrendingUp,
+    TrendingDown,
 } from 'lucide-react';
 import { belongsToMarket, formatChangePercent, getMarketInstruments, hasChange, type MarketInstrument } from '../services/marketService';
 import { buildNewsDetailPath, getNews, resolveNewsImage, ASSET_TYPE_COLORS, type FilteredArticleDto } from '../services/newsService';
@@ -26,6 +28,76 @@ function timeAgo(dateStr: string): string {
     if (hours < 24) return `${hours}s`;
     return `${Math.floor(hours / 24)}g`;
 }
+
+/* ─── Market Summary Strip ─── */
+const SUMMARY_TYPES: Array<MarketInstrument['type']> = ['INDEX', 'STOCK', 'CRYPTO', 'FIAT', 'FOREX', 'COMMODITY'];
+
+const MarketSummaryStrip = ({
+    instruments,
+    onNavigate,
+}: {
+    instruments: MarketInstrument[];
+    onNavigate: (symbol: string) => void;
+}) => {
+    // Pick 1 representative per type (in priority order), up to 6 total
+    const summaryItems = useMemo(() => {
+        const seen = new Set<string>();
+        const result: MarketInstrument[] = [];
+        for (const type of SUMMARY_TYPES) {
+            const found = instruments.find(i => i.type === type && hasChange(i) && !seen.has(i.symbol));
+            if (found) { seen.add(found.symbol); result.push(found); }
+            if (result.length >= 6) break;
+        }
+        // Fill remaining slots from any instrument with price data
+        for (const inst of instruments) {
+            if (result.length >= 6) break;
+            if (!seen.has(inst.symbol) && hasChange(inst)) { seen.add(inst.symbol); result.push(inst); }
+        }
+        return result;
+    }, [instruments]);
+
+    if (!summaryItems.length) return null;
+
+    return (
+        <div className="market-summary-strip">
+            {summaryItems.map(inst => {
+                const chg = inst.change24h ?? 0;
+                const isPos = chg >= 0;
+                const color = isPos ? '#10b981' : '#ef4444';
+                return (
+                    <button
+                        key={inst.symbol}
+                        type="button"
+                        onClick={() => onNavigate(inst.symbol)}
+                        className="market-summary-card text-left"
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: 'hsl(var(--muted-foreground))', textTransform: 'uppercase', letterSpacing: '0.4px' }}>
+                                {inst.symbol}
+                            </span>
+                            <span style={{
+                                fontSize: 10, fontWeight: 600, padding: '1px 5px', borderRadius: 3,
+                                background: isPos ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+                                color,
+                            }}>
+                                {formatChangePercent(chg)}
+                            </span>
+                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: 'hsl(var(--foreground))', fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.3px' }}>
+                            {formatMarketPrice(inst.currentPrice ?? 0, inst.baseCurrency)}
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 3, marginTop: 4 }}>
+                            {isPos
+                                ? <TrendingUp size={10} style={{ color }} />
+                                : <TrendingDown size={10} style={{ color }} />}
+                            <span style={{ fontSize: 10, color: 'hsl(var(--muted-foreground))' }}>{inst.name?.slice(0, 18)}</span>
+                        </div>
+                    </button>
+                );
+            })}
+        </div>
+    );
+};
 
 /* ─── List Widget (Dense Table-like Card) ─── */
 const ListWidget = ({
@@ -54,7 +126,7 @@ const ListWidget = ({
                     {title} <span style={{ color: 'hsl(var(--subtle-foreground))', fontSize: 18 }} className="font-light">›</span>
                 </h3>
                 {actionLink && (
-                    <NavLink to={actionLink} style={{ fontSize: 13, color: '#6366f1', textDecoration: 'none', fontWeight: 600, transition: 'color 0.2s' }} className="hover:text-indigo-400">
+                    <NavLink to={actionLink} style={{ fontSize: 13, color: 'hsl(var(--primary))', textDecoration: 'none', fontWeight: 600, transition: 'color 0.2s' }} className="hover:opacity-80">
                         {actionText || 'Tümü'}
                     </NavLink>
                 )}
@@ -90,17 +162,18 @@ const ListWidget = ({
                         const isPositive = hasChangeValue && inst.change24h >= 0;
                         const changeColor = !hasChangeValue ? 'hsl(var(--muted-foreground))' : isPositive ? '#10b981' : '#ef4444';
                         const fav = isFavorite?.(inst.symbol) ?? false;
+                        const flashClass = !hasChangeValue ? '' : isPositive ? 'price-flash-up' : 'price-flash-down';
                         return (
                             <div
                                 key={inst.symbol}
                                 onClick={() => onClick(inst.symbol)}
+                                className={`hover:bg-white/[0.02] -mx-3 px-3 rounded-lg ${flashClass}`}
                                 style={{
                                     display: 'flex', alignItems: 'center', padding: '12px 0',
                                     borderBottom: index < items.length - 1 ? '1px solid hsl(var(--background-subtle))' : 'none',
                                     cursor: 'pointer', transition: 'background 0.2s',
                                     gap: 12
                                 }}
-                                className="hover:bg-white/[0.02] -mx-3 px-3 rounded-lg"
                             >
                                 {onFavoriteToggle && (
                                     <button
@@ -255,6 +328,9 @@ const DashboardPage = () => {
                 </div>
             </div>
 
+            {/* ─── Market Summary Strip ─── */}
+            <MarketSummaryStrip instruments={regionalInstruments} onNavigate={goToInstrument} />
+
             {/* ════════════════════════════════════
                 High-Density Matrix (TradingView Style)
                 ════════════════════════════════════ */}
@@ -291,7 +367,7 @@ const DashboardPage = () => {
                     <h3 style={{ fontSize: 20, fontWeight: 700, color: 'hsl(var(--foreground))', letterSpacing: '-0.3px', margin: 0 }}>
                         Finans Haberleri
                     </h3>
-                    <NavLink to="/news" style={{ fontSize: 13, color: '#6366f1', textDecoration: 'none', fontWeight: 600 }}>
+                    <NavLink to="/news" style={{ fontSize: 13, color: 'hsl(var(--primary))', textDecoration: 'none', fontWeight: 600 }}>
                         Tüm Haberler ›
                     </NavLink>
                 </div>

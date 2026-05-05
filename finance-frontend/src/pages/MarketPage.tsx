@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { MapPin, Globe2, Search, ChevronLeft, ChevronRight, ArrowUpRight } from 'lucide-react';
+import { MapPin, Globe2, Search, ChevronLeft, ChevronRight, ArrowUpRight, ChevronUp, ChevronDown as ChevronDownIcon } from 'lucide-react';
 import {
     belongsToMarket,
     formatChangePercent,
@@ -151,6 +151,7 @@ const InstrumentRow = ({
 /* ─── Instrument List Panel ─── */
 function InstrumentList({
     instruments, isLoading, page, totalPages, totalElements, onPageChange, formatPrice, onNavigate,
+    sortCol, sortDir, onSort,
 }: {
     instruments: MarketInstrument[];
     isLoading: boolean;
@@ -160,9 +161,18 @@ function InstrumentList({
     onPageChange?: (p: number) => void;
     formatPrice: (price: number, cur: string) => string;
     onNavigate: (symbol: string) => void;
+    sortCol?: 'symbol' | 'price' | 'change' | null;
+    sortDir?: 'asc' | 'desc';
+    onSort?: (col: 'symbol' | 'price' | 'change') => void;
 }) {
     const hasPagination = totalPages !== undefined && totalPages > 1 && onPageChange !== undefined;
     const processed = instruments;
+
+    const SortIcon = ({ col }: { col: 'symbol' | 'price' | 'change' }) => {
+        if (!onSort) return null;
+        if (sortCol !== col) return <ChevronDownIcon size={9} style={{ opacity: 0.3 }} />;
+        return sortDir === 'asc' ? <ChevronUp size={9} style={{ color: 'hsl(var(--primary))' }} /> : <ChevronDownIcon size={9} style={{ color: 'hsl(var(--primary))' }} />;
+    };
 
     const pageNumbers = useMemo(() => {
         if (!hasPagination || totalPages === undefined || page === undefined) return [];
@@ -178,9 +188,9 @@ function InstrumentList({
     const paginationBtnStyle = (active: boolean, disabled?: boolean): React.CSSProperties => ({
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         minWidth: 32, height: 32, padding: '0 8px', borderRadius: 6, fontSize: 12, fontWeight: 600,
-        border: active ? '1px solid rgba(99,102,241,0.4)' : '1px solid hsl(var(--border))',
-        background: active ? 'rgba(99,102,241,0.1)' : 'transparent',
-        color: disabled ? 'hsl(var(--ghost-foreground))' : active ? '#818cf8' : 'hsl(var(--muted-foreground))',
+        border: active ? '1px solid hsl(var(--primary) / 0.4)' : '1px solid hsl(var(--border))',
+        background: active ? 'hsl(var(--primary) / 0.1)' : 'transparent',
+        color: disabled ? 'hsl(var(--ghost-foreground))' : active ? 'hsl(var(--primary))' : 'hsl(var(--muted-foreground))',
         cursor: disabled ? 'not-allowed' : 'pointer',
         transition: 'all 0.15s', pointerEvents: disabled ? 'none' : 'auto',
     });
@@ -221,18 +231,36 @@ function InstrumentList({
                 </span>
             </div>
 
-            {/* Table header */}
+            {/* Table header — sortable */}
             <div style={{
                 display: 'flex', alignItems: 'center', height: 32, padding: '0 12px',
                 borderBottom: '1px solid hsl(var(--border))',
                 background: 'rgba(255,255,255,0.015)',
             }}>
                 <div style={{ width: 16 }} />
-                <div style={{ width: 68, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5 }}>Sembol</div>
+                <div
+                    className="sort-header"
+                    style={{ width: 68, fontSize: 10, fontWeight: 600, color: sortCol === 'symbol' ? 'hsl(var(--primary))' : 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5 }}
+                    onClick={() => onSort?.('symbol')}
+                >
+                    Sembol <SortIcon col="symbol" />
+                </div>
                 <div style={{ flex: 1, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5 }}>Ad</div>
                 <div style={{ width: 42, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' }}>Tip</div>
-                <div style={{ width: 70, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Fiyat</div>
-                <div style={{ width: 64, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}>Değişim</div>
+                <div
+                    className="sort-header"
+                    style={{ width: 70, fontSize: 10, fontWeight: 600, color: sortCol === 'price' ? 'hsl(var(--primary))' : 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}
+                    onClick={() => onSort?.('price')}
+                >
+                    Fiyat <SortIcon col="price" />
+                </div>
+                <div
+                    className="sort-header"
+                    style={{ width: 64, fontSize: 10, fontWeight: 600, color: sortCol === 'change' ? 'hsl(var(--primary))' : 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}
+                    onClick={() => onSort?.('change')}
+                >
+                    Değişim <SortIcon col="change" />
+                </div>
                 <div style={{ width: 0 }} />
             </div>
 
@@ -292,6 +320,24 @@ const MarketPage = () => {
     const [page, setPage] = useState(0);
     const [region, setRegion] = useState<'TR' | 'US'>('TR');
     const [search, setSearch] = useState('');
+    const [sortCol, setSortCol] = useState<'symbol' | 'price' | 'change' | null>('change');
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+
+    const toggleSort = (col: 'symbol' | 'price' | 'change') => {
+        if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+        else { setSortCol(col); setSortDir(col === 'symbol' ? 'asc' : 'desc'); }
+    };
+
+    const sortInstruments = useMemo(() => (list: MarketInstrument[]) => {
+        if (!sortCol) return list;
+        return [...list].sort((a, b) => {
+            let cmp = 0;
+            if (sortCol === 'symbol') cmp = a.symbol.localeCompare(b.symbol, 'tr');
+            else if (sortCol === 'price') cmp = (a.currentPrice ?? 0) - (b.currentPrice ?? 0);
+            else if (sortCol === 'change') cmp = (a.change24h ?? Number.NEGATIVE_INFINITY) - (b.change24h ?? Number.NEGATIVE_INFINITY);
+            return sortDir === 'asc' ? cmp : -cmp;
+        });
+    }, [sortCol, sortDir]);
 
     const { data: allInstruments = [], isLoading: allLoading } = useQuery({
         queryKey: ['market-instrument-catalog'],
@@ -393,9 +439,10 @@ const MarketPage = () => {
     }, [searchFiltered, region, search]);
 
     const allPage = useMemo(() => {
+        const sorted = sortInstruments(grouped.all);
         const start = page * PAGE_SIZE;
-        return grouped.all.slice(start, start + PAGE_SIZE);
-    }, [grouped.all, page]);
+        return sorted.slice(start, start + PAGE_SIZE);
+    }, [grouped.all, page, sortInstruments]);
 
     const totalPages = Math.max(1, Math.ceil(grouped.all.length / PAGE_SIZE));
 
@@ -507,11 +554,28 @@ const MarketPage = () => {
                         onPageChange={setPage}
                         formatPrice={formatPrice}
                         onNavigate={handleNavigate}
+                        sortCol={sortCol}
+                        sortDir={sortDir}
+                        onSort={toggleSort}
                     />
                 </TabsContent>
 
                 {/* Category tabs */}
-                {(['stock', 'crypto', 'forex', 'commodity', 'indices', 'bond', 'gainers', 'losers'] as const).map(key => (
+                {(['stock', 'crypto', 'forex', 'commodity', 'indices', 'bond'] as const).map(key => (
+                    <TabsContent key={key} value={key} className="mt-0 outline-none pt-0">
+                        <InstrumentList
+                            instruments={sortInstruments(grouped[key])}
+                            isLoading={allLoading}
+                            formatPrice={formatPrice}
+                            onNavigate={handleNavigate}
+                            sortCol={sortCol}
+                            sortDir={sortDir}
+                            onSort={toggleSort}
+                        />
+                    </TabsContent>
+                ))}
+                {/* Gainers/Losers keep their own sort, no user sort */}
+                {(['gainers', 'losers'] as const).map(key => (
                     <TabsContent key={key} value={key} className="mt-0 outline-none pt-0">
                         <InstrumentList
                             instruments={grouped[key]}
