@@ -51,7 +51,7 @@ const FEATURES = [
     },
     {
         name: 'Finansal Haberler',
-        desc: 'Türkiye ve ABD piyasalarına ait haberleri kategori ve enstrüman bazında izleyin.',
+        desc: 'Türkiye ve ABD piyasalarına ait haberlere kategori ve enstrüman bazında ulaşın.',
     },
 ] as const;
 
@@ -75,7 +75,7 @@ const LandingPage = () => {
                 <nav className="landing-nav">
                     <Link to="/" className="landing-logo">
                         <Activity size={28} />
-                        <span>Finans Portalı</span>
+                        <span>TradeChart</span>
                     </Link>
                     <div className="landing-nav-actions">
                         <Link to="/market" className="btn-landing-secondary" style={{ height: 38, padding: '0 18px', fontSize: 13 }}>
@@ -128,7 +128,7 @@ const LandingPage = () => {
 
                 {/* ─── Features ─── */}
                 <section className="features-section">
-                    <p className="features-title">Neden Finans Portalı?</p>
+                    <p className="features-title">Neden TradeChart?</p>
                     <div className="features-grid">
                         {FEATURES.map((f) => (
                             <div key={f.name} className="feature-card">
@@ -149,10 +149,6 @@ const LandingPage = () => {
                     </Link>
                 </div>
 
-                {/* ─── Footer ─── */}
-                <div className="bottom-footer">
-                    Yahoo Finance ve Binance API üzerinden Spring Boot ile sunulmaktadır
-                </div>
             </div>
         </div>
     );
