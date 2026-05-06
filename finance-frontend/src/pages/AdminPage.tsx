@@ -25,11 +25,15 @@ interface NewsCategory {
 interface InstrumentPreview {
     symbol: string;
     name: string;
-    instrumentType: string;
+    instrumentType: string;     // InstrumentType enum serializes as string (e.g. "STOCK")
     currentPrice: number | null;
-    baseCurrency?: string | null;
+    previousPrice?: number | null;
+    changePercent?: number | null;
+    baseCurrency?: string | null; // Currency enum serializes as string (e.g. "TRY")
     market?: string | null;
-    active?: boolean;   // InstrumentDto serializes as "active" (not "isActive")
+    active: boolean;             // boolean field, serializes as "active"
+    historicalDataLoaded?: boolean;
+    lastUpdateTime?: string | null;
 }
 
 type CategoryMode = 'writable' | 'readonly-topics';
@@ -106,7 +110,7 @@ const AdminPage = () => {
     const fetchCategories = async () => {
         setCategoriesLoading(true);
         try {
-            const { data } = await privateApi.get<NewsCategory[]>('/api/admin/news-categories');
+            const { data } = await privateApi.get<NewsCategory[]>('/api/admin/topics');
             setCategories(Array.isArray(data) ? data : []);
             setCategoryMode('writable');
         } catch (error) {
@@ -547,13 +551,30 @@ const AdminPage = () => {
                                             </p>
                                             <p className="text-meta mt-1 text-[12px]">
                                                 {instrument.market ?? '-'} • {instrument.active ? 'aktif' : 'inactive'}
+                                                {instrument.changePercent != null && (
+                                                    <span className={`ml-2 font-semibold ${instrument.changePercent >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                                        {instrument.changePercent >= 0 ? '+' : ''}{Number(instrument.changePercent).toFixed(2)}%
+                                                    </span>
+                                                )}
                                             </p>
-                                            <button
-                                                onClick={() => handleInstrumentActivation(instrument.symbol, true)}
-                                                className="mt-2 px-2.5 h-7 rounded text-[11px] font-medium bg-primary/10 text-primary hover:bg-primary/15 transition-colors"
-                                            >
-                                                Aktif Et
-                                            </button>
+                                        <div className="flex gap-2 mt-2 justify-end">
+                                            {!instrument.active && (
+                                                <button
+                                                    onClick={() => handleInstrumentActivation(instrument.symbol, true)}
+                                                    className="px-2.5 h-7 rounded text-[11px] font-medium bg-primary/10 text-primary hover:bg-primary/15 transition-colors"
+                                                >
+                                                    Aktif Et
+                                                </button>
+                                            )}
+                                            {instrument.active && (
+                                                <button
+                                                    onClick={() => handleInstrumentActivation(instrument.symbol, false)}
+                                                    className="px-2.5 h-7 rounded text-[11px] font-medium bg-red-500/10 text-red-400 hover:bg-red-500/15 transition-colors"
+                                                >
+                                                    Pasife Al
+                                                </button>
+                                            )}
+                                        </div>
                                         </div>
                                     </div>
                                 ))}
