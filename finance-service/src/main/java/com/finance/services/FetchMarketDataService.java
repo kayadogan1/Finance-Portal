@@ -1,6 +1,7 @@
 package com.finance.services;
 
 import com.finance.config.InstrumentPropertiesConfig;
+import com.finance.repositories.InstrumentRepository;
 import com.finance.shared.FetchTask;
 import org.springframework.resilience.annotation.Retryable;
 import tools.jackson.databind.JsonNode;
@@ -27,6 +28,7 @@ public class FetchMarketDataService {
 
     private final InstrumentPropertiesConfig instrumentProperties;
     private final MarketDataPersistenceService persistenceService;
+    private final InstrumentRepository instrumentRepository;
     private final RestClient restClient;
     private final Tracer tracer;
     @Autowired
@@ -39,19 +41,22 @@ public class FetchMarketDataService {
 
     public FetchMarketDataService(InstrumentPropertiesConfig instrumentProperties,
                                   MarketDataPersistenceService persistenceService,
-                                  RestClient restClient,Tracer tracer) {
+                                  RestClient restClient, Tracer tracer, InstrumentRepository instrumentRepository) {
         this.instrumentProperties = instrumentProperties;
         this.persistenceService = persistenceService;
         this.restClient = restClient;
         this.tracer = tracer;
+        this.instrumentRepository = instrumentRepository;
     }
     private List<List<FetchTask>> partitionMarketData(){
         List<FetchTask> allTasks = new ArrayList<>();
-
-        instrumentProperties.getStock().forEach( (exchange,symbolsMap)->{
+        instrumentProperties.getStock().forEach((exchange, symbolsMap) -> {
             Currency currency = "BIST".equalsIgnoreCase(exchange) ? Currency.TRY : Currency.USD;
             symbolsMap.keySet().forEach(dbSymbol ->
-                    allTasks.add(new FetchTask(dbSymbol, "STOCK", currency)));
+                    instrumentRepository.findBySymbol(dbSymbol).ifPresent(instrument ->
+                            allTasks.add(new FetchTask(dbSymbol, "STOCK", currency))
+                    )
+            );
         });
         Map.of(
                 "FOREX",     instrumentProperties.getForex(),
@@ -117,7 +122,7 @@ public class FetchMarketDataService {
             if (price != null) {
                 persistenceService.saveMarketData(dbSymbol, price);
             } else {
-                logger.warn("Price not found for {} (Yahoo: {})", dbSymbol, yahooSymbol);
+                logger.error("Price not found for {} (Yahoo: {})", dbSymbol, yahooSymbol);
             }
 
         } catch (Exception e) {

@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -31,7 +32,7 @@ public interface InstrumentRepository extends JpaRepository<Instrument,UUID> {
             Pageable pageable
     );
     Optional<Instrument> findInstrumentBySymbol(String symbol);
-
+    List<Instrument> findByType(InstrumentType type);
 
     @Query("""
 SELECT i FROM Instrument i
@@ -64,5 +65,6 @@ ORDER BY ((i.currentPrice - i.previousPrice) / i.previousPrice) ASC
             @Param("currency") Currency currency,
             Pageable pageable
     );
+    Optional<Instrument> findBySymbol(String symbol);
     List<Instrument> findByIsActiveFalse();
 }

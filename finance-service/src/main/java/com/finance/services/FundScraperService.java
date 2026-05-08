@@ -53,8 +53,8 @@ public class FundScraperService {
         this.viops = instrumentPropertiesConfig.getViop();
         this.tracer = tracer;
     }
-
-    @Scheduled(cron = "0 44 19 * * *", zone = "Europe/Istanbul")
+    @Scheduled(fixedDelay = 50000000)
+    @Scheduled(cron = "0 40 13 * * *", zone = "Europe/Istanbul")
     public void scrapeFunds() {
         logger.info("Starting one-time scrape for Funds and VIOPs...");
         Span parentSpan = tracer.nextSpan()
