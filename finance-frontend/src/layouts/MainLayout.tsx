@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { NavLink, Outlet } from 'react-router-dom';
 import {
-    Activity,
     LayoutDashboard,
     Wallet,
     TrendingUp,
@@ -22,7 +21,8 @@ import {
 } from 'lucide-react';
 import useAuth from '../hooks/useAuth';
 import useTheme from '../hooks/useTheme';
-
+import logoIcon from '../assets/logo-icon.svg';
+import logoIconDark from '../assets/logo-icon-dark.svg';
 
 const EXPLORE_ITEMS = [
     { to: '/bitcoin', label: 'Kripto', icon: Bitcoin },
@@ -62,9 +62,9 @@ const MainLayout = () => {
             {/* ─── NAV — 52px, border-bottom, blur ─── */}
             <header className="sticky top-0 z-40 h-13 bg-background/80 backdrop-blur-sm border-b border-border flex items-center">
                 <div className="max-w-7xl mx-auto px-4 md:px-6 w-full flex items-center justify-between">
-                    <NavLink to="/dashboard" className="shrink-0 flex items-center gap-2">
-                        <Activity size={22} className="text-primary" />
-                        <span className="hidden md:inline text-[14px] font-semibold text-foreground tracking-tight">TradeChart</span>
+                    <NavLink to="/dashboard" className="shrink-0 flex items-center gap-2.5">
+                        <img src={isDark ? logoIconDark : logoIcon} alt="TradeChart Logo" className="w-7 h-7" />
+                        <span className="hidden md:inline text-[15px] font-bold text-foreground tracking-tight">TradeChart</span>
                     </NavLink>
 
                     {/* Nav links */}

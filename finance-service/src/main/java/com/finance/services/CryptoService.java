@@ -45,8 +45,11 @@ public class CryptoService {
                 BigDecimal price = new BigDecimal(responseDto.getPrice());
                 persistenceService.saveMarketData(symbol, price);
             }
+            else{
+                logger.error("while fetching {} instrument error occurred",symbol);
+            }
         } catch (Exception e) {
-            logger.error("Error fetching crypto data: {}", e.getMessage());
+            logger.error("Error fetching crypto data:{} {}",symbol ,e.getMessage());
         }
     }
 }

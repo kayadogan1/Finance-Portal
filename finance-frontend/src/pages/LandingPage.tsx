@@ -1,8 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
-import { Activity, ArrowRight, TrendingUp, BarChart2 } from 'lucide-react';
+import { ArrowRight, TrendingUp, BarChart2 } from 'lucide-react';
 import { formatChangePercent, getMarketInstruments, hasChange, type MarketInstrument } from '../services/marketService';
+import logoFullDark from '../assets/logo-full-dark.svg';
 import { formatMarketPrice } from '../utils/currency';
 import './LandingPage.css';
 
@@ -73,9 +74,8 @@ const LandingPage = () => {
             <div className="landing-content">
                 {/* ─── Nav ─── */}
                 <nav className="landing-nav">
-                    <Link to="/" className="landing-logo">
-                        <Activity size={28} />
-                        <span>TradeChart</span>
+                    <Link to="/" className="landing-logo" style={{ gap: 0 }}>
+                        <img src={logoFullDark} alt="TradeChart Logo" className="h-9" />
                     </Link>
                     <div className="landing-nav-actions">
                         <Link to="/market" className="btn-landing-secondary" style={{ height: 38, padding: '0 18px', fontSize: 13 }}>

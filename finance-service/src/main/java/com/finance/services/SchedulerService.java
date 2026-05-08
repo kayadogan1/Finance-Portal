@@ -23,7 +23,7 @@ public class SchedulerService {
         this.config = config;
         this.tracer = tracer;
     }
-   @Scheduled(initialDelay = 0, fixedRate = 500000)
+    @Scheduled(initialDelay = 0, fixedRate = 500000)
     public void updateGeneralMarkets() {
         Span span = tracer.nextSpan().name("scheduler.update-general-markets").start();
         try (Tracer.SpanInScope ignored = tracer.withSpan(span)) {
@@ -37,7 +37,7 @@ public class SchedulerService {
         }
     }
 
-   @Scheduled(initialDelay = 0, fixedRate = 500000)
+  @Scheduled(initialDelay = 0, fixedRate = 500000)
     public void updateBinanceCryptoData() {
         Span span = tracer.nextSpan().name("scheduler.update-binance-crypto").start();
         try (Tracer.SpanInScope ignored = tracer.withSpan(span)) {

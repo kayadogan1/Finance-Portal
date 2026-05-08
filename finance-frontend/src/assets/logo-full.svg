@@ -1,0 +1,15 @@
+<svg width="320" height="50" viewBox="0 0 640 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="7" y="15" width="2" height="62" rx="1" fill="#2563EB"/>
+  <rect x="3" y="30" width="10" height="25" rx="1.5" fill="#2563EB"/>
+
+  <rect x="19" y="10" width="2" height="40" rx="1" fill="#2563EB"/>
+  <rect x="15" y="17.5" width="10" height="20" rx="1.5" fill="#2563EB"/>
+
+  <path d="M 27 23.5 h 23 v 8 H 42.5 v 37 H 34.5 V 31.5 H 27 Z" fill="#0F172A"/>
+
+  <path d="M 89.8 31.6 A 22.5 22.5 0 1 0 89.8 60.5 L 83.6 55.3 A 14.5 14.5 0 1 1 83.6 36.7 Z" fill="#2563EB"/>
+
+  <text x="110" y="64" font-family="'Manrope', 'Inter', system-ui, sans-serif" font-size="42" font-weight="700" letter-spacing="-0.5">
+    <tspan fill="#0F172A">Trade</tspan><tspan fill="#2563EB">Chart</tspan>
+  </text>
+</svg>
