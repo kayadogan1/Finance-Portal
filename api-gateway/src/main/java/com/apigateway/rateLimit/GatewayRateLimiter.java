@@ -23,26 +23,26 @@ public class GatewayRateLimiter {
 
             case "finance" -> Bucket.builder()
                     .addLimit(Bandwidth.builder()
-                            .capacity(20)
-                            .refillGreedy(20, Duration.ofMinutes(1))
+                            .capacity(3000)
+                            .refillGreedy(300, Duration.ofMinutes(1))
                             .build())
                     .addLimit(Bandwidth.builder()
-                            .capacity(5)
-                            .refillIntervally(5, Duration.ofSeconds(10))
+                            .capacity(600)
+                            .refillIntervally(60, Duration.ofSeconds(10))
                             .build())
                     .build();
 
             case "news" -> Bucket.builder()
                     .addLimit(Bandwidth.builder()
-                            .capacity(100)
-                            .refillGreedy(100, Duration.ofMinutes(1))
+                            .capacity(3000)
+                            .refillGreedy(300, Duration.ofMinutes(1))
                             .build())
                     .build();
 
             default -> Bucket.builder()
                     .addLimit(Bandwidth.builder()
-                            .capacity(30)
-                            .refillGreedy(30, Duration.ofMinutes(1))
+                            .capacity(1200)
+                            .refillGreedy(120, Duration.ofMinutes(1))
                             .build())
                     .build();
         };

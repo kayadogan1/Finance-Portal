@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { AxiosError } from 'axios';
 import toast from 'react-hot-toast';
 import {
     Activity,
@@ -110,28 +109,17 @@ const AdminPage = () => {
     const fetchCategories = async () => {
         setCategoriesLoading(true);
         try {
-            const { data } = await privateApi.get<NewsCategory[]>('/api/admin/topics');
-            setCategories(Array.isArray(data) ? data : []);
-            setCategoryMode('writable');
-        } catch (error) {
-            const status = (error as AxiosError)?.response?.status;
-            if (status === 404 || !status) {
-                try {
-                    const { data } = await publicApi.get<string[]>('/api/news/topics');
-                    const topicCategories = (Array.isArray(data) ? data : []).map((topic, index) => ({
-                        id: index + 1,
-                        name: TOPIC_LABELS[topic] ?? topic,
-                        slug: slugify(topic),
-                        articleCount: 0,
-                    }));
-                    setCategories(topicCategories);
-                    setCategoryMode('readonly-topics');
-                } catch {
-                    toast.error('Kategori veya konu listesi yuklenemedi.');
-                }
-            } else {
-                toast.error('Kategoriler yuklenemedi.');
-            }
+            const { data } = await publicApi.get<string[]>('/api/news/topics');
+            const topicCategories = (Array.isArray(data) ? data : []).map((topic, index) => ({
+                id: index + 1,
+                name: TOPIC_LABELS[topic] ?? topic,
+                slug: slugify(topic),
+                articleCount: 0,
+            }));
+            setCategories(topicCategories);
+            setCategoryMode('readonly-topics');
+        } catch {
+            toast.error('Konu listesi yuklenemedi.');
         } finally {
             setCategoriesLoading(false);
         }

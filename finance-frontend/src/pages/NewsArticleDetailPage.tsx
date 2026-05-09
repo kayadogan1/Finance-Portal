@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, CalendarDays, ExternalLink, Link as LinkIcon, Newspaper } from 'lucide-react';
@@ -28,10 +28,25 @@ const formatDate = (value?: string) => {
     });
 };
 
+const cleanArticleText = (value?: string) => {
+    return (value ?? '')
+        .replace(/^STORY:\s*:?\s*/i, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+};
+
+const truncateArticleText = (value: string, limit = 900) => {
+    if (value.length <= limit) return value;
+    const trimmed = value.slice(0, limit).trimEnd();
+    const lastSpace = trimmed.lastIndexOf(' ');
+    return `${trimmed.slice(0, lastSpace > 720 ? lastSpace : limit).trimEnd()}...`;
+};
+
 const NewsArticleDetailPage = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const [imageFailed, setImageFailed] = useState(false);
     const state = location.state as ArticleState | null;
     const targetUrl = searchParams.get('url') ?? state?.article?.url ?? '';
 
@@ -74,9 +89,13 @@ const NewsArticleDetailPage = () => {
     const imageUrl = resolveNewsImage(article.urlToImage, article.source?.name, article.category);
     const instruments = article.instruments ?? [];
     const hasRealImage = Boolean(article.urlToImage && article.urlToImage.trim().length > 0);
-    const summaryText = article.content && article.content.trim().length > 80
-        ? article.content
-        : article.description || 'Bu haber için kaynak beslemesinden daha uzun bir özet gelmiyor.';
+    const cleanedContent = cleanArticleText(article.content);
+    const cleanedDescription = cleanArticleText(article.description);
+    const summaryText = truncateArticleText(
+        cleanedContent.length > 80
+            ? cleanedContent
+            : cleanedDescription || 'Bu haber için kaynak beslemesinden daha uzun bir özet gelmiyor.',
+    );
 
     return (
         <div className="space-y-6">
@@ -128,23 +147,16 @@ const NewsArticleDetailPage = () => {
                     )}
                 </div>
 
-                {hasRealImage ? (
+                {hasRealImage && !imageFailed && (
                     <div className="overflow-hidden rounded border border-border bg-card">
                         <img
                             src={imageUrl}
                             alt={article.title}
                             className="h-[220px] w-full object-cover md:h-[320px]"
                             onError={(event) => {
-                                (event.target as HTMLImageElement).src = resolveNewsImage(undefined, article.source?.name, article.category);
+                                event.currentTarget.style.display = 'none';
+                                setImageFailed(true);
                             }}
-                        />
-                    </div>
-                ) : (
-                    <div className="overflow-hidden rounded border border-border bg-card">
-                        <img
-                            src={imageUrl}
-                            alt={article.title}
-                            className="h-[160px] w-full object-cover md:h-[180px]"
                         />
                     </div>
                 )}

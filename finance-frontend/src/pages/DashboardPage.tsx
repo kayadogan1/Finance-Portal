@@ -29,8 +29,15 @@ function timeAgo(dateStr: string): string {
     return `${Math.floor(hours / 24)}g`;
 }
 
-/* ─── Market Summary Strip ─── */
-const SUMMARY_TYPES: Array<MarketInstrument['type']> = ['INDEX', 'STOCK', 'CRYPTO', 'FIAT', 'FOREX', 'COMMODITY'];
+const TOP_STOCK_LIMIT = 5;
+
+const hasUsablePrice = (instrument: MarketInstrument) => {
+    return instrument.hasPrice && Number.isFinite(instrument.currentPrice) && instrument.currentPrice > 0;
+};
+
+const sortByPriceDesc = (a: MarketInstrument, b: MarketInstrument) => {
+    return (b.currentPrice ?? 0) - (a.currentPrice ?? 0);
+};
 
 const MarketSummaryStrip = ({
     instruments,
@@ -39,21 +46,11 @@ const MarketSummaryStrip = ({
     instruments: MarketInstrument[];
     onNavigate: (symbol: string) => void;
 }) => {
-    // Pick 1 representative per type (in priority order), up to 6 total
     const summaryItems = useMemo(() => {
-        const seen = new Set<string>();
-        const result: MarketInstrument[] = [];
-        for (const type of SUMMARY_TYPES) {
-            const found = instruments.find(i => i.type === type && hasChange(i) && !seen.has(i.symbol));
-            if (found) { seen.add(found.symbol); result.push(found); }
-            if (result.length >= 6) break;
-        }
-        // Fill remaining slots from any instrument with price data
-        for (const inst of instruments) {
-            if (result.length >= 6) break;
-            if (!seen.has(inst.symbol) && hasChange(inst)) { seen.add(inst.symbol); result.push(inst); }
-        }
-        return result;
+        return [...instruments]
+            .filter((instrument) => instrument.type === 'STOCK' && hasUsablePrice(instrument))
+            .sort(sortByPriceDesc)
+            .slice(0, TOP_STOCK_LIMIT);
     }, [instruments]);
 
     if (!summaryItems.length) return null;
@@ -269,7 +266,7 @@ const DashboardPage = () => {
         return instruments.filter(i => belongsToMarket(i, region));
     }, [instruments, region]);
 
-    const stocks = useMemo(() => regionalInstruments.filter(i => i.type === 'STOCK').slice(0, 6), [regionalInstruments]);
+    const stocks = useMemo(() => regionalInstruments.filter(i => i.type === 'STOCK').sort(sortByPriceDesc).slice(0, 6), [regionalInstruments]);
     const cryptos = useMemo(() => regionalInstruments.filter(i => i.type === 'CRYPTO').slice(0, 6), [regionalInstruments]);
     const indices = useMemo(() => regionalInstruments.filter(i => i.type === 'INDEX').slice(0, 6), [regionalInstruments]);
     const commodities = useMemo(() => regionalInstruments.filter(i => i.type === 'COMMODITY' || i.type === 'FIAT' || i.type === 'FOREX').slice(0, 6), [regionalInstruments]);
@@ -296,18 +293,7 @@ const DashboardPage = () => {
 
     return (
         <div className="space-y-10 mb-20">
-            {/* ─── Header & Region Toggle ─── */}
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-6 border-b border-white/5">
-                <div>
-                    <h2 style={{ fontSize: '2.4rem', fontWeight: 800, letterSpacing: '-1.5px', color: '#f8fafc', lineHeight: 1 }}>
-                        Genel Bakış
-                    </h2>
-                    <p className="text-meta mt-3 text-[14px]">
-                        Piyasa sıralamaları, hacimli varlıklar ve finans dünyasından son gelişmeler.
-                    </p>
-                </div>
-
-                {/* Region Toggle */}
+            <div className="flex justify-end pb-2">
                 <div className="flex bg-[hsl(var(--card))] border border-border p-1 rounded-xl w-fit shrink-0 shadow-sm">
                     <button
                         onClick={() => setRegion('TR')}

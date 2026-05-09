@@ -104,6 +104,7 @@ public class InstrumentService {
     }
 
     public List<InstrumentDto> getInactiveInstruments() {
+        logger.info("fetching inactive instruments...");
         return instrumentRepository.findByIsActiveFalse()
                 .stream()
                 .map(this::toInstrumentDto)

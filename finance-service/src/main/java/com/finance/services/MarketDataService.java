@@ -99,7 +99,9 @@ public class MarketDataService {
 
             case CRYPTO -> Currency.USDT;
 
-            case COMMODITY, INDEX, BOND -> Currency.USD;
+            case INDEX -> symbol != null && symbol.toUpperCase().startsWith("XU") ? Currency.TRY : Currency.USD;
+
+            case COMMODITY, BOND -> Currency.USD;
 
             case FOREX -> extractQuoteCurrency(symbol);
 

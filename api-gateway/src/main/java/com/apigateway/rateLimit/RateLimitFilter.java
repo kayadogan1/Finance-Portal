@@ -4,6 +4,7 @@ import io.github.bucket4j.Bucket;
 import io.github.bucket4j.ConsumptionProbe;
 import org.jspecify.annotations.NonNull;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ServerWebExchange;
@@ -14,15 +15,13 @@ import reactor.core.publisher.Mono;
 import java.util.Objects;
 
 @Component
-@Order(-1)  // En önce çalış — WebFlux'ta Ordered.HIGHEST_PRECEDENCE yerine bu
+@Order(-1)
 public class RateLimitFilter implements WebFilter {
 
     private final GatewayRateLimiter gatewayRateLimiter;
 
     public RateLimitFilter(GatewayRateLimiter gatewayRateLimiter) {
-        this.gatewayRateLimiter = Objects.requireNonNull(
-                gatewayRateLimiter, "GatewayRateLimiter inject edilemedi"
-        );
+        this.gatewayRateLimiter = gatewayRateLimiter;
     }
 
     @Override
@@ -30,13 +29,22 @@ public class RateLimitFilter implements WebFilter {
     public Mono<Void> filter(@NonNull ServerWebExchange exchange,
                              @NonNull WebFilterChain chain) {
 
+        String path = exchange.getRequest().getURI().getPath();
+        if (path == null || !path.startsWith("/api/")) {
+            return chain.filter(exchange);
+        }
+
+        if (exchange.getRequest().getMethod() == HttpMethod.OPTIONS) {
+            return chain.filter(exchange);
+        }
+
         String clientIp = extractClientIp(exchange);
-        String service  = extractService(exchange);
+        String service  = extractService(path);
 
         Bucket bucket = gatewayRateLimiter.resolveBucket(clientIp, service);
 
         if (bucket == null) {
-            return chain.filter(exchange);  // fail-open
+            return chain.filter(exchange);
         }
 
         ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
@@ -67,7 +75,6 @@ public class RateLimitFilter implements WebFilter {
     }
 
     private String extractClientIp(ServerWebExchange exchange) {
-        // WebFlux'ta HttpServletRequest yok, ServerWebExchange kullanılır
         String forwarded = exchange.getRequest()
                 .getHeaders()
                 .getFirst("X-Forwarded-For");
@@ -88,11 +95,7 @@ public class RateLimitFilter implements WebFilter {
         );
     }
 
-    private String extractService(ServerWebExchange exchange) {
-        String path = exchange.getRequest().getURI().getPath();
-
-        if (path == null) return "default";
-
+    private String extractService(String path) {
         if (path.startsWith("/api/news"))           return "news";
 
         if (path.startsWith("/api/market"))         return "finance";
