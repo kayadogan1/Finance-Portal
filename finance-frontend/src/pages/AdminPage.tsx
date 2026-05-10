@@ -63,12 +63,22 @@ const TOPIC_LABELS: Record<string, string> = {
 
 const formatCurrency = (value: number | null | undefined, currency?: string | null) => {
     if (value == null || Number.isNaN(value)) return '-';
-    const normalized = currency === 'TRY' ? 'TRY' : currency === 'USD' ? 'USD' : currency || 'USD';
-    return new Intl.NumberFormat('tr-TR', {
-        style: 'currency',
-        currency: normalized,
-        maximumFractionDigits: normalized === 'TRY' ? 2 : 2,
-    }).format(value);
+    const rawCurrency = (currency || 'USD').toUpperCase();
+    const normalized = rawCurrency === 'TL'
+        ? 'TRY'
+        : ['USDT', 'XAU', 'XAG'].includes(rawCurrency)
+            ? 'USD'
+            : rawCurrency;
+
+    try {
+        return new Intl.NumberFormat('tr-TR', {
+            style: 'currency',
+            currency: normalized,
+            maximumFractionDigits: 2,
+        }).format(value);
+    } catch {
+        return `${new Intl.NumberFormat('tr-TR', { maximumFractionDigits: 2 }).format(value)} ${rawCurrency}`;
+    }
 };
 
 const slugify = (value: string) =>
