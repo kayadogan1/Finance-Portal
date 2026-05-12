@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, CalendarDays, ExternalLink, Link as LinkIcon, Newspaper } from 'lucide-react';
 import {
     ASSET_TYPE_COLORS,
-    buildNewsDetailPath,
     getNews,
     getNewsCategoryLabel,
     resolveNewsImage,
@@ -230,15 +229,7 @@ const NewsArticleDetailPage = () => {
                             </div>
                         )}
 
-                        <div className="card-base space-y-3">
-                            <div>
-                                <h2 className="text-[15px] font-semibold text-foreground">Paylaşılabilir Bağlantı</h2>
-                                <p className="text-meta mt-1">Detay sayfasına aynı haberle geri dönmek için</p>
-                            </div>
-                            <code className="block break-all rounded bg-background px-3 py-2 text-[12px] text-muted-foreground">
-                                {window.location.origin}{buildNewsDetailPath(article.url)}
-                            </code>
-                        </div>
+
                     </aside>
                 </div>
             </article>
