@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import MainLayout from './layouts/MainLayout';
 import LandingPage from './pages/LandingPage';
+import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import PortfolioPage from './pages/PortfolioPage';
 import ProfilePage from './pages/ProfilePage';
@@ -24,6 +25,7 @@ function App() {
 
             {/* App pages — inside MainLayout */}
             <Route element={<MainLayout />}>
+                <Route path="/login" element={<LoginPage />} />
                 <Route path="/dashboard" element={<DashboardPage />} />
                 <Route path="/market" element={<MarketPage />} />
                 <Route path="/news" element={<NewsPage />} />

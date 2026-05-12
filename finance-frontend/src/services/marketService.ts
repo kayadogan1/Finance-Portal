@@ -464,6 +464,33 @@ export const getMarketInstrumentsPaged = async (
     return { ...pageData, content: enriched };
 };
 
+export const searchMarketInstrumentsPaged = async ({
+    q,
+    type,
+    page = 0,
+    size = 12,
+}: {
+    q?: string;
+    type?: BackendInstrumentType;
+    page?: number;
+    size?: number;
+}): Promise<PagedResponse<MarketInstrument>> => {
+    const { data: pageData } = await publicApi.get<PagedResponse<InstrumentDto>>('/api/market', {
+        params: {
+            page,
+            size,
+            ...(q?.trim() ? { q: q.trim() } : {}),
+            ...(type ? { type } : {}),
+        },
+    });
+
+    if (!pageData || !pageData.content || pageData.content.length === 0) {
+        return { content: [], totalElements: 0, totalPages: 0, number: page, size, first: page === 0, last: true, empty: true };
+    }
+
+    return { ...pageData, content: pageData.content.map(normalizeInstrument) };
+};
+
 /* ═══════════════════════════════════════════════════════════════════════
    4b. ALL INSTRUMENTS (non-paginated fetch for Dashboard, categories)
    Fetches ALL pages sequentially and returns a flat MarketInstrument[].

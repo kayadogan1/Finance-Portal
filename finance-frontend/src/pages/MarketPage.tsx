@@ -16,10 +16,9 @@ import { formatMarketPrice } from '../utils/currency';
 
 const PAGE_SIZE = 20;
 
-type MarketTab = 'all' | 'stock' | 'crypto' | 'forex' | 'commodity' | 'indices' | 'bond' | 'gainers' | 'losers';
+type MarketTab = 'stock' | 'crypto' | 'forex' | 'commodity' | 'indices' | 'bond' | 'gainers' | 'losers';
 
 const MARKET_TABS: { key: MarketTab; label: string; tone?: 'up' | 'down' }[] = [
-    { key: 'all', label: 'Tümü' },
     { key: 'stock', label: 'Hisse' },
     { key: 'crypto', label: 'Kripto' },
     { key: 'forex', label: 'Döviz' },
@@ -316,7 +315,7 @@ function InstrumentList({
    ════════════════════════════════════════ */
 const MarketPage = () => {
     const navigate = useNavigate();
-    const [activeTab, setActiveTab] = useState<MarketTab>('all');
+    const [activeTab, setActiveTab] = useState<MarketTab>('stock');
     const [page, setPage] = useState(0);
     const [region, setRegion] = useState<'TR' | 'US'>('TR');
     const [search, setSearch] = useState('');
@@ -420,7 +419,6 @@ const MarketPage = () => {
         const hasSearch = search.trim().length > 0;
         const regional = hasSearch ? searchFiltered : searchFiltered.filter(i => belongsToMarket(i, region));
         return {
-            all: regional,
             crypto: regional.filter(i => i.type === 'CRYPTO'),
             forex: regional.filter(i => i.type === 'FIAT' || i.type === 'FOREX'),
             commodity: regional.filter(i => i.type === 'COMMODITY'),
@@ -438,13 +436,15 @@ const MarketPage = () => {
         };
     }, [searchFiltered, region, search]);
 
-    const allPage = useMemo(() => {
-        const sorted = sortInstruments(grouped.all);
+    const activeItems = grouped[activeTab] ?? [];
+
+    const pagedItems = useMemo(() => {
+        const sorted = activeTab === 'gainers' || activeTab === 'losers' ? activeItems : sortInstruments(activeItems);
         const start = page * PAGE_SIZE;
         return sorted.slice(start, start + PAGE_SIZE);
-    }, [grouped.all, page, sortInstruments]);
+    }, [activeItems, activeTab, page, sortInstruments]);
 
-    const totalPages = Math.max(1, Math.ceil(grouped.all.length / PAGE_SIZE));
+    const totalPages = Math.max(1, Math.ceil(activeItems.length / PAGE_SIZE));
 
     const handleNavigate = (symbol: string) => {
         navigate(`/instrument/${symbol}`);
@@ -521,7 +521,7 @@ const MarketPage = () => {
                 </span>
             </div>
 
-            {/* Tabs + Table */}
+            {/* Category filters + table */}
             <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value as MarketTab); setPage(0); }} className="w-full">
                 <div style={{ overflowX: 'auto', border: '1px solid hsl(var(--border))', borderRadius: 6, background: 'hsl(var(--card))' }}>
                     <TabsList className="bg-transparent p-0 h-auto rounded-none" style={{ flexWrap: 'nowrap', minWidth: 'max-content', display: 'flex' }}>
@@ -543,45 +543,20 @@ const MarketPage = () => {
                     </TabsList>
                 </div>
 
-                {/* "Tümü" tab */}
-                <TabsContent value="all" className="mt-0 outline-none pt-0">
-                    <InstrumentList
-                        instruments={allPage}
-                        isLoading={isLoading}
-                        page={page}
-                        totalPages={totalPages}
-                        totalElements={grouped.all.length}
-                        onPageChange={setPage}
-                        formatPrice={formatPrice}
-                        onNavigate={handleNavigate}
-                        sortCol={sortCol}
-                        sortDir={sortDir}
-                        onSort={toggleSort}
-                    />
-                </TabsContent>
-
-                {/* Category tabs */}
-                {(['stock', 'crypto', 'forex', 'commodity', 'indices', 'bond'] as const).map(key => (
+                {MARKET_TABS.map(({ key }) => (
                     <TabsContent key={key} value={key} className="mt-0 outline-none pt-0">
                         <InstrumentList
-                            instruments={sortInstruments(grouped[key])}
-                            isLoading={allLoading}
+                            instruments={key === activeTab ? pagedItems : []}
+                            isLoading={isLoading}
+                            page={page}
+                            totalPages={totalPages}
+                            totalElements={activeItems.length}
+                            onPageChange={setPage}
                             formatPrice={formatPrice}
                             onNavigate={handleNavigate}
-                            sortCol={sortCol}
-                            sortDir={sortDir}
-                            onSort={toggleSort}
-                        />
-                    </TabsContent>
-                ))}
-                {/* Gainers/Losers keep their own sort, no user sort */}
-                {(['gainers', 'losers'] as const).map(key => (
-                    <TabsContent key={key} value={key} className="mt-0 outline-none pt-0">
-                        <InstrumentList
-                            instruments={grouped[key]}
-                            isLoading={allLoading}
-                            formatPrice={formatPrice}
-                            onNavigate={handleNavigate}
+                            sortCol={key === 'gainers' || key === 'losers' ? undefined : sortCol}
+                            sortDir={key === 'gainers' || key === 'losers' ? undefined : sortDir}
+                            onSort={key === 'gainers' || key === 'losers' ? undefined : toggleSort}
                         />
                     </TabsContent>
                 ))}

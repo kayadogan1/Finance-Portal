@@ -1,8 +1,12 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Chart from 'react-apexcharts';
-import { getLineData, getMarketInstrumentCatalog } from '../../services/marketService';
-import { Check, ChevronsUpDown } from "lucide-react";
+import {
+    getLineData,
+    searchMarketInstrumentsPaged,
+    type BackendInstrumentType,
+} from '../../services/marketService';
+import { Check, ChevronLeft, ChevronRight, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
     Command,
@@ -21,12 +25,52 @@ import {
 interface SymbolPickerProps {
     value: string;
     onChange: (value: string) => void;
-    options: { symbol: string; name: string }[];
     placeholder: string;
 }
 
-function SymbolPicker({ value, onChange, options, placeholder }: SymbolPickerProps) {
+type PickerCategory = 'stock' | 'crypto' | 'forex' | 'commodity' | 'indices';
+
+const PICKER_PAGE_SIZE = 12;
+
+const PICKER_CATEGORIES: { key: PickerCategory; label: string }[] = [
+    { key: 'stock', label: 'Hisse' },
+    { key: 'crypto', label: 'Kripto' },
+    { key: 'forex', label: 'Döviz' },
+    { key: 'commodity', label: 'Emtia' },
+    { key: 'indices', label: 'Endeks' },
+];
+
+const PICKER_TYPE_MAP: Record<PickerCategory, BackendInstrumentType> = {
+    stock: 'STOCK',
+    crypto: 'CRYPTO',
+    forex: 'FOREX',
+    commodity: 'COMMODITY',
+    indices: 'INDEX',
+};
+
+function SymbolPicker({ value, onChange, placeholder }: SymbolPickerProps) {
     const [open, setOpen] = useState(false);
+    const [category, setCategory] = useState<PickerCategory>('stock');
+    const [query, setQuery] = useState('');
+    const [page, setPage] = useState(0);
+
+    const { data: searchPage, isLoading } = useQuery({
+        queryKey: ['comparison-instrument-search', category, query.trim(), page],
+        queryFn: () => searchMarketInstrumentsPaged({
+            q: query,
+            type: PICKER_TYPE_MAP[category],
+            page,
+            size: PICKER_PAGE_SIZE,
+        }),
+        enabled: open,
+        staleTime: 1000 * 60 * 5,
+        gcTime: 1000 * 60 * 15,
+    });
+
+    const pagedOptions = searchPage?.content ?? [];
+    const totalPages = Math.max(1, searchPage?.totalPages ?? 1);
+    const totalElements = searchPage?.totalElements ?? 0;
+    const currentPage = Math.min(page, totalPages - 1);
 
     return (
         <Popover open={open} onOpenChange={setOpen}>
@@ -36,19 +80,45 @@ function SymbolPicker({ value, onChange, options, placeholder }: SymbolPickerPro
                     aria-expanded={open}
                     className="w-[200px] justify-between flex items-center px-3 h-9 border border-border bg-card text-[13px] rounded text-foreground hover:border-border/60 transition-colors"
                 >
-                    {value
-                        ? options.find((opt) => opt.symbol === value)?.symbol || value
-                        : placeholder}
+                    {value || placeholder}
                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </button>
             </PopoverTrigger>
-            <PopoverContent className="w-[200px] p-0 bg-card border-border shadow-none">
-                <Command className="bg-card text-foreground">
-                    <CommandInput placeholder="Sembol ara..." className="text-[13px] border-border" />
+            <PopoverContent className="w-[280px] p-0 bg-card border-border shadow-none">
+                <Command className="bg-card text-foreground" shouldFilter={false}>
+                    <div className="grid grid-cols-3 gap-1 border-b border-border p-2">
+                        {PICKER_CATEGORIES.map((item) => (
+                            <button
+                                key={item.key}
+                                type="button"
+                                onClick={() => {
+                                    setCategory(item.key);
+                                    setPage(0);
+                                }}
+                                className={cn(
+                                    "h-7 rounded border px-2 text-[11px] font-semibold transition-colors",
+                                    category === item.key
+                                        ? "border-primary/40 bg-primary/15 text-primary"
+                                        : "border-border bg-background/50 text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                {item.label}
+                            </button>
+                        ))}
+                    </div>
+                    <CommandInput
+                        value={query}
+                        onValueChange={(value) => {
+                            setQuery(value);
+                            setPage(0);
+                        }}
+                        placeholder="Sembol veya ad ara..."
+                        className="text-[13px] border-border"
+                    />
                     <CommandList>
-                        <CommandEmpty>Sonuç bulunamadı.</CommandEmpty>
+                        <CommandEmpty>{isLoading ? 'Yükleniyor...' : 'Sonuç bulunamadı.'}</CommandEmpty>
                         <CommandGroup>
-                            {options.map((opt) => (
+                            {pagedOptions.map((opt) => (
                                 <CommandItem
                                     key={opt.symbol}
                                     value={opt.symbol}
@@ -62,13 +132,39 @@ function SymbolPicker({ value, onChange, options, placeholder }: SymbolPickerPro
                                         className={cn(
                                             "mr-2 h-4 w-4 text-primary",
                                             value === opt.symbol ? "opacity-100" : "opacity-0"
-                                        )}
+                                    )}
                                     />
-                                    {opt.symbol}
+                                    <div className="min-w-0">
+                                        <div className="text-[13px] font-semibold">{opt.symbol}</div>
+                                        <div className="truncate text-[11px] text-muted-foreground">{opt.name}</div>
+                                    </div>
                                 </CommandItem>
                             ))}
                         </CommandGroup>
                     </CommandList>
+                    <div className="flex items-center justify-between border-t border-border px-3 py-2">
+                        <span className="text-[11px] text-muted-foreground">
+                            {totalElements} sonuç • {currentPage + 1}/{totalPages}
+                        </span>
+                        <div className="flex items-center gap-1">
+                            <button
+                                type="button"
+                                disabled={currentPage === 0}
+                                onClick={() => setPage((prev) => Math.max(0, prev - 1))}
+                                className="inline-flex h-7 w-7 items-center justify-center rounded border border-border text-muted-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                <ChevronLeft size={14} />
+                            </button>
+                            <button
+                                type="button"
+                                disabled={currentPage >= totalPages - 1}
+                                onClick={() => setPage((prev) => Math.min(totalPages - 1, prev + 1))}
+                                className="inline-flex h-7 w-7 items-center justify-center rounded border border-border text-muted-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                            >
+                                <ChevronRight size={14} />
+                            </button>
+                        </div>
+                    </div>
                 </Command>
             </PopoverContent>
         </Popover>
@@ -87,14 +183,6 @@ const MAX_CHART_POINTS = 200;
 export default function ComparisonChart() {
     const [symbolA, setSymbolA] = useState<string>('BTCUSDT');
     const [symbolB, setSymbolB] = useState<string>('ETHUSDT');
-
-    // FIX 1: Use catalog (already cached 30min in callers) with explicit staleTime
-    const { data: instruments = [] } = useQuery({
-        queryKey: ['market-instrument-catalog'],
-        queryFn: getMarketInstrumentCatalog,
-        staleTime: 1000 * 60 * 30,
-        gcTime: 1000 * 60 * 60,
-    });
 
     // FIX 2: Add staleTime so line data doesn't refetch on every focus/render
     const { data: dataA, isLoading: loadingA } = useQuery({
@@ -224,14 +312,12 @@ export default function ComparisonChart() {
                     <SymbolPicker
                         value={symbolA}
                         onChange={setSymbolA}
-                        options={instruments}
                         placeholder="Seç 1"
                     />
                     <span className="text-subtle text-[12px] font-medium">VS</span>
                     <SymbolPicker
                         value={symbolB}
                         onChange={setSymbolB}
-                        options={instruments}
                         placeholder="Seç 2"
                     />
                 </div>

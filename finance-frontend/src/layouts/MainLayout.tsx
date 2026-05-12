@@ -32,7 +32,7 @@ const EXPLORE_ITEMS = [
 ];
 
 const MainLayout = () => {
-    const { isAuthenticated, username, isAdmin, login, logout, register } = useAuth();
+    const { isAuthenticated, username, isAdmin, logout, register } = useAuth();
     const { isDark, toggle: toggleTheme } = useTheme();
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const [exploreOpen, setExploreOpen] = useState(false);
@@ -131,13 +131,13 @@ const MainLayout = () => {
                         </button>
                         {!isAuthenticated ? (
                             <div className="flex items-center gap-3">
-                                <button
-                                    onClick={() => login()}
+                                <NavLink
+                                    to="/login"
                                     className="flex items-center gap-1.5 px-3 py-1.5 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors"
                                 >
                                     <LogIn size={14} />
                                     <span className="hidden sm:inline">Giriş</span>
-                                </button>
+                                </NavLink>
                                 <button
                                     onClick={() => register()}
                                     className="flex items-center gap-1.5 px-4 h-9 text-[13px] font-medium rounded bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
