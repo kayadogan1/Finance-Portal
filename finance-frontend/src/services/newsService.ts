@@ -39,6 +39,7 @@ export interface NewsInstrumentDto {
  *   publishedAt      → String (ISO datetime)
  *   modelName        → String (AI model adı, ör. "classification-api")
  *   instrumentSymbol → String (AI birincil enstrüman sembolü)
+ *   isApproved       → Boolean (admin onay durumu)
  *   instruments      → List<NewsInstrumentDto> (sıralı, skorlu enstrüman listesi)
  */
 export interface FilteredArticleDto {
@@ -54,6 +55,7 @@ export interface FilteredArticleDto {
     publishedAt: string;
     modelName?: string;
     instrumentSymbol?: string;
+    isApproved?: boolean;
     instruments?: NewsInstrumentDto[];
 }
 
@@ -257,4 +259,18 @@ export const getTopics = async (): Promise<string[]> => {
  */
 export const refreshNews = async (): Promise<void> => {
     await privateApi.post('/api/news/refresh');
+};
+
+export const getPendingNews = async (): Promise<FilteredArticleDto[]> => {
+    const { data } = await privateApi.get<FilteredArticleDto[]>('/api/news/admin/pending');
+    return Array.isArray(data) ? data : [];
+};
+
+export const updateNewsApproval = async (id: string, approved: boolean): Promise<FilteredArticleDto> => {
+    const { data } = await privateApi.patch<FilteredArticleDto>(`/api/news/admin/articles/${id}/approval`, { approved });
+    return data;
+};
+
+export const deleteNewsArticle = async (id: string): Promise<void> => {
+    await privateApi.delete(`/api/news/admin/articles/${id}`);
 };

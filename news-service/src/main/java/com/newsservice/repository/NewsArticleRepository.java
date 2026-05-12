@@ -20,12 +20,18 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, UUID> 
     List<NewsArticle> findByPublishedDateAfter(LocalDateTime publishedDate);
 
     @EntityGraph(attributePaths = "instruments")
-    List<NewsArticle> findByTopicAndPublishedDateAfter(NewsTopic topic, LocalDateTime date);
+    List<NewsArticle> findByIsApprovedTrueAndPublishedDateAfter(LocalDateTime publishedDate);
 
     @EntityGraph(attributePaths = "instruments")
-    List<NewsArticle> findByCountryAndPublishedDateAfter(NewsCountry country, LocalDateTime date);
+    List<NewsArticle> findByTopicAndIsApprovedTrueAndPublishedDateAfter(NewsTopic topic, LocalDateTime date);
 
     @EntityGraph(attributePaths = "instruments")
-    List<NewsArticle> findByTopicAndCountryAndPublishedDateAfter(NewsTopic topic, NewsCountry country, LocalDateTime date);
+    List<NewsArticle> findByCountryAndIsApprovedTrueAndPublishedDateAfter(NewsCountry country, LocalDateTime date);
+
+    @EntityGraph(attributePaths = "instruments")
+    List<NewsArticle> findByTopicAndCountryAndIsApprovedTrueAndPublishedDateAfter(NewsTopic topic, NewsCountry country, LocalDateTime date);
+
+    @EntityGraph(attributePaths = "instruments")
+    List<NewsArticle> findByIsApprovedFalseOrderByPublishedDateDesc();
 
 }

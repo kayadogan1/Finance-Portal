@@ -1,9 +1,12 @@
 package com.finance.services;
 
+import com.finance.models.Instrument;
+import com.finance.repositories.InstrumentRepository;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 import com.finance.config.InstrumentPropertiesConfig;
 import com.finance.shared.Currency;
+import com.finance.shared.InstrumentType;
 import io.micrometer.tracing.CurrentTraceContext;
 import io.micrometer.tracing.Tracer;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +22,7 @@ import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -31,6 +35,7 @@ class FetchMarketDataServiceTest {
     @Mock private InstrumentPropertiesConfig instrumentProperties;
     @Mock private MarketDataPersistenceService persistenceService;
     @Mock private RestClient restClient;
+    @Mock private InstrumentRepository instrumentRepository;
     @SuppressWarnings("rawtypes")
     @Mock private RestClient.RequestHeadersUriSpec requestHeadersUriSpec;
     @Mock private RestClient.ResponseSpec responseSpec;
@@ -70,6 +75,12 @@ class FetchMarketDataServiceTest {
         when(instrumentProperties.getCommodity()).thenReturn(Map.of());
         when(instrumentProperties.getBond()).thenReturn(Map.of());
         when(instrumentProperties.getFiat()).thenReturn(Map.of());
+        when(instrumentRepository.findBySymbol("THYAO")).thenReturn(Optional.of(Instrument.builder()
+                .symbol("THYAO")
+                .name("Turk Hava Yollari")
+                .type(InstrumentType.STOCK)
+                .baseCurrency(Currency.TRY)
+                .build()));
 
         fetchMarketDataService.updateAllMarketData();
 

@@ -122,6 +122,7 @@ class NewsControllerTest {
                 "2026-05-01T10:00",
                 "classification-api",
                 "AAPL",
+                true,
                 List.of()
         );
     }

@@ -15,6 +15,7 @@ public record FilteredArticleDto(
         String publishedAt,
         String modelName,
         String instrumentSymbol,
+        Boolean isApproved,
         List<NewsInstrumentDto> instruments
 ) {
 }

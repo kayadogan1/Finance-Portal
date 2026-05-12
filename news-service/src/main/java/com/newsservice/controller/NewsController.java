@@ -61,6 +61,5 @@ public class NewsController {
                 .map(Enum::toString)
                 .toList();
         return ResponseEntity.ok(ApiResult.success(topics,"topics fetched",200));
-
     }
 }

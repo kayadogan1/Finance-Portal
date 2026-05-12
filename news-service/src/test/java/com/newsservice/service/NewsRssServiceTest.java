@@ -297,11 +297,11 @@ class NewsRssServiceTest {
                 )))
                 .build();
 
-        when(newsArticleRepository.findByTopicAndCountryAndPublishedDateAfter(eq(NewsTopic.STOCK), eq(NewsCountry.US), any()))
+        when(newsArticleRepository.findByTopicAndCountryAndIsApprovedTrueAndPublishedDateAfter(eq(NewsTopic.STOCK), eq(NewsCountry.US), any()))
                 .thenReturn(List.of(article));
-        when(newsArticleRepository.findByPublishedDateAfter(any())).thenReturn(List.of(article));
-        when(newsArticleRepository.findByTopicAndPublishedDateAfter(eq(NewsTopic.STOCK), any())).thenReturn(List.of(article));
-        when(newsArticleRepository.findByCountryAndPublishedDateAfter(eq(NewsCountry.US), any())).thenReturn(List.of(article));
+        when(newsArticleRepository.findByIsApprovedTrueAndPublishedDateAfter(any())).thenReturn(List.of(article));
+        when(newsArticleRepository.findByTopicAndIsApprovedTrueAndPublishedDateAfter(eq(NewsTopic.STOCK), any())).thenReturn(List.of(article));
+        when(newsArticleRepository.findByCountryAndIsApprovedTrueAndPublishedDateAfter(eq(NewsCountry.US), any())).thenReturn(List.of(article));
 
         List<FilteredArticleDto> combined = newsRssService.getArticlesByTopicAndCountryAfterDate(
                 NewsTopic.STOCK,

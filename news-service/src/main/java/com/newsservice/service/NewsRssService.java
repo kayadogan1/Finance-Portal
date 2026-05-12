@@ -1,6 +1,7 @@
 package com.newsservice.service;
 
 import com.newsservice.dto.*;
+import com.newsservice.exceptions.NotFoundException;
 import com.newsservice.model.NewsArticle;
 import com.newsservice.model.NewsArticleInstrument;
 import com.newsservice.repository.NewsArticleRepository;
@@ -286,21 +287,21 @@ public class NewsRssService {
     }
 
     public List<FilteredArticleDto> getAllArticlesAfterDate(LocalDate date) {
-        return newsArticleRepository.findByPublishedDateAfter(date.atStartOfDay())
+        return newsArticleRepository.findByIsApprovedTrueAndPublishedDateAfter(date.atStartOfDay())
                 .stream()
                 .map(this::toDto)
                 .toList();
     }
 
     public List<FilteredArticleDto> getArticlesByTopicAfterDate(NewsTopic topic, LocalDate date) {
-        return newsArticleRepository.findByTopicAndPublishedDateAfter(topic, date.atStartOfDay())
+        return newsArticleRepository.findByTopicAndIsApprovedTrueAndPublishedDateAfter(topic, date.atStartOfDay())
                 .stream()
                 .map(this::toDto)
                 .toList();
     }
 
     public List<FilteredArticleDto> getArticlesByCountryAfterDate(NewsCountry country, LocalDate date) {
-        return newsArticleRepository.findByCountryAndPublishedDateAfter(country, date.atStartOfDay())
+        return newsArticleRepository.findByCountryAndIsApprovedTrueAndPublishedDateAfter(country, date.atStartOfDay())
                 .stream()
                 .map(this::toDto)
                 .toList();
@@ -311,10 +312,31 @@ public class NewsRssService {
             NewsCountry country,
             LocalDate date
     ) {
-        return newsArticleRepository.findByTopicAndCountryAndPublishedDateAfter(topic, country, date.atStartOfDay())
+        return newsArticleRepository.findByTopicAndCountryAndIsApprovedTrueAndPublishedDateAfter(topic, country, date.atStartOfDay())
                 .stream()
                 .map(this::toDto)
                 .toList();
+    }
+
+    public List<FilteredArticleDto> getPendingArticles() {
+        return newsArticleRepository.findByIsApprovedFalseOrderByPublishedDateDesc()
+                .stream()
+                .map(this::toDto)
+                .toList();
+    }
+
+    public FilteredArticleDto updateApproval(UUID id, boolean approved) {
+        NewsArticle article = newsArticleRepository.findById(id)
+                .orElseThrow(() -> new NotFoundException("News article not found"));
+        article.setApproved(approved);
+        return toDto(newsArticleRepository.save(article));
+    }
+
+    public void deleteArticle(UUID id) {
+        if (!newsArticleRepository.existsById(id)) {
+            throw new NotFoundException("News article not found");
+        }
+        newsArticleRepository.deleteById(id);
     }
 
     private FilteredArticleDto toDto(NewsArticle entity) {
@@ -331,6 +353,7 @@ public class NewsRssService {
                 entity.getPublishedDate() != null ? entity.getPublishedDate().toString() : null,
                 entity.getModelName(),
                 entity.getInstrumentSymbol(),
+                entity.isApproved(),
                 toInstrumentDtos(entity)
         );
     }

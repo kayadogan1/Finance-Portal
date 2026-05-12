@@ -49,6 +49,9 @@ public class NewsArticle {
     private String modelName;
     @Column(name = "instrument_symbol")
     private String instrumentSymbol;
+    @Column(name = "is_approved")
+    private boolean isApproved;
+
 
     @Builder.Default
     @OneToMany(mappedBy = "newsArticle", cascade = CascadeType.ALL, orphanRemoval = true)

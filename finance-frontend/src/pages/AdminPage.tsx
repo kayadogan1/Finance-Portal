@@ -2,8 +2,11 @@ import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
     Activity,
+    CheckCircle2,
+    ExternalLink,
     FolderOpen,
     Layers3,
+    Newspaper,
     Plus,
     Radio,
     RefreshCw,
@@ -13,6 +16,13 @@ import {
     Users,
 } from 'lucide-react';
 import { privateApi, publicApi } from '../services/api';
+import {
+    deleteNewsArticle,
+    getPendingNews,
+    getNewsCategoryLabel,
+    updateNewsApproval,
+    type FilteredArticleDto,
+} from '../services/newsService';
 
 interface NewsCategory {
     id: number;
@@ -81,6 +91,17 @@ const formatCurrency = (value: number | null | undefined, currency?: string | nu
     }
 };
 
+const formatDateTime = (value?: string | null) => {
+    if (!value) return '-';
+    return new Date(value).toLocaleString('tr-TR', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+};
+
 const slugify = (value: string) =>
     value
         .trim()
@@ -104,9 +125,12 @@ const AdminPage = () => {
     const [lastNewsRefreshAt, setLastNewsRefreshAt] = useState<string | null>(null);
     const [providerStatuses, setProviderStatuses] = useState<ProviderStatus[]>([]);
     const [providerStatusesLoading, setProviderStatusesLoading] = useState(true);
+    const [pendingNews, setPendingNews] = useState<FilteredArticleDto[]>([]);
+    const [pendingNewsLoading, setPendingNewsLoading] = useState(true);
+    const [updatingNewsIds, setUpdatingNewsIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
-        void Promise.all([fetchCategories(), fetchInactiveInstruments(), fetchTotalMembers(), fetchProviderStatuses()]);
+        void Promise.all([fetchCategories(), fetchInactiveInstruments(), fetchTotalMembers(), fetchProviderStatuses(), fetchPendingNews()]);
     }, []);
 
     const categorySummary = useMemo(() => {
@@ -211,6 +235,7 @@ const AdminPage = () => {
             await privateApi.post('/api/news/refresh');
             setNewsRefreshAvailable(true);
             setLastNewsRefreshAt(new Date().toLocaleString('tr-TR'));
+            await fetchPendingNews();
             await fetchProviderStatuses();
             toast.success('Haber guncelleme tetiklendi.');
         } catch {
@@ -218,6 +243,58 @@ const AdminPage = () => {
             toast.error('Haber guncelleme baslatilamadi.');
         } finally {
             setIsRefreshingNews(false);
+        }
+    };
+
+    const getArticleId = (article: FilteredArticleDto) => article.source?.id ?? article.url;
+
+    const fetchPendingNews = async () => {
+        setPendingNewsLoading(true);
+        try {
+            setPendingNews(await getPendingNews());
+        } catch {
+            toast.error('Onay bekleyen haberler yuklenemedi.');
+            setPendingNews([]);
+        } finally {
+            setPendingNewsLoading(false);
+        }
+    };
+
+    const handleApproveNews = async (article: FilteredArticleDto) => {
+        const id = getArticleId(article);
+        if (!id) return;
+        setUpdatingNewsIds((prev) => new Set(prev).add(id));
+        try {
+            await updateNewsApproval(id, true);
+            setPendingNews((prev) => prev.filter((item) => getArticleId(item) !== id));
+            toast.success('Haber onaylandi ve yayina alindi.');
+        } catch {
+            toast.error('Haber onaylanamadi.');
+        } finally {
+            setUpdatingNewsIds((prev) => {
+                const next = new Set(prev);
+                next.delete(id);
+                return next;
+            });
+        }
+    };
+
+    const handleDeleteNews = async (article: FilteredArticleDto) => {
+        const id = getArticleId(article);
+        if (!id) return;
+        setUpdatingNewsIds((prev) => new Set(prev).add(id));
+        try {
+            await deleteNewsArticle(id);
+            setPendingNews((prev) => prev.filter((item) => getArticleId(item) !== id));
+            toast.success('Haber kuyruktan silindi.');
+        } catch {
+            toast.error('Haber silinemedi.');
+        } finally {
+            setUpdatingNewsIds((prev) => {
+                const next = new Set(prev);
+                next.delete(id);
+                return next;
+            });
         }
     };
 
@@ -305,6 +382,17 @@ const AdminPage = () => {
             accent: 'text-primary',
         },
         {
+            title: 'Haber Onayi',
+            value: pendingNewsLoading ? 'Yukleniyor...' : `${pendingNews.length} bekleyen`,
+            note: pendingNewsLoading
+                ? 'Onay kuyrugu yukleniyor.'
+                : pendingNews.length > 0
+                    ? 'Onaylanmayan haberler public sayfalarda gorunmez.'
+                    : 'Yayin bekleyen haber bulunmuyor.',
+            icon: Newspaper,
+            accent: pendingNews.length > 0 ? 'text-amber-400' : 'text-emerald-400',
+        },
+        {
             title: 'Instrument Aktivasyon',
             value: instrumentAdminAvailable ? `${instruments.length} inactive` : 'Kontrol gerekli',
             note: instrumentAdminAvailable
@@ -345,7 +433,7 @@ const AdminPage = () => {
                 </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
                 {statCards.map(({ title, value, note, icon: Icon, accent }) => (
                     <div key={title} className="card-base">
                         <div className="flex items-start justify-between gap-3">
@@ -482,6 +570,91 @@ const AdminPage = () => {
                                         Calistir
                                     </button>
                                 </div>
+                            </div>
+
+                            <div className="rounded-md border border-border bg-background/60 p-3">
+                                <div className="mb-3 flex items-center justify-between gap-3">
+                                    <div>
+                                        <p className="text-[13px] font-medium text-foreground">Haber Onay Kuyrugu</p>
+                                        <p className="text-meta mt-1 text-[12px]">
+                                            Onaylanmayan haberler Haberler sayfasinda yayinlanmaz.
+                                        </p>
+                                    </div>
+                                    <button
+                                        onClick={fetchPendingNews}
+                                        disabled={pendingNewsLoading}
+                                        className="inline-flex h-8 items-center gap-1 rounded border border-border px-2.5 text-[12px] font-medium text-muted-foreground hover:bg-white/5 hover:text-foreground disabled:opacity-60"
+                                    >
+                                        <RefreshCw size={13} className={pendingNewsLoading ? 'animate-spin' : ''} />
+                                        Yenile
+                                    </button>
+                                </div>
+
+                                {pendingNewsLoading ? (
+                                    <div className="flex items-center justify-center py-8 text-meta">
+                                        <RefreshCw className="mr-2 animate-spin text-primary" size={15} />
+                                        Haberler yukleniyor...
+                                    </div>
+                                ) : pendingNews.length === 0 ? (
+                                    <div className="rounded border border-dashed border-border py-8 text-center text-meta">
+                                        Onay bekleyen haber yok.
+                                    </div>
+                                ) : (
+                                    <div className="max-h-[420px] space-y-2 overflow-y-auto pr-1">
+                                        {pendingNews.map((article) => {
+                                            const articleId = getArticleId(article);
+                                            const isUpdating = updatingNewsIds.has(articleId);
+                                            return (
+                                                <div key={articleId} className="rounded-md border border-border/70 bg-white/[0.02] p-3">
+                                                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                                                        <span className="rounded bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">
+                                                            {getNewsCategoryLabel(article.category)}
+                                                        </span>
+                                                        <span className="text-[11px] text-meta">{article.source?.name ?? 'Bilinmeyen kaynak'}</span>
+                                                        <span className="text-[11px] text-meta">{formatDateTime(article.publishedAt)}</span>
+                                                    </div>
+                                                    <p className="line-clamp-2 text-[13px] font-semibold leading-5 text-foreground">
+                                                        {article.title}
+                                                    </p>
+                                                    {article.description && (
+                                                        <p className="mt-1 line-clamp-2 text-[12px] leading-5 text-muted-foreground">
+                                                            {article.description}
+                                                        </p>
+                                                    )}
+                                                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                                                        <a
+                                                            href={article.url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="inline-flex items-center gap-1 text-[12px] font-medium text-primary hover:text-primary/80"
+                                                        >
+                                                            Kaynagi ac
+                                                            <ExternalLink size={12} />
+                                                        </a>
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={() => handleDeleteNews(article)}
+                                                                disabled={isUpdating}
+                                                                className="inline-flex h-8 items-center gap-1 rounded border border-red-500/30 px-2.5 text-[12px] font-medium text-red-400 hover:bg-red-500/10 disabled:opacity-60"
+                                                            >
+                                                                <Trash2 size={13} />
+                                                                Sil
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleApproveNews(article)}
+                                                                disabled={isUpdating}
+                                                                className="inline-flex h-8 items-center gap-1 rounded bg-emerald-500/15 px-2.5 text-[12px] font-medium text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-60"
+                                                            >
+                                                                <CheckCircle2 size={13} />
+                                                                Onayla
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="rounded-md border border-border bg-background/60 p-3">

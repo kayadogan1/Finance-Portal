@@ -1,0 +1,2 @@
+ALTER TABLE news_articles
+ADD COLUMN is_approved BOOLEAN DEFAULT FALSE;
