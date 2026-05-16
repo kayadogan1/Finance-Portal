@@ -14,7 +14,6 @@ export function calculateEMA(candles: OHLCData[], period: number): IndicatorPoin
     const multiplier = 2 / (period + 1);
     const result: IndicatorPoint[] = [];
 
-    // Seed with SMA of first `period` values
     let sum = 0;
     for (let i = 0; i < period; i++) {
         sum += candles[i].close;
@@ -22,7 +21,6 @@ export function calculateEMA(candles: OHLCData[], period: number): IndicatorPoin
     let ema = sum / period;
     result.push({ time: candles[period - 1].time, value: ema });
 
-    // EMA iteration
     for (let i = period; i < candles.length; i++) {
         ema = (candles[i].close - ema) * multiplier + ema;
         result.push({ time: candles[i].time, value: ema });
