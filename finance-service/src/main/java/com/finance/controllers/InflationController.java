@@ -3,8 +3,6 @@ package com.finance.controllers;
 import com.finance.handling.ApiResult;
 import com.finance.models.Inflation;
 import com.finance.services.InflationFetchService;
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
