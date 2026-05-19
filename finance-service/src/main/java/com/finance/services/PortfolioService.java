@@ -26,7 +26,7 @@ import java.util.stream.Collectors;
 
 @Service
 public class PortfolioService {
-    private static final BigDecimal COMMISSION_RATE = new BigDecimal("0.0025");
+    private static final BigDecimal COMMISSION_RATE = new BigDecimal("0");
     private static final Logger logger = LogManager.getLogger(PortfolioService.class);
     private final PortfolioRepository portfolioRepository;
     private final MarketDataRepository marketDataRepository;
@@ -436,6 +436,8 @@ public class PortfolioService {
             default -> throw new IllegalStateException("Unexpected value: " + portfolioRange);
         };
     }
+
+
     public List<PerformanceLineChartDto> calculatePerformanceLineChart(PortfolioRange portfolioRange, Portfolio portfolio) {
         LocalDate today = LocalDate.now();
         LocalDate startDate = (portfolioRange == PortfolioRange.ALL)

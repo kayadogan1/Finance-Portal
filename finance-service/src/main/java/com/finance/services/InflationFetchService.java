@@ -26,7 +26,7 @@ public class InflationFetchService {
     public List<Inflation> fetchInflationDataFromApi(){
         try {
             EvdsInflationResponse response = restClient.get()
-                    .uri("https://evds3.tcmb.gov.tr/igmevdsms-dis/series=TP.FG.J0&startDate=01-05-2020&endDate=16-05-2026&type=json&frequency=5&formulas=3")
+                    .uri("https://evds3.tcmb.gov.tr/igmevdsms-dis/series=TP.FG.J0&startDate=01-05-2010&endDate=16-05-2020&type=json&frequency=5&formulas=3")
                     .header("key", API_KEY)
                     .retrieve()
                     .body(EvdsInflationResponse.class);
