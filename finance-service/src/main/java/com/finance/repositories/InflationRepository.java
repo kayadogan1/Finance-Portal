@@ -11,4 +11,5 @@ public interface InflationRepository extends JpaRepository<Inflation,Long> {
 
     Optional<Inflation> findByTimestamp(LocalDate date);
     List<Inflation> findByTimestampAfterOrderByTimestampAsc(LocalDate date);
+    List<Inflation> findByTimestampGreaterThanEqualOrderByTimestampAsc(LocalDate date);
 }

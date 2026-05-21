@@ -307,26 +307,34 @@ const ProfilePage = () => {
                                                 <th className="px-3 py-2 text-left text-label">Tür</th>
                                                 <th className="px-3 py-2 text-left text-label">Enstrüman</th>
                                                 <th className="px-3 py-2 text-right text-label">Miktar</th>
-                                                <th className="px-3 py-2 text-right text-label">Fiyat</th>
+                                                <th className="px-3 py-2 text-right text-label">Tutar / Fiyat</th>
                                                 <th className="px-3 py-2 text-right text-label">Tarih</th>
                                             </tr>
                                         </thead>
                                         <tbody className="divide-y divide-border/50">
                                             {transactions.slice(0, 10).map((tx, idx) => {
-                                                const isBuy = tx.transactionType === 'BUY';
+                                                const isBuy = tx.transactionType === 'BUY' || tx.transactionType === 'DEPOSIT';
+                                                const isCashTransaction = tx.transactionType === 'DEPOSIT' || tx.transactionType === 'WITHDRAW';
+                                                const typeLabel = tx.transactionType === 'BUY'
+                                                    ? 'ALIŞ'
+                                                    : tx.transactionType === 'SELL'
+                                                        ? 'SATIŞ'
+                                                        : tx.transactionType === 'DEPOSIT'
+                                                            ? 'YATIRMA'
+                                                            : 'ÇEKİM';
                                                 return (
                                                     <tr key={idx} className="h-10 hover:bg-white/[0.02] transition-colors">
                                                         <td className="px-3 py-0">
                                                             <span className={`text-[11px] font-bold ${isBuy ? 'text-positive' : 'text-negative'}`}>
-                                                                {isBuy ? 'ALIŞ' : 'SATIŞ'}
+                                                                {typeLabel}
                                                             </span>
                                                         </td>
                                                         <td className="px-3 py-0 text-[13px] font-medium text-foreground">{tx.instrumentName}</td>
                                                         <td className="px-3 py-0 text-right text-[13px] tabular-nums text-muted-foreground">
-                                                            {Number(tx.quantity).toLocaleString('tr-TR', { maximumFractionDigits: 6 })}
+                                                            {isCashTransaction ? '—' : Number(tx.quantity).toLocaleString('tr-TR', { maximumFractionDigits: 6 })}
                                                         </td>
                                                         <td className="px-3 py-0 text-right text-[13px] font-medium tabular-nums text-foreground">
-                                                            {Number(tx.price).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                                                            {Number(isCashTransaction ? tx.totalAmount : tx.price).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
                                                         </td>
                                                         <td className="px-3 py-0 text-right text-[11px] text-subtle tabular-nums">
                                                             {formatDate(tx.dateTime)}

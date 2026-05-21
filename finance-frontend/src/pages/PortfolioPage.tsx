@@ -3,10 +3,10 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     PieChart as PieChartIcon, TrendingUp, TrendingDown, Wallet,
-    ArrowDownToLine, ArrowUpFromLine, RefreshCw, Plus, ChevronDown, Clock,
+    ArrowDownToLine, ArrowUpFromLine, RefreshCw, Plus, ChevronDown, Clock, BadgePercent,
 } from 'lucide-react';
 import {
-    getPortfolios, getPortfolioPieChart, getPortfolioTypeAllocation, getTransactions,
+    getPortfolios, getPortfolioInflationEffect, getPortfolioPieChart, getPortfolioTypeAllocation, getTransactions,
     type PortfolioDto, type TransactionDto,
 } from '../services/portfolioService';
 import PortfolioPieChart from '../components/portfolio/PortfolioPieChart';
@@ -39,6 +39,19 @@ const TransactionHistory = ({ currencyLookup }: { currencyLookup: CurrencyLookup
             || 'TRY';
     };
 
+    const transactionMeta = (tx: TransactionDto) => {
+        switch (tx.transactionType) {
+            case 'BUY':
+                return { label: 'ALIŞ', tone: 'text-positive', icon: <ArrowDownToLine size={12} /> };
+            case 'SELL':
+                return { label: 'SATIŞ', tone: 'text-negative', icon: <ArrowUpFromLine size={12} /> };
+            case 'DEPOSIT':
+                return { label: 'YATIRMA', tone: 'text-positive', icon: <ArrowDownToLine size={12} /> };
+            case 'WITHDRAW':
+                return { label: 'ÇEKİM', tone: 'text-negative', icon: <ArrowUpFromLine size={12} /> };
+        }
+    };
+
     return (
         <div className="border-t border-border pt-5">
             <span className="text-label mb-4 block">Son İşlemler</span>
@@ -60,28 +73,30 @@ const TransactionHistory = ({ currencyLookup }: { currencyLookup: CurrencyLookup
                                 <th className="px-4 py-2.5 text-left text-label">Tür</th>
                                 <th className="px-4 py-2.5 text-left text-label">Enstrüman</th>
                                 <th className="px-4 py-2.5 text-right text-label">Miktar</th>
-                                <th className="px-4 py-2.5 text-right text-label">Fiyat</th>
+                                <th className="px-4 py-2.5 text-right text-label">Tutar / Fiyat</th>
                                 <th className="px-4 py-2.5 text-right text-label">Tarih</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-border/50">
                             {transactions.slice(0, 20).map((tx, idx) => {
-                                const isBuy = tx.transactionType === 'BUY';
+                                const meta = transactionMeta(tx);
                                 const txDate = new Date(tx.dateTime);
+                                const isCashTransaction = tx.transactionType === 'DEPOSIT' || tx.transactionType === 'WITHDRAW';
+                                const displayAmount = Number(tx.totalAmount ?? tx.price ?? 0);
                                 return (
                                     <tr key={idx} className="h-11 hover:bg-white/[0.02] transition-colors">
                                         <td className="px-4 py-0">
-                                            <span className={`inline-flex items-center gap-1 text-[12px] font-semibold ${isBuy ? 'text-positive' : 'text-negative'}`}>
-                                                {isBuy ? <ArrowDownToLine size={12} /> : <ArrowUpFromLine size={12} />}
-                                                {isBuy ? 'ALIŞ' : 'SATIŞ'}
+                                            <span className={`inline-flex items-center gap-1 text-[12px] font-semibold ${meta.tone}`}>
+                                                {meta.icon}
+                                                {meta.label}
                                             </span>
                                         </td>
                                         <td className="px-4 py-0 text-[13px] font-medium text-foreground">{tx.instrumentName}</td>
                                         <td className="px-4 py-0 text-right text-[13px] tabular-nums text-muted-foreground">
-                                            {Number(tx.quantity).toLocaleString('tr-TR', { maximumFractionDigits: 6 })}
+                                            {isCashTransaction ? '—' : Number(tx.quantity).toLocaleString('tr-TR', { maximumFractionDigits: 6 })}
                                         </td>
                                         <td className="px-4 py-0 text-right text-[13px] font-medium tabular-nums text-foreground">
-                                            {formatMarketPrice(Number(tx.price), resolveTransactionCurrency(tx))}
+                                            {formatMarketPrice(isCashTransaction ? displayAmount : Number(tx.price), resolveTransactionCurrency(tx))}
                                         </td>
                                         <td className="px-4 py-0 text-right text-[12px] text-subtle tabular-nums">
                                             {txDate.toLocaleDateString('tr-TR')} {txDate.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}
@@ -142,6 +157,14 @@ const PortfolioPage = () => {
         enabled: !!active?.id,
     });
 
+    const { data: inflationEffect, isLoading: inflationLoading, isError: inflationError } = useQuery({
+        queryKey: ['portfolio-inflation-effect', active?.id],
+        queryFn: () => getPortfolioInflationEffect(active!.id),
+        staleTime: 1000 * 60 * 10,
+        refetchOnWindowFocus: false,
+        enabled: !!active?.id,
+    });
+
     const displayedPieData = useMemo(() => {
         return pieData?.filter((item) => Number(item.totalValue) > 0);
     }, [pieData]);
@@ -163,6 +186,12 @@ const PortfolioPage = () => {
     const animPortValue  = useCountUp(totalPortfolioValue, 1000);
     const animProfitLoss = useCountUp(Math.abs(totalProfitLoss), 1000);
     const animCost       = useCountUp(totalCost, 1000);
+    const realReturn = Number(inflationEffect?.realReturn ?? 0);
+    const nominalReturn = Number(inflationEffect?.nominalReturn ?? 0);
+    const inflationImpact = Number(inflationEffect?.inflationImpact ?? 0);
+    const inflationAdjustedCost = Number(inflationEffect?.inflationAdjustedCost ?? 0);
+    const inflationRate = Number(inflationEffect?.inflationRate ?? 0);
+    const isRealReturnPositive = realReturn >= 0;
 
     if (portsLoading) {
         return <div className="flex items-center justify-center h-64"><RefreshCw className="animate-spin text-primary" size={24} /></div>;
@@ -273,6 +302,61 @@ const PortfolioPage = () => {
                                     <button onClick={() => setDepositModalOpen(true)} className="flex-1 flex items-center justify-center gap-1.5 h-9 rounded text-[12px] font-medium bg-transparent border border-border text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors">
                                         <ArrowDownToLine size={13} /> Para Yatır
                                     </button>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="card-base">
+                        <div className="flex items-center justify-between gap-3 mb-4">
+                            <div className="flex items-center gap-2">
+                                <BadgePercent size={14} className="text-primary" />
+                                <span className="text-[14px] font-medium text-foreground">Enflasyona Göre Getiri</span>
+                            </div>
+                            {inflationEffect?.dateTime && (
+                                <span className="text-[11px] text-subtle tabular-nums">
+                                    {new Date(inflationEffect.dateTime).toLocaleDateString('tr-TR')}
+                                </span>
+                            )}
+                        </div>
+
+                        {inflationLoading ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                                {Array.from({ length: 4 }).map((_, index) => (
+                                    <div key={index} className="h-20 rounded bg-white/[0.03] animate-pulse" />
+                                ))}
+                            </div>
+                        ) : inflationError || !inflationEffect ? (
+                            <div className="py-6 text-center text-[13px] text-muted-foreground">
+                                Enflasyon analizi için yeterli veri bulunamadı.
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+                                <div className="border-l-2 border-primary pl-4 py-1">
+                                    <span className="text-label">REEL GETİRİ</span>
+                                    <div className={`mt-1.5 flex items-center gap-1.5 text-[20px] font-semibold tabular-nums ${isRealReturnPositive ? 'text-positive' : 'text-negative'}`}>
+                                        {isRealReturnPositive ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
+                                        {isRealReturnPositive ? '+' : '-'}{formatMarketPrice(Math.abs(realReturn), displayCurrency)}
+                                    </div>
+                                </div>
+                                <div className="border-l border-border pl-4 py-1">
+                                    <span className="text-label">NOMİNAL GETİRİ</span>
+                                    <div className={`mt-1.5 text-[20px] font-semibold tabular-nums ${nominalReturn >= 0 ? 'text-positive' : 'text-negative'}`}>
+                                        {nominalReturn >= 0 ? '+' : '-'}{formatMarketPrice(Math.abs(nominalReturn), displayCurrency)}
+                                    </div>
+                                </div>
+                                <div className="border-l border-border pl-4 py-1">
+                                    <span className="text-label">ENFLASYON ETKİSİ</span>
+                                    <div className="mt-1.5 text-[20px] font-semibold tabular-nums text-foreground">
+                                        {inflationRate.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                                    </div>
+                                    <p className="text-[11px] text-subtle mt-1">{formatMarketPrice(inflationImpact, displayCurrency)}</p>
+                                </div>
+                                <div className="border-l border-border pl-4 py-1">
+                                    <span className="text-label">DÜZELTİLMİŞ MALİYET</span>
+                                    <div className="mt-1.5 text-[20px] font-semibold tabular-nums text-foreground">
+                                        {formatMarketPrice(inflationAdjustedCost, displayCurrency)}
+                                    </div>
                                 </div>
                             </div>
                         )}

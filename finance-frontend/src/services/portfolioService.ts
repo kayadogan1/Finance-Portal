@@ -79,6 +79,18 @@ export interface PerformanceLineChartDto {
     totalPrice: number;
 }
 
+/** Matches `com.finance.shared.PerformanceLineChartDtoWithInflationDto` */
+export interface PortfolioInflationEffectDto {
+    dateTime: string;
+    portfolioValue: number;
+    nominalCost: number;
+    inflationAdjustedCost: number;
+    inflationImpact: number;
+    nominalReturn: number;
+    realReturn: number;
+    inflationRate: number;
+}
+
 /** Matches `com.finance.shared.PieChartDto` */
 export interface PieChartDto {
     label?: string | null;
@@ -185,6 +197,19 @@ export const getPortfolioHistory = async (
 };
 
 /**
+ * Fetch inflation-adjusted return analysis for portfolio instruments.
+ * Route: GET /api/portfolio/{portfolioId}/inflation-effect
+ */
+export const getPortfolioInflationEffect = async (
+    portfolioId: string,
+): Promise<PortfolioInflationEffectDto | null> => {
+    const { data } = await privateApi.get<PortfolioInflationEffectDto>(
+        `/api/portfolio/${portfolioId}/inflation-effect`,
+    );
+    return data ?? null;
+};
+
+/**
  * Deposit funds into portfolio.
  * Route: POST /api/portfolio/deposit
  */
@@ -220,12 +245,13 @@ export const sellInstrument = async (
 
 /** Matches `com.finance.shared.TransactionDto` */
 export interface TransactionDto {
-    transactionType: 'BUY' | 'SELL';
+    transactionType: 'BUY' | 'SELL' | 'DEPOSIT' | 'WITHDRAW';
     instrumentSymbol?: string;
     instrumentName: string;
     currency?: string;
     quantity: number;
     price: number;
+    totalAmount: number;
     dateTime: string; // Java LocalDateTime ISO
 }
 

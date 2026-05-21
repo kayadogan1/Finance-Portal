@@ -10,6 +10,7 @@ public record TransactionDto(
         Currency currency,
         BigDecimal quantity,
         BigDecimal price,
+        BigDecimal totalAmount,
         LocalDateTime dateTime
 ) {
 }

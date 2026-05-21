@@ -1,6 +1,7 @@
 package com.finance.controllers;
 
 import com.finance.handling.ApiResult;
+import com.finance.services.InflationService;
 import com.finance.services.PortfolioService;
 import com.finance.services.TransactionService;
 import com.finance.shared.*;
@@ -24,9 +25,11 @@ public class PortfolioController {
     private final Logger logger = LogManager.getLogger(PortfolioController.class);
     private final PortfolioService portfolioService;
     private final TransactionService transactionService;
-    public PortfolioController(PortfolioService portfolioService, TransactionService transactionService) {
+    private final InflationService inflationService;
+    public PortfolioController(PortfolioService portfolioService, TransactionService transactionService, InflationService inflationService) {
         this.portfolioService= portfolioService;
         this.transactionService = transactionService;
+        this.inflationService = inflationService;
     }
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN')")
@@ -75,6 +78,16 @@ public class PortfolioController {
     ) {
         List<PerformanceLineChartDto> history = portfolioService.getCalculatedPerformanceChartValues(jwt.getSubject(), portfolioId, portfolioRange);
         return ResponseEntity.ok(ApiResult.success(history,"user portfolio history fetched",200));
+    }
+    @GetMapping("/{portfolioId}/inflation-effect")
+    @PreAuthorize("hasAnyRole('USER','ADMIN')")
+    public ResponseEntity<ApiResult<PerformanceLineChartDtoWithInflationDto>> getPortfolioInflationEffect(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID portfolioId
+    ) {
+        PerformanceLineChartDtoWithInflationDto inflationEffect =
+                inflationService.calculateInflationEffectInPortfolio(jwt.getSubject(), portfolioId);
+        return ResponseEntity.ok(ApiResult.success(inflationEffect, "portfolio inflation effect fetched", 200));
     }
     @PostMapping("/deposit")
     @PreAuthorize("hasAnyRole('USER','ADMIN')")

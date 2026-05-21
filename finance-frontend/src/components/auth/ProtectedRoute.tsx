@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { RefreshCw, ShieldAlert } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
+import { getCleanRedirectUri } from '../../contexts/AuthContext';
 
 interface ProtectedRouteProps {
     children: React.ReactNode;
@@ -12,7 +13,7 @@ const ProtectedRoute = ({ children, requireAdmin = false }: ProtectedRouteProps)
 
     useEffect(() => {
         if (isInitialized && !isAuthenticated) {
-            login(window.location.href);
+            login(getCleanRedirectUri());
         }
     }, [isAuthenticated, isInitialized, login]);
 

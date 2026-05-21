@@ -17,14 +17,35 @@ const getRoles = () => {
 
 const isAdminRole = (roles: string[]) => roles.some((role) => role.toUpperCase() === 'ADMIN');
 
+const OIDC_CALLBACK_PARAMS = ['code', 'state', 'session_state', 'iss', 'error', 'error_description'];
+
+export const getCleanRedirectUri = () => {
+    const url = new URL(window.location.href);
+    OIDC_CALLBACK_PARAMS.forEach((param) => url.searchParams.delete(param));
+    return url.toString();
+};
+
+const clearOidcCallbackParams = () => {
+    const url = new URL(window.location.href);
+    const hadCallbackParams = OIDC_CALLBACK_PARAMS.some((param) => url.searchParams.has(param));
+    if (!hadCallbackParams) return;
+
+    OIDC_CALLBACK_PARAMS.forEach((param) => url.searchParams.delete(param));
+    window.history.replaceState({}, document.title, `${url.pathname}${url.search}${url.hash}`);
+};
+
 const initKeycloakOnce = () => {
     if (!keycloakInitPromise) {
-        keycloakInitPromise = keycloak.init({
-            onLoad: 'check-sso',
-            silentCheckSsoRedirectUri: window.location.origin + '/silent-check-sso.html',
-            checkLoginIframe: false,
-            pkceMethod: 'S256',
-        });
+        keycloakInitPromise = keycloak
+            .init({
+                onLoad: 'check-sso',
+                checkLoginIframe: false,
+                pkceMethod: 'S256',
+            })
+            .catch((error) => {
+                keycloakInitPromise = null;
+                throw error;
+            });
     }
     return keycloakInitPromise;
 };
@@ -78,7 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             ? window.localStorage.getItem(REMEMBERED_USERNAME_KEY) ?? undefined
             : undefined;
         keycloak.login({
-            redirectUri: redirectUri ?? `${window.location.origin}/dashboard`,
+            redirectUri: redirectUri ?? getCleanRedirectUri(),
             loginHint: rememberMe ? rememberedUsername : undefined,
             scope: rememberMe ? 'openid profile email offline_access' : 'openid profile email',
         });
@@ -117,6 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             .catch((error) => {
                 if (!mounted) return;
                 console.error('Keycloak initialization failed:', error);
+                clearOidcCallbackParams();
                 setAuthError('Kimlik doğrulama servisine ulaşılamıyor.');
                 syncAuthState();
             })

@@ -8,8 +8,11 @@ import java.time.LocalDate;
 public record PerformanceLineChartDtoWithInflationDto(
     LocalDate dateTime,
     BigDecimal portfolioValue,
+    BigDecimal nominalCost,
+    BigDecimal inflationAdjustedCost,
+    BigDecimal inflationImpact,
     BigDecimal nominalReturn,
-    Double inflationRate,
-    BigDecimal realReturn
+    BigDecimal realReturn,
+    Double inflationRate
 ) {
 }
