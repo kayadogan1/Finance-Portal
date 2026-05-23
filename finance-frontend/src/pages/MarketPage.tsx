@@ -149,14 +149,13 @@ const InstrumentRow = ({
 
 /* ─── Instrument List Panel ─── */
 function InstrumentList({
-    instruments, isLoading, page, totalPages, totalElements, onPageChange, formatPrice, onNavigate,
+    instruments, isLoading, page, totalPages, onPageChange, formatPrice, onNavigate,
     sortCol, sortDir, onSort,
 }: {
     instruments: MarketInstrument[];
     isLoading: boolean;
     page?: number;
     totalPages?: number;
-    totalElements?: number;
     onPageChange?: (p: number) => void;
     formatPrice: (price: number, cur: string) => string;
     onNavigate: (symbol: string) => void;
@@ -223,13 +222,6 @@ function InstrumentList({
 
     return (
         <div style={{ background: 'hsl(var(--card))', borderRadius: 6, border: '1px solid hsl(var(--border))', overflow: 'hidden' }}>
-            {/* Search + count */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '8px 16px', borderBottom: '1px solid hsl(var(--border))', minHeight: 42 }}>
-                <span style={{ fontSize: 11, color: 'hsl(var(--subtle-foreground))' }}>
-                    {processed.length} enstrüman — Detaylar için tıklayın
-                </span>
-            </div>
-
             {/* Table header — sortable */}
             <div style={{
                 display: 'flex', alignItems: 'center', height: 32, padding: '0 12px',
@@ -277,10 +269,7 @@ function InstrumentList({
 
             {/* Pagination */}
             {hasPagination && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderTop: '1px solid hsl(var(--border))', flexWrap: 'wrap', gap: 8 }}>
-                    <span style={{ fontSize: 11, color: 'hsl(var(--muted-foreground))' }}>
-                        Toplam {totalElements ?? 0} enstrüman
-                    </span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '12px 16px', borderTop: '1px solid hsl(var(--border))', flexWrap: 'wrap', gap: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                         <button style={paginationBtnStyle(false, page === 0)} onClick={() => page !== undefined && page > 0 && onPageChange!(page - 1)}>
                             <ChevronLeft size={14} />
@@ -516,9 +505,6 @@ const MarketPage = () => {
                         }}
                     />
                 </div>
-                <span style={{ fontSize: 12, color: 'hsl(var(--muted-foreground))', whiteSpace: 'nowrap' }}>
-                    {searchFiltered.length} sonuç
-                </span>
             </div>
 
             {/* Category filters + table */}
@@ -535,9 +521,6 @@ const MarketPage = () => {
                                 }}
                             >
                                 <span>{tab.label}</span>
-                                <span style={{ marginLeft: 8, fontSize: 11, color: 'hsl(var(--subtle-foreground))' }}>
-                                    {grouped[tab.key]?.length ?? 0}
-                                </span>
                             </TabsTrigger>
                         ))}
                     </TabsList>
@@ -550,7 +533,6 @@ const MarketPage = () => {
                             isLoading={isLoading}
                             page={page}
                             totalPages={totalPages}
-                            totalElements={activeItems.length}
                             onPageChange={setPage}
                             formatPrice={formatPrice}
                             onNavigate={handleNavigate}

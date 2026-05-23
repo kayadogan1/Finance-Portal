@@ -11,6 +11,7 @@ import java.time.LocalDate;
 @Setter
 public class InstrumentLot {
     String symbol;
+    Currency currency;
     BigDecimal remainingQuantity;
     BigDecimal buyPrice;
     LocalDate buyDate;

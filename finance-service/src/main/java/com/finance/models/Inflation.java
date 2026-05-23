@@ -9,7 +9,6 @@ import java.time.LocalDate;
 @Getter
 @Setter
 @Builder
-@Data
 @Table(name = "inflation")
 @NoArgsConstructor
 @AllArgsConstructor

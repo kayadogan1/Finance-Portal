@@ -29,6 +29,7 @@ interface SymbolPickerProps {
 }
 
 type PickerCategory = 'stock' | 'crypto' | 'forex' | 'commodity' | 'indices';
+type ComparisonRange = '1M' | '3M' | '6M' | '1Y' | 'ALL' | 'CUSTOM';
 
 const PICKER_PAGE_SIZE = 12;
 
@@ -180,22 +181,47 @@ function downsample<T>(arr: T[], maxPoints: number): T[] {
 
 const MAX_CHART_POINTS = 200;
 
+const RANGE_OPTIONS: { key: ComparisonRange; label: string }[] = [
+    { key: '1M', label: '1A' },
+    { key: '3M', label: '3A' },
+    { key: '6M', label: '6A' },
+    { key: '1Y', label: '1Y' },
+    { key: 'ALL', label: 'Tümü' },
+];
+
+const toDateInputValue = (date: Date) => date.toISOString().slice(0, 10);
+
+const resolveRangeDate = (range: ComparisonRange, customDate: string) => {
+    if (range === 'ALL') return undefined;
+    if (range === 'CUSTOM') return customDate ? `${customDate}T00:00:00` : undefined;
+
+    const date = new Date();
+    if (range === '1M') date.setMonth(date.getMonth() - 1);
+    if (range === '3M') date.setMonth(date.getMonth() - 3);
+    if (range === '6M') date.setMonth(date.getMonth() - 6);
+    if (range === '1Y') date.setFullYear(date.getFullYear() - 1);
+    return `${toDateInputValue(date)}T00:00:00`;
+};
+
 export default function ComparisonChart() {
     const [symbolA, setSymbolA] = useState<string>('BTCUSDT');
     const [symbolB, setSymbolB] = useState<string>('ETHUSDT');
+    const [range, setRange] = useState<ComparisonRange>('6M');
+    const [customFromDate, setCustomFromDate] = useState('');
 
-    // FIX 2: Add staleTime so line data doesn't refetch on every focus/render
+    const fromDateTime = useMemo(() => resolveRangeDate(range, customFromDate), [customFromDate, range]);
+
     const { data: dataA, isLoading: loadingA } = useQuery({
-        queryKey: ['market-line', symbolA],
-        queryFn: () => getLineData(symbolA),
+        queryKey: ['market-line', symbolA, fromDateTime ?? 'all'],
+        queryFn: () => getLineData(symbolA, fromDateTime),
         enabled: !!symbolA,
         staleTime: 1000 * 60 * 5,
         gcTime: 1000 * 60 * 15,
     });
 
     const { data: dataB, isLoading: loadingB } = useQuery({
-        queryKey: ['market-line', symbolB],
-        queryFn: () => getLineData(symbolB),
+        queryKey: ['market-line', symbolB, fromDateTime ?? 'all'],
+        queryFn: () => getLineData(symbolB, fromDateTime),
         enabled: !!symbolB,
         staleTime: 1000 * 60 * 5,
         gcTime: 1000 * 60 * 15,
@@ -238,12 +264,24 @@ export default function ComparisonChart() {
         chart: {
             type: 'line' as const,
             foreColor: 'hsl(var(--muted-foreground))',
-            toolbar: { show: false },
+            toolbar: {
+                show: true,
+                offsetX: -6,
+                offsetY: -6,
+                tools: {
+                    download: false,
+                    selection: true,
+                    zoom: true,
+                    zoomin: true,
+                    zoomout: true,
+                    pan: true,
+                    reset: true,
+                },
+            },
             background: 'transparent',
             animations: { enabled: false },
-            // FIX 5: Disable zoom/pan events that trigger redraws
-            zoom: { enabled: false },
-            selection: { enabled: false },
+            zoom: { enabled: true, type: 'x' as const, autoScaleYaxis: true },
+            selection: { enabled: true, type: 'x' as const },
         },
         stroke: {
             // FIX 6: 'straight' instead of 'smooth' — eliminates bezier curve computation
@@ -286,8 +324,19 @@ export default function ComparisonChart() {
             intersect: false,
         },
         legend: {
-            position: 'top' as const,
-            horizontalAlign: 'right' as const,
+            position: 'bottom' as const,
+            horizontalAlign: 'center' as const,
+            offsetY: 6,
+            itemMargin: {
+                horizontal: 14,
+                vertical: 4,
+            },
+            markers: {
+                size: 7,
+            },
+            labels: {
+                colors: 'hsl(var(--muted-foreground))',
+            },
         },
         dataLabels: {
             enabled: false,
@@ -296,7 +345,7 @@ export default function ComparisonChart() {
         markers: {
             size: 0,
         },
-    }), []); // no deps — options don't depend on dynamic data
+    }), []);
 
     const isLoading = loadingA || loadingB;
 
@@ -308,7 +357,7 @@ export default function ComparisonChart() {
                     <p className="text-meta mt-0.5">Varlıkların % değişim oranını kıyaslayın.</p>
                 </div>
 
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center justify-end gap-2">
                     <SymbolPicker
                         value={symbolA}
                         onChange={setSymbolA}
@@ -323,7 +372,40 @@ export default function ComparisonChart() {
                 </div>
             </div>
 
-            <div className="h-[360px] w-full bg-background rounded p-2">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-1 rounded-md border border-border bg-background p-0.5">
+                    {RANGE_OPTIONS.map((option) => (
+                        <button
+                            key={option.key}
+                            type="button"
+                            onClick={() => setRange(option.key)}
+                            className={cn(
+                                "h-8 rounded px-3 text-[12px] font-semibold transition-colors",
+                                range === option.key
+                                    ? "bg-primary text-primary-foreground"
+                                    : "text-muted-foreground hover:bg-white/5 hover:text-foreground"
+                            )}
+                        >
+                            {option.label}
+                        </button>
+                    ))}
+                </div>
+                <label className="flex items-center gap-2 text-[12px] font-medium text-muted-foreground">
+                    Başlangıç
+                    <input
+                        type="date"
+                        value={customFromDate}
+                        max={toDateInputValue(new Date())}
+                        onChange={(event) => {
+                            setCustomFromDate(event.target.value);
+                            setRange('CUSTOM');
+                        }}
+                        className="h-8 rounded border border-border bg-background px-2 text-[12px] text-foreground outline-none"
+                    />
+                </label>
+            </div>
+
+            <div className="h-[390px] w-full rounded bg-background px-3 pb-1 pt-5">
                 {isLoading ? (
                     <div className="w-full h-full flex items-center justify-center">
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>

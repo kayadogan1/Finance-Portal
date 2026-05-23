@@ -161,7 +161,7 @@ class PortfolioControllerTest {
 
     @Test
     void getTransactions_returnsTransactionList() {
-        List<TransactionDto> txs = List.of(new TransactionDto(TransactionType.BUY, "AAPL", "Apple", Currency.USD, BigDecimal.ONE, BigDecimal.TEN, LocalDateTime.now()));
+        List<TransactionDto> txs = List.of(new TransactionDto(TransactionType.BUY, "AAPL", "Apple", Currency.USD, BigDecimal.ONE, BigDecimal.TEN, BigDecimal.TEN, LocalDateTime.now()));
         when(transactionService.getUserTransactionsByTimestamp("user-1", LocalDate.of(2026, 5, 1))).thenReturn(txs);
 
         ResponseEntity<ApiResult<List<TransactionDto>>> response =

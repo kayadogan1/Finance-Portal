@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         keycloak.login({
             redirectUri: redirectUri ?? getCleanRedirectUri(),
             loginHint: rememberMe ? rememberedUsername : undefined,
-            scope: rememberMe ? 'openid profile email offline_access' : 'openid profile email',
+            scope: 'openid profile email',
         });
     }, [rememberMe]);
 
@@ -112,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const register = useCallback((redirectUri?: string) => {
         keycloak.register({
             redirectUri: redirectUri ?? `${window.location.origin}/dashboard`,
-            scope: rememberMe ? 'openid profile email offline_access' : 'openid profile email',
+            scope: 'openid profile email',
         });
     }, [rememberMe]);
 

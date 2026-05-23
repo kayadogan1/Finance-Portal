@@ -193,14 +193,15 @@ public class FetchMarketDataService {
     }
 
     public String getIndexCode(String symbol) {
+        if (symbol != null && symbol.startsWith("X")) {
+            return symbol + ".IS";
+        }
         return switch (symbol) {
             case "SPX" -> "^GSPC";
             case "DJI" -> "^DJI";
             case "NDX" -> "^NDX";
             case "DAX" -> "^GDAXI";
             case "UK100" -> "^FTSE";
-            case "XU100" -> "XU100.IS";
-            case "XU030" -> "XU030.IS";
             case "N225" -> "^N225";
             case "CAC40" -> "^FCHI";
             case "HSI" -> "^HSI";

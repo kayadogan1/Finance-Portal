@@ -5,6 +5,8 @@ import com.finance.models.Inflation;
 import com.finance.models.Portfolio;
 import com.finance.models.Transaction;
 import com.finance.repositories.InflationRepository;
+import com.finance.repositories.InstrumentRepository;
+import com.finance.repositories.PortfolioRepository;
 import com.finance.repositories.TransactionRepository;
 import com.finance.shared.*;
 import org.apache.logging.log4j.LogManager;
@@ -14,32 +16,55 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.*;
+import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Queue;
+import java.util.UUID;
 
 @Service
 public class InflationService {
 
     private final Logger logger = LogManager.getLogger(InflationService.class);
     private final InflationRepository inflationRepository ;
+    private final InstrumentRepository instrumentRepository;
+    private final PortfolioRepository portfolioRepository;
     private final PortfolioService portfolioService;
     private final TransactionRepository transactionRepository;
-    public InflationService(InflationRepository inflationRepository, PortfolioService portfolioService, TransactionRepository transactionRepository) {
+    public InflationService(InflationRepository inflationRepository, InstrumentRepository instrumentRepository, PortfolioRepository portfolioRepository, PortfolioService portfolioService, TransactionRepository transactionRepository) {
         this.inflationRepository = inflationRepository;
+        this.instrumentRepository = instrumentRepository;
+        this.portfolioRepository = portfolioRepository;
         this.portfolioService = portfolioService;
         this.transactionRepository = transactionRepository;
     }
 
+    public PerformanceLineChartDtoWithInflationDto calculateInflationEffectInPortfolio(String userId, UUID portfolioId) {
+        Portfolio portfolio = portfolioRepository.findByIdAndUserId(portfolioId, userId)
+                .orElseThrow(() -> new NotFoundException("portfolio not found"));
+        return calculateInflationEffectInPortfolio(portfolio);
+    }
 
     public PerformanceLineChartDtoWithInflationDto calculateInflationEffectInPortfolio(Portfolio portfolio){
         Map<String,Queue<InstrumentLot>> lotQueueMap = new HashMap<>();
         List<Transaction> transactionList = transactionRepository.findByPortfolioIdOrderByTimestampAsc(portfolio.getId());
-        List<PerformanceLineChartDto> dailyPortfolioPerformanceDtoList = portfolioService.calculatePerformanceLineChart(PortfolioRange.ALL,portfolio);
-        PerformanceLineChartDto lastDailyPortfolioValueDto = dailyPortfolioPerformanceDtoList.getLast();
+        PortfolioReadDto portfolioSummary = portfolioService.getPortfolio(portfolio.getUser().getId(), portfolio.getId(), Currency.TRY);
         for (Transaction transaction : transactionList){
+            if (transaction.getInstrument() == null || transaction.getType() == null || transaction.getTimestamp() == null) {
+                continue;
+            }
             if(transaction.getType()== TransactionType.BUY){
+                if (transaction.getQuantity() == null || transaction.getPrice() == null) {
+                    logger.warn("Skipping BUY transaction with missing quantity or price. transactionId={}", transaction.getId());
+                    continue;
+                }
                 lotQueueMap.computeIfAbsent(transaction.getInstrument().getSymbol(), key -> new LinkedList<>())
                         .add(InstrumentLot.builder()
                                 .symbol(transaction.getInstrument().getSymbol())
+                                .currency(normalizeCurrency(transaction.getInstrument().getBaseCurrency()))
                                 .buyDate(transaction.getTimestamp().toLocalDate())
                                 .buyPrice(transaction.getPrice())
                                 .remainingQuantity(transaction.getQuantity())
@@ -60,10 +85,10 @@ public class InflationService {
                 BigDecimal remainingQuantity = lot.getRemainingQuantity();
                 BigDecimal buyPrice = lot.getBuyPrice();
 
-                if (remainingQuantity == null || buyPrice == null) {
+                if (remainingQuantity == null || buyPrice == null || lot.getBuyDate() == null) {
                     continue;
                 }
-                BigDecimal lotNominalCost = remainingQuantity.multiply(buyPrice);
+                BigDecimal lotNominalCost = convertValue(remainingQuantity.multiply(buyPrice), lot.getCurrency(), Currency.TRY, resolveUsdTryRate());
                 BigDecimal inflationMultiplier = BigDecimal.valueOf(calculateCumulativeInflation(lot.getBuyDate()));
                 BigDecimal lotInflationAdjustedCost = lotNominalCost.multiply(inflationMultiplier);
                 nominalCost = nominalCost.add(lotNominalCost);
@@ -71,7 +96,13 @@ public class InflationService {
                 totalRemainingQuantity = totalRemainingQuantity.add(remainingQuantity);
             }
         }
-        BigDecimal currentPortfolioValue = lastDailyPortfolioValueDto.totalPrice();
+        BigDecimal portfolioNominalCost = valueOrZero(portfolioSummary.totalCost());
+        if (nominalCost.compareTo(BigDecimal.ZERO) > 0 && portfolioNominalCost.compareTo(BigDecimal.ZERO) > 0) {
+            BigDecimal costScaleFactor = portfolioNominalCost.divide(nominalCost, 12, RoundingMode.HALF_UP);
+            inflationAdjustedCost = inflationAdjustedCost.multiply(costScaleFactor);
+            nominalCost = portfolioNominalCost;
+        }
+        BigDecimal currentPortfolioValue = valueOrZero(portfolioSummary.holdingsValue());
         BigDecimal nominalReturn =
                 currentPortfolioValue.subtract(nominalCost);
         BigDecimal realReturn =
@@ -83,11 +114,14 @@ public class InflationService {
                 .multiply(BigDecimal.valueOf(100))
                 .divide(nominalCost,2, RoundingMode.HALF_UP);
         return PerformanceLineChartDtoWithInflationDto.builder()
-                .nominalReturn(nominalReturn)
                 .dateTime(LocalDate.now())
                 .portfolioValue(currentPortfolioValue)
-                .inflationRate(inflationRatePercent.doubleValue())
+                .nominalCost(nominalCost)
+                .inflationAdjustedCost(inflationAdjustedCost)
+                .inflationImpact(inflationImpact)
+                .nominalReturn(nominalReturn)
                 .realReturn(realReturn)
+                .inflationRate(inflationRatePercent.doubleValue())
                 .build();
 
     }
@@ -131,12 +165,79 @@ public class InflationService {
                 .orElseThrow(() -> new NotFoundException("inflation not found"));
     }
 
-    public Double calculateCumulativeInflation(LocalDate startDay){
+    public Double calculateCumulativeInflation(LocalDate startDay) {
+        LocalDate startMonth = startDay.withDayOfMonth(1);
+        List<Inflation> inflationList = inflationRepository.findByTimestampGreaterThanEqualOrderByTimestampAsc(startMonth);
 
-        List<Inflation> inflationList = inflationRepository.findByTimestampAfterOrderByTimestampAsc(startDay);
-        return   inflationList.stream()
-                .map(inflation -> (inflation.getRate()+100)/100)
-                .reduce(1.0,(a,b)->a*b);
+        if (inflationList.isEmpty()) {
+            Double lastInflationMultiplier = inflationRepository.findTopByOrderByTimestampDesc()
+                    .map(Inflation::getRate)
+                    .map(rate -> (rate + 100) / 100)
+                    .orElse(1.0);
+            LocalDate currentMonth = LocalDate.now().withDayOfMonth(1);
+            long monthCount = ChronoUnit.MONTHS.between(startMonth, currentMonth);
+            return Math.pow(lastInflationMultiplier, Math.max(monthCount, 1));
+        }
+
+        Double cumulativeInflation = inflationList.stream()
+                .filter(inflation -> inflation.getRate() != null)
+                .map(inflation -> (inflation.getRate() + 100) / 100)
+                .reduce(1.0, (a, b) -> a * b);
+
+        Inflation lastInflation = inflationList.getLast();
+        if (lastInflation.getTimestamp() == null || lastInflation.getRate() == null) {
+            return cumulativeInflation;
+        }
+
+        LocalDate lastInflationMonth = lastInflation.getTimestamp().withDayOfMonth(1);
+        LocalDate currentMonth = LocalDate.now().withDayOfMonth(1);
+        long missingMonthCount = ChronoUnit.MONTHS.between(lastInflationMonth, currentMonth);
+        if (missingMonthCount <= 0) {
+            return cumulativeInflation;
+        }
+
+        double lastInflationMultiplier = (lastInflation.getRate() + 100) / 100;
+        return cumulativeInflation * Math.pow(lastInflationMultiplier, missingMonthCount);
+    }
+
+    private Currency normalizeCurrency(Currency currency) {
+        if (currency == null) {
+            return Currency.TRY;
+        }
+        return switch (currency) {
+            case USDT, XAU, XAG -> Currency.USD;
+            default -> currency;
+        };
+    }
+
+    private BigDecimal resolveUsdTryRate() {
+        return instrumentRepository.findInstrumentBySymbol("USDTRY")
+                .or(() -> instrumentRepository.findInstrumentBySymbol("TRY"))
+                .map(instrument -> valueOrZero(instrument.getCurrentPrice()))
+                .filter(price -> price.compareTo(BigDecimal.ZERO) > 0)
+                .orElse(BigDecimal.ONE);
+    }
+
+    private BigDecimal convertValue(BigDecimal value, Currency sourceCurrency, Currency displayCurrency, BigDecimal usdTryRate) {
+        Currency source = normalizeCurrency(sourceCurrency);
+        Currency target = normalizeCurrency(displayCurrency);
+        BigDecimal amount = valueOrZero(value);
+        if (source == target) {
+            return amount;
+        }
+        if (source == Currency.USD && target == Currency.TRY) {
+            return amount.multiply(usdTryRate);
+        }
+        if (source == Currency.TRY && target == Currency.USD) {
+            return usdTryRate.compareTo(BigDecimal.ZERO) == 0
+                    ? amount
+                    : amount.divide(usdTryRate, 8, RoundingMode.HALF_UP);
+        }
+        return amount;
+    }
+
+    private BigDecimal valueOrZero(BigDecimal value) {
+        return Optional.ofNullable(value).orElse(BigDecimal.ZERO);
     }
 
 

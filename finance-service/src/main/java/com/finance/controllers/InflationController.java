@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,11 +21,20 @@ public class InflationController {
     private final InflationFetchService inflationFetchService;
     private final Logger logger = LogManager.getLogger(InflationController.class);
     @GetMapping("/get-inflations")
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<ApiResult<List<Inflation>>> fetchInflationRatesFromProvider(){
         logger.info("Request to pull inflation rates received");
         return ResponseEntity.ok(ApiResult.success(inflationFetchService.fetchInflationDataFromApi(),
                 "inflation data fetched",
                 200));
+    }
+    @GetMapping("/get-rates")
+    public ResponseEntity<ApiResult<List<Inflation>>> getAllInflationData(){
+        logger.info("fetching all inflation data from db ... ");
+        return ResponseEntity.ok(ApiResult.success(inflationFetchService.getALlInflationRates(),
+                "fetching inflation rates is success",
+                200));
+
     }
 
 }
