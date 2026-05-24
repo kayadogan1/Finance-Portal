@@ -76,19 +76,19 @@ class MarketDataServiceTest {
     @Test
     void initDefaultInstruments_whenInstrumentExistsWithDifferentName_updatesInstrument() {
         // Arrange
-        when(instrumentProperties.getStock()).thenReturn(Map.of("BIST", Map.of("THYAO", "New Name THY")));
+        when(instrumentProperties.getStock()).thenReturn(Map.of("NASDAQ", Map.of("AAPL", "New Name Apple")));
         Instrument existingInt = new Instrument();
-        existingInt.setSymbol("THYAO");
+        existingInt.setSymbol("AAPL");
         existingInt.setName("Old Name");
-        existingInt.setBaseCurrency(Currency.TRY);
-        when(instrumentRepository.findInstrumentBySymbol("THYAO")).thenReturn(Optional.of(existingInt));
+        existingInt.setBaseCurrency(Currency.USD);
+        when(instrumentRepository.findInstrumentBySymbol("AAPL")).thenReturn(Optional.of(existingInt));
 
         // Act
         marketDataService.initDefaultInstruments();
 
         // Assert
         verify(instrumentRepository).save(any(Instrument.class));
-        assertEquals("New Name THY", existingInt.getName());
+        assertEquals("New Name Apple", existingInt.getName());
     }
 
     @Test

@@ -1,5 +1,7 @@
 package com.finance.services;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.finance.config.InstrumentPropertiesConfig;
 import com.finance.exceptions.BadRequestException;
 import com.finance.models.Instrument;
@@ -10,8 +12,12 @@ import com.finance.shared.*;
 import jakarta.annotation.PostConstruct;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -30,6 +36,7 @@ public class MarketDataService {
     private final InstrumentRepository instrumentRepository;
     private final InstrumentPropertiesConfig instrumentProperties;
     private final MarketDataRepository marketDataRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
     private static final Logger logger = LogManager.getLogger(MarketDataService.class);
     public MarketDataService(InstrumentRepository instrumentRepository, MarketDataRepository marketDataRepository, InstrumentPropertiesConfig instrumentProperties) {
         this.instrumentRepository = instrumentRepository;
@@ -57,8 +64,11 @@ public class MarketDataService {
 
         stockInstruments.forEach((exchange, symbolsMap) -> {
             Currency targetCurrency = "BIST".equalsIgnoreCase(exchange) ? Currency.TRY : Currency.USD;
+            Map<String, String> sourceSymbols = "BIST".equalsIgnoreCase(exchange)
+                    ? readBistInstrumentNames()
+                    : symbolsMap;
 
-            symbolsMap.forEach((symbol, name) -> {
+            sourceSymbols.forEach((symbol, name) -> {
                 Optional<Instrument> existingInstrumentOpt = instrumentRepository.findInstrumentBySymbol(symbol);
 
                 if (existingInstrumentOpt.isPresent()) {
@@ -91,6 +101,25 @@ public class MarketDataService {
             });
         });
     }
+
+    private Map<String, String> readBistInstrumentNames() {
+        ClassPathResource resource = new ClassPathResource("instruments/bist-instruments.json");
+        try (InputStream inputStream = resource.getInputStream()) {
+            Map<String, Map<String, String>> instruments = objectMapper.readValue(
+                    inputStream,
+                    new TypeReference<>() {
+                    }
+            );
+            Map<String, String> bistNames = instruments.get("BIST");
+            if (bistNames == null || bistNames.isEmpty()) {
+                throw new IllegalStateException("BIST instrument names not found in instruments/bist-instruments.json");
+            }
+            return bistNames;
+        } catch (IOException exception) {
+            throw new UncheckedIOException("Could not read instruments/bist-instruments.json", exception);
+        }
+    }
+
     private Currency resolveBaseCurrency(String symbol,InstrumentType type) {
 
         return switch (type) {
