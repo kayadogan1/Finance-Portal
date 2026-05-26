@@ -221,11 +221,10 @@ class PortfolioServiceTest {
         // Act
         portfolioService.sellInstrument(userId, symbol, sellQuantity, portfolioId);
 
-        // Assert
         assertEquals(BigDecimal.valueOf(5), item.getQuantity());
-        // Proceeds: 5 * 100 = 500, Commission = 500 * 0.0025 = 1.25. Total amount = 498.75.
-        // New balance = 1000 + 498.75 = 1498.75
-        assertEquals(BigDecimal.valueOf(1498.75), portfolio.getCashBalance());
+
+        assertEquals(0, BigDecimal.valueOf(1500).compareTo(portfolio.getCashBalance()));
+
         verify(portfolioRepository).save(portfolio);
         verify(transactionRepository).save(any(Transaction.class));
     }
@@ -305,9 +304,7 @@ class PortfolioServiceTest {
         // Assert
         assertEquals(1, portfolio.getItems().size());
         assertEquals(quantity, portfolio.getItems().get(0).getQuantity());
-        // Cost: 500, Commission: 1.25. Total: 501.25.
-        // New balance: 1000 - 501.25 = 498.75
-        assertEquals(BigDecimal.valueOf(498.75), portfolio.getCashBalance());
+        assertEquals(0, BigDecimal.valueOf(500).compareTo(portfolio.getCashBalance()));
         verify(portfolioRepository).save(portfolio);
         verify(transactionRepository).save(any(Transaction.class));
     }

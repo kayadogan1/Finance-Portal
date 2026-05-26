@@ -24,7 +24,10 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(exchange -> exchange
+                        .pathMatchers("/swagger-ui/**", "/swagger-ui.html", "/webjars/**", "/v3/api-docs/**", "/v3/api-docs.yaml").permitAll()
+                        .pathMatchers("/finance/v3/api-docs", "/news/v3/api-docs", "/classification/v3/api-docs").permitAll()
                         .pathMatchers("/api/news/refresh").authenticated()
+                        .pathMatchers(HttpMethod.GET, "/api/v1/news/health").permitAll()
                         .pathMatchers(HttpMethod.GET, "/api/news/**").permitAll()
                         .pathMatchers("/public/**").permitAll()
                         .pathMatchers(HttpMethod.GET, "/api/market/**").permitAll()
