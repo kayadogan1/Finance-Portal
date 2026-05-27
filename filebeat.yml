@@ -11,7 +11,7 @@ filebeat.inputs:
           add_error_key: true
 
 output.elasticsearch:
-  hosts: ["http://63.176.49.3:9200"]
+  hosts: ["http://18.184.161.148:9200"]
   index: "finance-logs-%{+yyyy.MM.dd}"
 
 setup.ilm.enabled: false

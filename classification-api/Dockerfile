@@ -22,6 +22,6 @@ COPY --from=builder --chown=appuser /build/classification-api/target/*.jar app.j
 
 USER appuser
 
-EXPOSE 8081
+EXPOSE 8083
 
 CMD ["java", "-XX:+UseContainerSupport", "-XX:MaxRAMPercentage=75.0", "-jar", "app.jar"]
