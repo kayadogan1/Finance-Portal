@@ -18,6 +18,8 @@ RUN adduser -S appuser
 
 WORKDIR /app
 
+RUN mkdir -p /app/output && chown -R appuser /app/output
+
 COPY --from=builder --chown=appuser /build/classification-api/target/*.jar app.jar
 
 USER appuser

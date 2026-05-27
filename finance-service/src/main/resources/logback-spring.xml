@@ -36,47 +36,8 @@
         </encoder>
     </appender>
 
-    <appender name="FILE_JSON" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>logs/${appName}.log</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>logs/${appName}-%d{yyyy-MM-dd}.log</fileNamePattern>
-            <maxHistory>3</maxHistory>
-        </rollingPolicy>
-        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
-            <providers>
-                <timestamp>
-                    <timeZone>UTC</timeZone>
-                </timestamp>
-                <pattern>
-                    <pattern>
-                        {
-                        "log.level": "%level",
-                        "service.name": "${appName}",
-                        "process.thread.name": "%thread",
-                        "log.logger": "%logger{40}",
-                        "message": "%message",
-                        "trace.id": "%mdc{traceId}",
-                        "span.id": "%mdc{spanId}"
-                        }
-                    </pattern>
-                </pattern>
-                <mdc>
-                    <excludeMdcKeyName>traceId</excludeMdcKeyName>
-                    <excludeMdcKeyName>spanId</excludeMdcKeyName>
-                </mdc>
-                <stackTrace>
-                    <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
-                        <maxDepthPerThrowable>30</maxDepthPerThrowable>
-                        <maxLength>2048</maxLength>
-                        <rootCauseFirst>true</rootCauseFirst>
-                    </throwableConverter>
-                </stackTrace>
-            </providers>
-        </encoder>
-    </appender>
 
     <root level="INFO">
         <appender-ref ref="CONSOLE_JSON" />
-        <appender-ref ref="FILE_JSON" />
     </root>
 </configuration>

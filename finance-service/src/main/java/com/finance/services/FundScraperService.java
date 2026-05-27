@@ -54,7 +54,7 @@ public class FundScraperService {
         this.tracer = tracer;
     }
     @Scheduled(fixedDelay = 50000000)
-    @Scheduled(cron = "0 40 13 * * *", zone = "Europe/Istanbul")
+    @Scheduled(cron = "0 40 19 * * *", zone = "Europe/Istanbul")
     public void scrapeFunds() {
         logger.info("Starting one-time scrape for Funds and VIOPs...");
         Span parentSpan = tracer.nextSpan()

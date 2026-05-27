@@ -21,8 +21,7 @@ public class MarketDataSyncScheduler {
     private static final int MAX_CONCURRENT = 20;
     private final Logger logger = LogManager.getLogger(this.getClass());
 
-    // @Scheduled(fixedRate = 5000000)
-    @Scheduled(cron = "0 10 15 * * MON-FRI", zone = "Europe/Istanbul")
+    @Scheduled(cron = "0 10 20 * * MON-FRI", zone = "Europe/Istanbul")
     public void syncAllInstrumentsDaily() {
         logger.info("Starting daily market data sync job...");
 

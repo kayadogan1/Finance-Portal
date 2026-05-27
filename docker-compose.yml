@@ -63,6 +63,7 @@ services:
       - SPRING_FLYWAY_URL=jdbc:postgresql://postgres:5432/finance_db
       - SPRING_FLYWAY_USER=${DB_USER:-postgres}
       - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD:-253421}
+      - EVDS_API_KEY=${EVDS_PASSWORD}
     labels:
       - "co.elastic.logs/enabled=true"
       - "co.elastic.logs/json.keys_under_root=true"
@@ -99,7 +100,6 @@ services:
       - "8082:8082"
     depends_on:
       - postgres
-      - grafana-lgtm
       - classification-api
     networks:
       - finance-network
@@ -181,9 +181,8 @@ services:
       - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /Users/dogankaya/IDEA Projects/Finance-Portal/logs:/logs:ro
     environment:
-      - ELASTICSEARCH_HOSTS=http://18.184.161.148:9200
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
     depends_on:
       - elasticsearch
     networks:

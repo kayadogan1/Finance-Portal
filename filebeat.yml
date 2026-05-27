@@ -1,7 +1,7 @@
 filebeat.inputs:
   - type: filestream
     id: local-spring-logs
-    enabled: true
+    enabled: false
     paths:
       - /logs/*.log
     parsers:
@@ -10,8 +10,24 @@ filebeat.inputs:
           overwrite_keys: true
           add_error_key: true
 
+  - type: filestream
+    id: docker-container-logs
+    enabled: true
+    paths:
+      - /var/lib/docker/containers/*/*.log
+    parsers:
+      - container: ~
+    processors:
+      - add_docker_metadata:
+          host: "unix:///var/run/docker.sock"
+      - drop_event:
+          when:
+            equals:
+              container.name: "finance_filebeat"
+
+
 output.elasticsearch:
-  hosts: ["http://18.184.161.148:9200"]
+  hosts: ["http://elasticsearch:9200"]
   index: "finance-logs-%{+yyyy.MM.dd}"
 
 setup.ilm.enabled: false
