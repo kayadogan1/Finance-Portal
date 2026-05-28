@@ -5,13 +5,14 @@ services:
       context: .
       dockerfile: ./api-gateway/Dockerfile
     environment:
-      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://keycloak:8080/realms/FinancePortal
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://keycloak:9090/realms/FinancePortal
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI=http://keycloak:8080/realms/FinancePortal/protocol/openid-connect/certs
       - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_0_ID=news-service
       - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_0_URI=http://news-service:8082
       - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_0_PREDICATES_0=Path=/api/news/**
       - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_1_ID=finance-service
       - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_1_URI=http://finance-service:8081
-      - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_1_PREDICATES_0=Path=/api/market/**,/api/trade/**,/api/portfolio/**,/api/inflation/**
+      - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_1_PREDICATES_0=Path=/api/market/**,/api/trade/**,/api/portfolio/**,/api/admin/**,/api/inflation/**
       - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_2_ID=finance-openapi
       - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_2_URI=http://finance-service:8081
       - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_2_PREDICATES_0=Path=/finance/v3/api-docs
@@ -64,6 +65,8 @@ services:
       - SPRING_FLYWAY_USER=${DB_USER:-postgres}
       - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD:-253421}
       - EVDS_API_KEY=${EVDS_PASSWORD}
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://keycloak:9090/realms/FinancePortal
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI=http://keycloak:8080/realms/FinancePortal/protocol/openid-connect/certs
     labels:
       - "co.elastic.logs/enabled=true"
       - "co.elastic.logs/json.keys_under_root=true"
@@ -91,6 +94,8 @@ services:
       - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD:-253421}
       - SPRING_FLYWAY_ENABLED=true
       - MODEL_SERVICE_API_URL=http://classification-api:8083/api/v1/news/classify
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://keycloak:9090/realms/FinancePortal
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI=http://keycloak:8080/realms/FinancePortal/protocol/openid-connect/certs
     labels:
       - "co.elastic.logs/enabled=true"
       - "co.elastic.logs/json.keys_under_root=true"
@@ -201,7 +206,8 @@ services:
     container_name: finance_keycloak
     command: start-dev --import-realm
     environment:
-      KC_HOSTNAME: localhost
+      KC_HOSTNAME_URL: http://keycloak:9090
+      KC_HOSTNAME_STRICT: "false"
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
       KC_DB: postgres
