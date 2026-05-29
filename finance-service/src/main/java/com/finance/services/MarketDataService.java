@@ -53,6 +53,7 @@ public class MarketDataService {
             saveInstruments(instrumentProperties.getCrypto(), InstrumentType.CRYPTO);
             saveInstruments(instrumentProperties.getCommodity(), InstrumentType.COMMODITY);
             saveInstruments(instrumentProperties.getIndex(), InstrumentType.INDEX);
+            saveInstruments(instrumentProperties.getBond(), InstrumentType.BOND);
             saveInstruments(instrumentProperties.getFiat(), InstrumentType.FIAT);
 
             logger.info("Instruments loaded successfully");

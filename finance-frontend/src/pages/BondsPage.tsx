@@ -1,15 +1,36 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { ArrowUpRight, BarChart3, Landmark, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
+import { ArrowUpRight, BarChart3, RefreshCw, TrendingDown, TrendingUp } from 'lucide-react';
 import NewsGrid from '../components/news/NewsGrid';
 import {
     formatChangePercent,
-    getMarketInstrumentCatalog,
     hasChange,
+    searchMarketInstrumentsPaged,
     type MarketInstrument,
 } from '../services/marketService';
 import { formatMarketPrice } from '../utils/currency';
+
+const BOND_PAGE_SIZE = 100;
+
+const getBondInstruments = async (): Promise<MarketInstrument[]> => {
+    const firstPage = await searchMarketInstrumentsPaged({
+        type: 'BOND',
+        page: 0,
+        size: BOND_PAGE_SIZE,
+    });
+
+    const pages = [firstPage];
+    for (let page = 1; page < firstPage.totalPages; page += 1) {
+        pages.push(await searchMarketInstrumentsPaged({
+            type: 'BOND',
+            page,
+            size: BOND_PAGE_SIZE,
+        }));
+    }
+
+    return pages.flatMap((page) => page.content);
+};
 
 const BondRow = ({ instrument }: { instrument: MarketInstrument }) => {
     const hasChangeValue = hasChange(instrument);
@@ -36,8 +57,8 @@ const BondRow = ({ instrument }: { instrument: MarketInstrument }) => {
 
 const BondsPage = () => {
     const { data: instruments = [], isLoading, isError } = useQuery({
-        queryKey: ['market-instrument-catalog', 'bonds-page'],
-        queryFn: getMarketInstrumentCatalog,
+        queryKey: ['market-instruments', 'bond'],
+        queryFn: getBondInstruments,
         staleTime: 1000 * 60 * 30,
         gcTime: 1000 * 60 * 60,
     });
@@ -47,9 +68,6 @@ const BondsPage = () => {
             .filter((instrument) => instrument.type === 'BOND')
             .sort((a, b) => a.symbol.localeCompare(b.symbol, 'tr'));
     }, [instruments]);
-
-    const pricedCount = bonds.filter((instrument) => instrument.hasPrice).length;
-    const trCount = bonds.filter((instrument) => instrument.market === 'TR' || instrument.country === 'TR').length;
 
     return (
         <div className="space-y-6">
@@ -65,23 +83,6 @@ const BondsPage = () => {
                     <BarChart3 size={13} />
                     Piyasalarda Gör
                 </Link>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {[
-                    { label: 'Toplam Tahvil/Bono', value: bonds.length.toLocaleString('tr-TR'), note: 'FUND ve VİOP ayrı tutulur' },
-                    { label: 'Fiyatı Olan', value: pricedCount.toLocaleString('tr-TR'), note: 'Canlı/veri sağlayıcıdan gelen kayıtlar' },
-                    { label: 'TR Piyasası', value: trCount.toLocaleString('tr-TR'), note: 'TRY, BIST veya yerel piyasa eşleşmesi' },
-                ].map(({ label, value, note }) => (
-                    <div key={label} className="card-base">
-                        <div className="flex items-center gap-2 mb-2">
-                            <Landmark size={13} className="text-warning" />
-                            <span className="text-[12px] font-medium text-muted-foreground">{label}</span>
-                        </div>
-                        <p className="text-price">{value}</p>
-                        <p className="text-meta mt-1">{note}</p>
-                    </div>
-                ))}
             </div>
 
             <div className="card-base !p-0 overflow-hidden">

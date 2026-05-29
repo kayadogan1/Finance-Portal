@@ -40,4 +40,11 @@ public class GlobalExceptionAdvisor {
         return new ApiResult<>(false, null, exception.getMessage(), 403, LocalDateTime.now());
     }
 
+    @ExceptionHandler(Exception.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public ApiResult<String> handleGeneralException(Exception exception) {
+        logger.error("unexpected exception :{} {}", exception.getMessage(), exception);
+        return new ApiResult<>(false, null, "Beklenmeyen bir hata oluştu", 500, LocalDateTime.now());
+    }
+
 }

@@ -204,8 +204,8 @@ const resolveRangeDate = (range: ComparisonRange, customDate: string) => {
 };
 
 export default function ComparisonChart() {
-    const [symbolA, setSymbolA] = useState<string>('BTCUSDT');
-    const [symbolB, setSymbolB] = useState<string>('ETHUSDT');
+    const [symbolA, setSymbolA] = useState<string>('AKBNK');
+    const [symbolB, setSymbolB] = useState<string>('GARAN');
     const [range, setRange] = useState<ComparisonRange>('6M');
     const [customFromDate, setCustomFromDate] = useState('');
 

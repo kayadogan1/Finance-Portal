@@ -42,16 +42,18 @@ public class InflationService {
         this.transactionRepository = transactionRepository;
     }
 
-    public PerformanceLineChartDtoWithInflationDto calculateInflationEffectInPortfolio(String userId, UUID portfolioId) {
+    public PerformanceLineChartDtoWithInflationDto calculateInflationEffectInPortfolio(String userId, UUID portfolioId, Currency currency) {
         Portfolio portfolio = portfolioRepository.findByIdAndUserId(portfolioId, userId)
                 .orElseThrow(() -> new NotFoundException("portfolio not found"));
-        return calculateInflationEffectInPortfolio(portfolio);
+        return calculateInflationEffectInPortfolio(portfolio,currency);
     }
 
-    public PerformanceLineChartDtoWithInflationDto calculateInflationEffectInPortfolio(Portfolio portfolio){
+    public PerformanceLineChartDtoWithInflationDto calculateInflationEffectInPortfolio(Portfolio portfolio,Currency currency){
+        Currency targetCurrency = normalizeCurrency(currency);
+        BigDecimal usdTryRate = resolveUsdTryRate();
         Map<String,Queue<InstrumentLot>> lotQueueMap = new HashMap<>();
         List<Transaction> transactionList = transactionRepository.findByPortfolioIdOrderByTimestampAsc(portfolio.getId());
-        PortfolioReadDto portfolioSummary = portfolioService.getPortfolio(portfolio.getUser().getId(), portfolio.getId(), Currency.TRY);
+        PortfolioReadDto portfolioSummary = portfolioService.getPortfolio(portfolio.getUser().getId(), portfolio.getId(), targetCurrency);
         for (Transaction transaction : transactionList){
             if (transaction.getInstrument() == null || transaction.getType() == null || transaction.getTimestamp() == null) {
                 continue;
@@ -88,7 +90,7 @@ public class InflationService {
                 if (remainingQuantity == null || buyPrice == null || lot.getBuyDate() == null) {
                     continue;
                 }
-                BigDecimal lotNominalCost = convertValue(remainingQuantity.multiply(buyPrice), lot.getCurrency(), Currency.TRY, resolveUsdTryRate());
+                BigDecimal lotNominalCost = convertValue(remainingQuantity.multiply(buyPrice), lot.getCurrency(), targetCurrency, usdTryRate);
                 BigDecimal inflationMultiplier = BigDecimal.valueOf(calculateCumulativeInflation(lot.getBuyDate()));
                 BigDecimal lotInflationAdjustedCost = lotNominalCost.multiply(inflationMultiplier);
                 nominalCost = nominalCost.add(lotNominalCost);
@@ -122,6 +124,7 @@ public class InflationService {
                 .nominalReturn(nominalReturn)
                 .realReturn(realReturn)
                 .inflationRate(inflationRatePercent.doubleValue())
+                .currency(targetCurrency)
                 .build();
 
     }
@@ -154,15 +157,6 @@ public class InflationService {
             }
 
         }
-    }
-
-    public List<Inflation> getAllInflationRates(){
-        return inflationRepository.findAll();
-    }
-
-    public Inflation getInflationRateByDate(LocalDate date){
-        return inflationRepository.findByTimestamp(date)
-                .orElseThrow(() -> new NotFoundException("inflation not found"));
     }
 
     public Double calculateCumulativeInflation(LocalDate startDay) {

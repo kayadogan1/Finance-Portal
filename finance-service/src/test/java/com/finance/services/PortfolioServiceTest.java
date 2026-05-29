@@ -19,6 +19,7 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
 import static org.junit.jupiter.api.Assertions.*;
+import org.mockito.ArgumentCaptor;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
@@ -230,6 +231,45 @@ class PortfolioServiceTest {
     }
 
     @Test
+    void sellInstrument_whenUsdInstrument_convertsProceedsToTryCashBalance() {
+        String userId = "user123";
+        UUID portfolioId = UUID.randomUUID();
+        String symbol = "AAPL";
+
+        Instrument instrument = new Instrument();
+        instrument.setSymbol(symbol);
+        instrument.setCurrentPrice(new BigDecimal("100"));
+        instrument.setBaseCurrency(com.finance.shared.Currency.USD);
+
+        Instrument usdTry = new Instrument();
+        usdTry.setCurrentPrice(new BigDecimal("40"));
+
+        PortfolioItem item = new PortfolioItem();
+        item.setInstrument(instrument);
+        item.setQuantity(new BigDecimal("10"));
+
+        Portfolio portfolio = new Portfolio();
+        portfolio.setId(portfolioId);
+        portfolio.setCashBalance(new BigDecimal("1000"));
+        portfolio.setItems(new ArrayList<>(List.of(item)));
+
+        when(instrumentRepository.findInstrumentBySymbol(symbol)).thenReturn(Optional.of(instrument));
+        when(instrumentRepository.findInstrumentBySymbol("USDTRY")).thenReturn(Optional.of(usdTry));
+        when(portfolioRepository.findByIdAndUserId(portfolioId, userId)).thenReturn(Optional.of(portfolio));
+        when(portfolioRepository.save(any(Portfolio.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        portfolioService.sellInstrument(userId, symbol, new BigDecimal("5"), portfolioId);
+
+        assertEquals(0, new BigDecimal("21000.00").compareTo(portfolio.getCashBalance()));
+        ArgumentCaptor<Transaction> transactionCaptor = ArgumentCaptor.forClass(Transaction.class);
+        verify(transactionRepository).save(transactionCaptor.capture());
+        assertEquals(0, new BigDecimal("100").compareTo(transactionCaptor.getValue().getPrice()));
+        assertEquals(0, new BigDecimal("20000.00").compareTo(transactionCaptor.getValue().getTotalAmount()));
+        assertEquals(0, BigDecimal.ZERO.setScale(2).compareTo(transactionCaptor.getValue().getCommission()));
+    }
+
+    @Test
     void sellInstrument_whenInstrumentNotFound_throwsException() {
         // Arrange
         String userId = "user123";
@@ -307,6 +347,44 @@ class PortfolioServiceTest {
         assertEquals(0, BigDecimal.valueOf(500).compareTo(portfolio.getCashBalance()));
         verify(portfolioRepository).save(portfolio);
         verify(transactionRepository).save(any(Transaction.class));
+    }
+
+    @Test
+    void buyInstrument_whenUsdInstrument_convertsCostToTryCashBalance() {
+        String userId = "user123";
+        UUID portfolioId = UUID.randomUUID();
+        String symbol = "AAPL";
+
+        Instrument instrument = new Instrument();
+        instrument.setSymbol(symbol);
+        instrument.setCurrentPrice(new BigDecimal("100"));
+        instrument.setBaseCurrency(com.finance.shared.Currency.USD);
+
+        Instrument usdTry = new Instrument();
+        usdTry.setCurrentPrice(new BigDecimal("40"));
+
+        Portfolio portfolio = new Portfolio();
+        portfolio.setId(portfolioId);
+        portfolio.setCashBalance(new BigDecimal("30000"));
+        portfolio.setItems(new ArrayList<>());
+
+        when(instrumentRepository.findInstrumentBySymbol(symbol)).thenReturn(Optional.of(instrument));
+        when(instrumentRepository.findInstrumentBySymbol("USDTRY")).thenReturn(Optional.of(usdTry));
+        when(portfolioRepository.findByIdAndUserId(portfolioId, userId)).thenReturn(Optional.of(portfolio));
+        when(portfolioRepository.save(any(Portfolio.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        portfolioService.buyInstrument(userId, symbol, new BigDecimal("5"), portfolioId);
+
+        assertEquals(0, new BigDecimal("10000.00").compareTo(portfolio.getCashBalance()));
+        assertEquals(1, portfolio.getItems().size());
+        assertEquals(0, new BigDecimal("100").compareTo(portfolio.getItems().getFirst().getAverageCost()));
+
+        ArgumentCaptor<Transaction> transactionCaptor = ArgumentCaptor.forClass(Transaction.class);
+        verify(transactionRepository).save(transactionCaptor.capture());
+        assertEquals(0, new BigDecimal("100").compareTo(transactionCaptor.getValue().getPrice()));
+        assertEquals(0, new BigDecimal("20000.00").compareTo(transactionCaptor.getValue().getTotalAmount()));
+        assertEquals(0, BigDecimal.ZERO.setScale(2).compareTo(transactionCaptor.getValue().getCommission()));
     }
 
     @Test

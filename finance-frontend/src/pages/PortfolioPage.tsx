@@ -159,8 +159,8 @@ const PortfolioPage = () => {
     });
 
     const { data: inflationEffect, isLoading: inflationLoading, isError: inflationError } = useQuery({
-        queryKey: ['portfolio-inflation-effect', active?.id],
-        queryFn: () => getPortfolioInflationEffect(active!.id),
+        queryKey: ['portfolio-inflation-effect', active?.id, displayCurrency],
+        queryFn: () => getPortfolioInflationEffect(active!.id, displayCurrency),
         staleTime: 1000 * 60 * 10,
         refetchOnWindowFocus: false,
         enabled: !!active?.id,

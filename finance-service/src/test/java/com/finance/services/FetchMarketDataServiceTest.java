@@ -73,7 +73,7 @@ class FetchMarketDataServiceTest {
         when(instrumentProperties.getForex()).thenReturn(Map.of("EURUSD", "EUR/USD"));
         when(instrumentProperties.getIndex()).thenReturn(Map.of());
         when(instrumentProperties.getCommodity()).thenReturn(Map.of());
-        when(instrumentProperties.getBond()).thenReturn(Map.of());
+        when(instrumentProperties.getBond()).thenReturn(Map.of("US10Y", "US Treasury 10 Year"));
         when(instrumentProperties.getFiat()).thenReturn(Map.of());
         when(instrumentRepository.findBySymbol("THYAO")).thenReturn(Optional.of(Instrument.builder()
                 .symbol("THYAO")
@@ -86,6 +86,7 @@ class FetchMarketDataServiceTest {
 
         verify(selfMock).fetchAndSave("THYAO", "STOCK", Currency.TRY);
         verify(selfMock).fetchAndSave("EURUSD", "FOREX", null);
+        verify(selfMock).fetchAndSave("US10Y", "BOND", null);
     }
 
     @Test

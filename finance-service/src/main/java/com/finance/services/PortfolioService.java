@@ -1,4 +1,5 @@
 package com.finance.services;
+import com.finance.exceptions.*;
 import com.finance.models.*;
 import com.finance.repositories.*;
 import com.finance.shared.*;
@@ -27,6 +28,7 @@ import java.util.stream.Collectors;
 @Service
 public class PortfolioService {
     private static final BigDecimal COMMISSION_RATE = new BigDecimal("0");
+    private static final Currency CASH_CURRENCY = Currency.TRY;
     private static final Logger logger = LogManager.getLogger(PortfolioService.class);
     private final PortfolioRepository portfolioRepository;
     private final MarketDataRepository marketDataRepository;
@@ -158,7 +160,7 @@ public class PortfolioService {
     private Portfolio getPortfolioEntity(String userId, UUID portfolioId) {
         return portfolioRepository.findByIdAndUserId(portfolioId,userId)
                 .orElseThrow(() ->
-                        new RuntimeException("Portfolio not found for user: " + userId));
+                        new PortfolioNotFoundException("Portfolio not found for user: " + userId));
     }
 
 
@@ -226,7 +228,7 @@ public class PortfolioService {
 
         User user = userRepository.findById(userId).orElseThrow(() ->{
             logger.error("user not found");
-            return  new RuntimeException("User not found ");
+            return  new NotFoundException("User not found ");
         });
         Portfolio portfolioEntity = Portfolio.builder()
                 .user(user)
@@ -538,21 +540,25 @@ public class PortfolioService {
         logger.info("Selling {} of {} for user {}", quantity, instrumentSymbol, userId);
 
         BigDecimal price = instrument.getCurrentPrice();
-        BigDecimal totalProceeds = price.multiply(quantity).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal commission = totalProceeds.multiply(COMMISSION_RATE)
+        Currency instrumentCurrency = normalizeCurrency(instrument.getBaseCurrency());
+        BigDecimal usdTryRate = resolveUsdTryRate();
+        BigDecimal totalProceeds = price.multiply(quantity);
+        BigDecimal totalProceedsInCashCurrency = convertInstrumentValue(totalProceeds, instrumentCurrency, CASH_CURRENCY, usdTryRate)
                 .setScale(2, RoundingMode.HALF_UP);
-        BigDecimal totalAmount = totalProceeds.subtract(commission);
+        BigDecimal commission = totalProceedsInCashCurrency.multiply(COMMISSION_RATE)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalAmount = totalProceedsInCashCurrency.subtract(commission);
         Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
 
         PortfolioItem portfolioItem = portfolio.getItems().stream()
                 .filter(item -> item.getInstrument().getSymbol().equals(instrumentSymbol))
                 .findFirst()
-                .orElseThrow(() -> new RuntimeException("Instrument not held in portfolio: " + instrumentSymbol));
+                .orElseThrow(() -> new InstrumentNotFoundException("Instrument not held in portfolio: " + instrumentSymbol));
 
         if (portfolioItem.getQuantity().compareTo(quantity) < 0) {
             logger.warn("Insufficient quantity for user {}. Trying to sell: {}, Available: {}",
                     userId, quantity, portfolioItem.getQuantity());
-            throw new RuntimeException("Insufficient quantity to sell. Trying to sell: "
+            throw new PortfolioInsufficientException("Insufficient quantity to sell. Trying to sell: "
                     + quantity + ", Available: " + portfolioItem.getQuantity());
         }
 
@@ -583,20 +589,25 @@ public class PortfolioService {
     @Transactional
     public void buyInstrument(String userId, String instrumentSymbol, BigDecimal quantity, UUID portfolioId){
         Instrument instrument= instrumentRepository.findInstrumentBySymbol(instrumentSymbol)
-                .orElseThrow(()-> new RuntimeException("Instrument not found: " + instrumentSymbol));
+                .orElseThrow(()-> new InstrumentNotFoundException(
+                        "Instrument not found: " + instrumentSymbol));
         logger.info("Buying {} of {} for user {}", quantity, instrumentSymbol, userId);
 
         BigDecimal price = instrument.getCurrentPrice();
-        BigDecimal totalCost = price.multiply(quantity).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal commission = totalCost.multiply(COMMISSION_RATE)
+        Currency instrumentCurrency = normalizeCurrency(instrument.getBaseCurrency());
+        BigDecimal usdTryRate = resolveUsdTryRate();
+        BigDecimal totalCost = price.multiply(quantity);
+        BigDecimal totalCostInCashCurrency = convertInstrumentValue(totalCost, instrumentCurrency, CASH_CURRENCY, usdTryRate)
                 .setScale(2, RoundingMode.HALF_UP);
-        BigDecimal totalAmount = totalCost.add(commission);
+        BigDecimal commission = totalCostInCashCurrency.multiply(COMMISSION_RATE)
+                .setScale(2, RoundingMode.HALF_UP);
+        BigDecimal totalAmount = totalCostInCashCurrency.add(commission);
         Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
 
         if (portfolio.getCashBalance().compareTo(totalAmount) < 0) {
             logger.warn("Insufficient balance for user {}. Required: {}, Available: {}",
                     userId, totalCost, portfolio.getCashBalance());
-            throw new RuntimeException("Insufficient balance. Required: " + totalCost
+            throw new InsufficientBalanceException("Insufficient balance. Required: " + totalCost
                     + ", Available: " + portfolio.getCashBalance());
         }
 

@@ -89,6 +89,7 @@ export interface PortfolioInflationEffectDto {
     nominalReturn: number;
     realReturn: number;
     inflationRate: number;
+    currency?: string;
 }
 
 /** Matches `com.finance.shared.PieChartDto` */
@@ -202,9 +203,11 @@ export const getPortfolioHistory = async (
  */
 export const getPortfolioInflationEffect = async (
     portfolioId: string,
+    currency: string = 'TRY',
 ): Promise<PortfolioInflationEffectDto | null> => {
     const { data } = await privateApi.get<PortfolioInflationEffectDto>(
         `/api/portfolio/${portfolioId}/inflation-effect`,
+        { params: { currency } },
     );
     return data ?? null;
 };

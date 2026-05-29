@@ -61,7 +61,8 @@ public class FetchMarketDataService {
         Map.of(
                 "FOREX",     instrumentProperties.getForex(),
                 "INDEX",     instrumentProperties.getIndex(),
-                "COMMODITY", instrumentProperties.getCommodity()
+                "COMMODITY", instrumentProperties.getCommodity(),
+                "BOND",      instrumentProperties.getBond()
         ).forEach((category, instruments) -> {
             if (instruments != null) {
                 instruments.keySet().forEach(dbSymbol ->
