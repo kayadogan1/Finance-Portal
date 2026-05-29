@@ -1,7 +1,6 @@
 import { ExternalLink, Clock, Crosshair } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { TOPIC_LABELS, ASSET_TYPE_COLORS, buildNewsDetailPath, resolveNewsImage, type NewsInstrumentDto } from '../../services/newsService';
-import SourceAvatar from './SourceAvatar';
 
 export interface NewsCardProps {
     title: string;
@@ -74,14 +73,6 @@ export default function NewsCard({
                 <img src={imageUrl} alt={title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
                     onError={e => { (e.target as HTMLImageElement).src = resolveNewsImage(undefined, sourceName, category); }} />
 
-                {/* Source badge — sol üst */}
-                {sourceName && (
-                    <span className="absolute top-2.5 left-2.5 inline-flex items-center gap-1.5 px-2 py-1 text-[10px] font-medium uppercase tracking-wider rounded-full bg-background/80 text-primary backdrop-blur-sm">
-                        <SourceAvatar name={sourceName} size="sm" />
-                        {sourceName}
-                    </span>
-                )}
-
                 {/* Category badge — sağ üst */}
                 {category && (
                     <span className="absolute top-2.5 right-2.5 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider rounded-sm bg-primary/10 text-primary">
@@ -116,6 +107,7 @@ export default function NewsCard({
 
                 <div className="flex items-center justify-between pt-0.5">
                     <span className="text-meta flex items-center gap-1"><Clock size={10} />{timeAgo(publishedAt)}</span>
+                    {sourceName && <span className="max-w-[120px] truncate text-[10px] font-medium text-subtle">{sourceName}</span>}
                     <ExternalLink size={10} className="text-ghost opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
             </div>

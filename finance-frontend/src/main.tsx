@@ -10,11 +10,12 @@ import App from './App.tsx';
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5,
-      gcTime: 1000 * 60 * 30,
+      staleTime: 1000 * 60 * 8,
+      gcTime: 1000 * 60 * 45,
       refetchOnMount: false,
       refetchOnWindowFocus: false,
       refetchOnReconnect: false,
+      structuralSharing: true,
       retry: 1,
     },
   },

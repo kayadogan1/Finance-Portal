@@ -29,6 +29,21 @@ const MARKET_TABS: { key: MarketTab; label: string; tone?: 'up' | 'down' }[] = [
     { key: 'losers', label: 'Düşenler', tone: 'down' },
 ];
 
+type SortColumn = 'symbol' | 'price' | 'change';
+
+const renderSortIcon = (
+    col: SortColumn,
+    sortCol?: SortColumn | null,
+    sortDir?: 'asc' | 'desc',
+    enabled?: boolean,
+) => {
+    if (!enabled) return null;
+    if (sortCol !== col) return <ChevronDownIcon size={9} style={{ opacity: 0.3 }} />;
+    return sortDir === 'asc'
+        ? <ChevronUp size={9} style={{ color: 'hsl(var(--primary))' }} />
+        : <ChevronDownIcon size={9} style={{ color: 'hsl(var(--primary))' }} />;
+};
+
 const PINNED_US_SYMBOLS = ['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'GOOG', 'AMZN', 'META', 'TSLA', 'AMD', 'NFLX'];
 
 const SEARCH_SYMBOL_ALIASES: Record<string, string> = {
@@ -159,18 +174,12 @@ function InstrumentList({
     onPageChange?: (p: number) => void;
     formatPrice: (price: number, cur: string) => string;
     onNavigate: (symbol: string) => void;
-    sortCol?: 'symbol' | 'price' | 'change' | null;
+    sortCol?: SortColumn | null;
     sortDir?: 'asc' | 'desc';
-    onSort?: (col: 'symbol' | 'price' | 'change') => void;
+    onSort?: (col: SortColumn) => void;
 }) {
     const hasPagination = totalPages !== undefined && totalPages > 1 && onPageChange !== undefined;
     const processed = instruments;
-
-    const SortIcon = ({ col }: { col: 'symbol' | 'price' | 'change' }) => {
-        if (!onSort) return null;
-        if (sortCol !== col) return <ChevronDownIcon size={9} style={{ opacity: 0.3 }} />;
-        return sortDir === 'asc' ? <ChevronUp size={9} style={{ color: 'hsl(var(--primary))' }} /> : <ChevronDownIcon size={9} style={{ color: 'hsl(var(--primary))' }} />;
-    };
 
     const pageNumbers = useMemo(() => {
         if (!hasPagination || totalPages === undefined || page === undefined) return [];
@@ -234,7 +243,7 @@ function InstrumentList({
                     style={{ width: 68, fontSize: 10, fontWeight: 600, color: sortCol === 'symbol' ? 'hsl(var(--primary))' : 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5 }}
                     onClick={() => onSort?.('symbol')}
                 >
-                    Sembol <SortIcon col="symbol" />
+                    Sembol {renderSortIcon('symbol', sortCol, sortDir, Boolean(onSort))}
                 </div>
                 <div style={{ flex: 1, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5 }}>Ad</div>
                 <div style={{ width: 42, fontSize: 10, fontWeight: 600, color: 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'center' }}>Tip</div>
@@ -243,14 +252,14 @@ function InstrumentList({
                     style={{ width: 70, fontSize: 10, fontWeight: 600, color: sortCol === 'price' ? 'hsl(var(--primary))' : 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}
                     onClick={() => onSort?.('price')}
                 >
-                    Fiyat <SortIcon col="price" />
+                    Fiyat {renderSortIcon('price', sortCol, sortDir, Boolean(onSort))}
                 </div>
                 <div
                     className="sort-header"
                     style={{ width: 64, fontSize: 10, fontWeight: 600, color: sortCol === 'change' ? 'hsl(var(--primary))' : 'hsl(var(--subtle-foreground))', textTransform: 'uppercase', letterSpacing: 0.5, textAlign: 'right' }}
                     onClick={() => onSort?.('change')}
                 >
-                    Değişim <SortIcon col="change" />
+                    Değişim {renderSortIcon('change', sortCol, sortDir, Boolean(onSort))}
                 </div>
                 <div style={{ width: 0 }} />
             </div>
@@ -425,7 +434,7 @@ const MarketPage = () => {
         };
     }, [searchFiltered, region, search]);
 
-    const activeItems = grouped[activeTab] ?? [];
+    const activeItems = useMemo(() => grouped[activeTab] ?? [], [grouped, activeTab]);
 
     const pagedItems = useMemo(() => {
         const sorted = activeTab === 'gainers' || activeTab === 'losers' ? activeItems : sortInstruments(activeItems);
@@ -473,38 +482,23 @@ const MarketPage = () => {
                 </div>
             </div>
 
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 12,
-                padding: 12,
-                border: '1px solid hsl(var(--border))',
-                borderRadius: 6,
-                background: 'hsl(var(--card))',
-            }}>
-                <div style={{ position: 'relative', width: 'min(100%, 420px)' }}>
-                    <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: 'hsl(var(--subtle-foreground))', pointerEvents: 'none' }} />
+            <div className="spotlight-search">
+                <Search size={20} className="shrink-0 text-muted-foreground" />
+                <div className="flex-1 min-w-0">
                     <input
                         type="text"
                         value={search}
                         onChange={e => { setSearch(e.target.value); setPage(0); }}
-                        placeholder="Sembol, enstrüman adı, tür veya piyasa ara..."
-                        style={{
-                            width: '100%',
-                            height: 38,
-                            paddingLeft: 36,
-                            paddingRight: 12,
-                            fontSize: 13,
-                            fontWeight: 500,
-                            background: 'hsl(var(--background-subtle))',
-                            border: '1px solid hsl(var(--border))',
-                            borderRadius: 4,
-                            color: 'hsl(var(--foreground))',
-                            outline: 'none',
-                        }}
+                        placeholder="Sembol, şirket, piyasa veya varlık türü ara..."
+                        className="spotlight-input"
                     />
+                    {search.trim().length > 0 && (
+                        <p className="mt-0.5 text-[11px] text-subtle">
+                            {activeItems.length.toLocaleString('tr-TR')} sonuç bulundu
+                        </p>
+                    )}
                 </div>
+                <span className="kbd-hint hidden sm:inline-flex">⌘ K</span>
             </div>
 
             {/* Category filters + table */}

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import {
     PieChart as PieChartIcon, TrendingUp, TrendingDown, Wallet,
     ArrowDownToLine, ArrowUpFromLine, RefreshCw, Plus, ChevronDown, Clock, BadgePercent,
+    ArrowRight, Activity,
 } from 'lucide-react';
 import {
     getPortfolios, getPortfolioInflationEffect, getPortfolioPieChart, getPortfolioTypeAllocation, getTransactions,
@@ -192,6 +193,10 @@ const PortfolioPage = () => {
     const inflationAdjustedCost = Number(inflationEffect?.inflationAdjustedCost ?? 0);
     const inflationRate = Number(inflationEffect?.inflationRate ?? 0);
     const isRealReturnPositive = realReturn >= 0;
+    const returnDenominator = Math.max(Math.abs(nominalReturn), Math.abs(realReturn), Math.abs(inflationImpact), 1);
+    const nominalBarWidth = Math.max(6, Math.min(100, (Math.abs(nominalReturn) / returnDenominator) * 100));
+    const inflationBarWidth = Math.max(6, Math.min(100, (Math.abs(inflationImpact) / returnDenominator) * 100));
+    const realBarWidth = Math.max(6, Math.min(100, (Math.abs(realReturn) / returnDenominator) * 100));
 
     if (portsLoading) {
         return <div className="flex items-center justify-center h-64"><RefreshCw className="animate-spin text-primary" size={24} /></div>;
@@ -311,7 +316,7 @@ const PortfolioPage = () => {
                         <div className="flex items-center justify-between gap-3 mb-4">
                             <div className="flex items-center gap-2">
                                 <BadgePercent size={14} className="text-primary" />
-                                <span className="text-[14px] font-medium text-foreground">Enflasyona Göre Getiri</span>
+                                <span className="text-[14px] font-medium text-foreground">Enflasyona Göre Getiri Analizi</span>
                             </div>
                             {inflationEffect?.dateTime && (
                                 <span className="text-[11px] text-subtle tabular-nums">
@@ -331,31 +336,69 @@ const PortfolioPage = () => {
                                 Enflasyon analizi için yeterli veri bulunamadı.
                             </div>
                         ) : (
-                            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-                                <div className="border-l-2 border-primary pl-4 py-1">
-                                    <span className="text-label">REEL GETİRİ</span>
-                                    <div className={`mt-1.5 flex items-center gap-1.5 text-[20px] font-semibold tabular-nums ${isRealReturnPositive ? 'text-positive' : 'text-negative'}`}>
-                                        {isRealReturnPositive ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                                        {isRealReturnPositive ? '+' : '-'}{formatMarketPrice(Math.abs(realReturn), displayCurrency)}
+                            <div className="grid grid-cols-1 xl:grid-cols-[1.15fr_0.85fr] gap-5">
+                                <div className="rounded-md border border-border bg-[hsl(var(--background-subtle))] p-4">
+                                    <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                                        <div className="flex-1 min-w-0">
+                                            <span className="text-label">NOMİNAL GETİRİ</span>
+                                            <div className={`mt-1 text-[22px] font-semibold tabular-nums ${nominalReturn >= 0 ? 'text-positive' : 'text-negative'}`}>
+                                                {nominalReturn >= 0 ? '+' : '-'}{formatMarketPrice(Math.abs(nominalReturn), displayCurrency)}
+                                            </div>
+                                        </div>
+                                        <ArrowRight size={18} className="hidden sm:block text-subtle" />
+                                        <div className="flex-1 min-w-0">
+                                            <span className="text-label">ENFLASYON ETKİSİ</span>
+                                            <div className="mt-1 text-[22px] font-semibold tabular-nums text-warning">
+                                                -{formatMarketPrice(Math.abs(inflationImpact), displayCurrency)}
+                                            </div>
+                                            <p className="text-[11px] text-subtle mt-1">
+                                                TÜFE etkisi {inflationRate.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
+                                            </p>
+                                        </div>
+                                        <ArrowRight size={18} className="hidden sm:block text-subtle" />
+                                        <div className="flex-1 min-w-0">
+                                            <span className="text-label">REEL GETİRİ</span>
+                                            <div className={`mt-1 flex items-center gap-1.5 text-[22px] font-semibold tabular-nums ${isRealReturnPositive ? 'text-positive' : 'text-negative'}`}>
+                                                {isRealReturnPositive ? <TrendingUp size={17} /> : <TrendingDown size={17} />}
+                                                {isRealReturnPositive ? '+' : '-'}{formatMarketPrice(Math.abs(realReturn), displayCurrency)}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-5 space-y-3">
+                                        {[
+                                            { label: 'Nominal', value: nominalReturn, width: nominalBarWidth, color: 'bg-primary' },
+                                            { label: 'Enflasyon payı', value: -Math.abs(inflationImpact), width: inflationBarWidth, color: 'bg-warning' },
+                                            { label: 'Reel sonuç', value: realReturn, width: realBarWidth, color: isRealReturnPositive ? 'bg-positive' : 'bg-negative' },
+                                        ].map((item) => (
+                                            <div key={item.label} className="grid grid-cols-[96px_1fr_120px] items-center gap-3">
+                                                <span className="text-[11px] font-semibold text-muted-foreground">{item.label}</span>
+                                                <div className="h-2 rounded-full bg-[hsl(var(--border-subtle))] overflow-hidden">
+                                                    <div className={`h-full rounded-full ${item.color}`} style={{ width: `${item.width}%` }} />
+                                                </div>
+                                                <span className={`text-right text-[12px] font-semibold tabular-nums ${item.value >= 0 ? 'text-positive' : 'text-negative'}`}>
+                                                    {item.value >= 0 ? '+' : '-'}{formatMarketPrice(Math.abs(item.value), displayCurrency)}
+                                                </span>
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
-                                <div className="border-l border-border pl-4 py-1">
-                                    <span className="text-label">NOMİNAL GETİRİ</span>
-                                    <div className={`mt-1.5 text-[20px] font-semibold tabular-nums ${nominalReturn >= 0 ? 'text-positive' : 'text-negative'}`}>
-                                        {nominalReturn >= 0 ? '+' : '-'}{formatMarketPrice(Math.abs(nominalReturn), displayCurrency)}
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-1 gap-3">
+                                    <div className="rounded-md border border-border p-4">
+                                        <span className="text-label">DÜZELTİLMİŞ MALİYET</span>
+                                        <div className="mt-1.5 text-[20px] font-semibold tabular-nums text-foreground">
+                                            {formatMarketPrice(inflationAdjustedCost, displayCurrency)}
+                                        </div>
+                                        <p className="text-[11px] text-subtle mt-1">Maliyet enflasyonla bugüne taşındı</p>
                                     </div>
-                                </div>
-                                <div className="border-l border-border pl-4 py-1">
-                                    <span className="text-label">ENFLASYON ETKİSİ</span>
-                                    <div className="mt-1.5 text-[20px] font-semibold tabular-nums text-foreground">
-                                        {inflationRate.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%
-                                    </div>
-                                    <p className="text-[11px] text-subtle mt-1">{formatMarketPrice(inflationImpact, displayCurrency)}</p>
-                                </div>
-                                <div className="border-l border-border pl-4 py-1">
-                                    <span className="text-label">DÜZELTİLMİŞ MALİYET</span>
-                                    <div className="mt-1.5 text-[20px] font-semibold tabular-nums text-foreground">
-                                        {formatMarketPrice(inflationAdjustedCost, displayCurrency)}
+                                    <div className="rounded-md border border-border p-4">
+                                        <span className="text-label">ALIM GÜCÜ SKORU</span>
+                                        <div className={`mt-1.5 inline-flex items-center gap-1.5 text-[20px] font-semibold tabular-nums ${isRealReturnPositive ? 'text-positive' : 'text-negative'}`}>
+                                            <Activity size={16} />
+                                            {isRealReturnPositive ? 'Korundu' : 'Aşındı'}
+                                        </div>
+                                        <p className="text-[11px] text-subtle mt-1">Reel getiri nominal getiriden arındırılmış sonuçtur</p>
                                     </div>
                                 </div>
                             </div>

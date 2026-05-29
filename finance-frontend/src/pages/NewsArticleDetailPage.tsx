@@ -56,15 +56,17 @@ const NewsArticleDetailPage = () => {
         staleTime: 1000 * 60 * 3,
     });
 
+    const stateArticle = state?.article;
+
     const article = useMemo(() => {
-        if (state?.article) {
+        if (stateArticle) {
             return {
-                ...state.article,
-                source: state.article.source ?? (state.article.sourceName ? { id: '', name: state.article.sourceName } : undefined),
+                ...stateArticle,
+                source: stateArticle.source ?? (stateArticle.sourceName ? { id: '', name: stateArticle.sourceName } : undefined),
             } as FilteredArticleDto;
         }
         return (fallbackArticles ?? []).find(item => item.url === targetUrl) ?? null;
-    }, [fallbackArticles, state?.article, targetUrl]);
+    }, [fallbackArticles, stateArticle, targetUrl]);
 
     if (!article) {
         return (

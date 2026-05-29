@@ -27,7 +27,8 @@ export default function NewsGrid({ topic, country, title = 'Son Haberler', maxIt
     const { data: articles, isLoading, isError } = useQuery({
         queryKey: ['news', topic ?? 'all', country ?? 'all'],
         queryFn: () => getNews(topic, country),
-        staleTime: 1000 * 60 * 3,
+        staleTime: 1000 * 60 * 8,
+        gcTime: 1000 * 60 * 30,
     });
 
     const filteredArticles = category
