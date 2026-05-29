@@ -83,10 +83,10 @@ public class PortfolioController {
     @PreAuthorize("hasAnyRole('USER','ADMIN')")
     public ResponseEntity<ApiResult<PerformanceLineChartDtoWithInflationDto>> getPortfolioInflationEffect(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable UUID portfolioId
+            @PathVariable UUID portfolioId,
+            @RequestParam(defaultValue = "TRY") Currency currency
     ) {
-        PerformanceLineChartDtoWithInflationDto inflationEffect =
-                inflationService.calculateInflationEffectInPortfolio(jwt.getSubject(), portfolioId);
+        PerformanceLineChartDtoWithInflationDto inflationEffect = inflationService.calculateInflationEffectInPortfolio(jwt.getSubject(), portfolioId,currency);
         return ResponseEntity.ok(ApiResult.success(inflationEffect, "portfolio inflation effect fetched", 200));
     }
     @PostMapping("/deposit")

@@ -32,3 +32,4 @@ HELP.md
 **/build/
 .env
 .env.*
+*_backup.sql

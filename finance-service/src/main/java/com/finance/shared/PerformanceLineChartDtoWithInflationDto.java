@@ -13,6 +13,7 @@ public record PerformanceLineChartDtoWithInflationDto(
     BigDecimal inflationImpact,
     BigDecimal nominalReturn,
     BigDecimal realReturn,
-    Double inflationRate
+    Double inflationRate,
+    Currency currency
 ) {
 }

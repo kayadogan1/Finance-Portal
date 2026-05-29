@@ -48,4 +48,23 @@ public class GlobalExceptionAdvisor {
         logger.error("Yahoo fetch error: {}", exception.getMessage(), exception);
         return new ApiResult<>(false, null, exception.getMessage(), 500, LocalDateTime.now());
     }
-}
+
+    @ExceptionHandler(InsufficientBalanceException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResult<String> handleInsufficientBalanceException(InsufficientBalanceException exception){
+        logger.error("Error: Insufficient balance, please add funds.{}",exception.getMessage());
+        return new ApiResult<>(false,null,"Insufficient balance please add cash",400,LocalDateTime.now());
+    }
+
+    @ExceptionHandler(PortfolioInsufficientException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResult<String > handlePortfolioInsufficientException(PortfolioInsufficientException exception){
+        logger.error("Error:Insufficient  instrument quantity balance. {} ",exception.getMessage());
+        return new ApiResult<>(false,null, exception.getMessage(),400,LocalDateTime.now());
+    }
+    @ExceptionHandler(PortfolioNotFoundException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ApiResult<String > handlePortfolioNotFoundException(PortfolioNotFoundException exception){
+        logger.error("Error: Portfolio Not found. {} ",exception.getMessage());
+        return new ApiResult<>(false,null, exception.getMessage(),400,LocalDateTime.now());
+    }}
