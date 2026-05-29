@@ -35,6 +35,8 @@ services:
       - SPRINGDOC_SWAGGER_UI_URLS_2_NAME=Classification API
       - SPRINGDOC_SWAGGER_UI_URLS_2_URL=/classification/v3/api-docs
       - SPRINGDOC_SWAGGER_UI_PATH=/swagger-ui.html
+      - MANAGEMENT_OTLP_METRICS_EXPORT_URL=http://${REMOTE_OBSERVABILITY_HOST:-3.71.200.208}:4318/v1/metrics
+      - MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://${REMOTE_OBSERVABILITY_HOST:-3.71.200.208}:4318/v1/traces
     labels:
       - "co.elastic.logs/enabled=true"
       - "co.elastic.logs/json.keys_under_root=true"
@@ -67,6 +69,10 @@ services:
       - EVDS_API_KEY=${EVDS_PASSWORD}
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://keycloak:9090/realms/FinancePortal
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI=http://keycloak:8080/realms/FinancePortal/protocol/openid-connect/certs
+      - MANAGEMENT_OTLP_METRICS_EXPORT_URL=http://${REMOTE_OBSERVABILITY_HOST:-3.71.200.208}:4318/v1/metrics
+      - MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://${REMOTE_OBSERVABILITY_HOST:-3.71.200.208}:4318/v1/traces
+      - LOGGING_LEVEL_ORG_HIBERNATE_SQL=WARN
+      - LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_BIND=WARN
     labels:
       - "co.elastic.logs/enabled=true"
       - "co.elastic.logs/json.keys_under_root=true"
@@ -96,6 +102,8 @@ services:
       - MODEL_SERVICE_API_URL=http://classification-api:8083/api/v1/news/classify
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://keycloak:9090/realms/FinancePortal
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI=http://keycloak:8080/realms/FinancePortal/protocol/openid-connect/certs
+      - MANAGEMENT_OTLP_METRICS_EXPORT_URL=http://${REMOTE_OBSERVABILITY_HOST:-3.71.200.208}:4318/v1/metrics
+      - MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://${REMOTE_OBSERVABILITY_HOST:-3.71.200.208}:4318/v1/traces
     labels:
       - "co.elastic.logs/enabled=true"
       - "co.elastic.logs/json.keys_under_root=true"
@@ -154,30 +162,6 @@ services:
     networks:
       - finance-network
 
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.1
-    container_name: finance_elasticsearch
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    ports:
-      - "9200:9200"
-    networks:
-      - finance-network
-
-  kibana:
-    image: docker.elastic.co/kibana/kibana:8.11.1
-    container_name: finance_kibana
-    ports:
-      - "5601:5601"
-    depends_on:
-      - elasticsearch
-    environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-    networks:
-      - finance-network
-
   filebeat:
     image: docker.elastic.co/beats/filebeat:8.11.1
     container_name: finance_filebeat
@@ -187,20 +171,10 @@ services:
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
-      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
-    depends_on:
-      - elasticsearch
+      - ELASTICSEARCH_HOSTS=http://${REMOTE_OBSERVABILITY_HOST:-3.71.200.208}:9200
     networks:
       - finance-network
 
-  grafana-lgtm:
-    image: grafana/otel-lgtm:latest
-    ports:
-      - '3000:3000'
-      - '4317:4317'
-      - '4318:4318'
-    networks:
-      - finance-network
   keycloak:
     image: quay.io/keycloak/keycloak:23.0.7
     container_name: finance_keycloak

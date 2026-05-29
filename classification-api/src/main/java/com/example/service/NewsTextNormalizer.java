@@ -1,4 +1,4 @@
-package com.example;
+package com.example.service;
 
 public final class NewsTextNormalizer {
 

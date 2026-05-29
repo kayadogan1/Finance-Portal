@@ -1,4 +1,4 @@
-package com.example;
+package com.example.api.v1.dto;
 
 import java.util.List;
 

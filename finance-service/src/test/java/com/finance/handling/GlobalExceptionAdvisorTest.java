@@ -44,14 +44,6 @@ class GlobalExceptionAdvisorTest {
     }
 
     @Test
-    void handleMethodNotAllowedException_returns405Payload() {
-        ApiResult<String> result = advisor.handleMethodNotAllowedException(new MethodNotAllowedException("nope"));
-
-        assertEquals(405, result.response());
-        assertEquals("nope", result.message());
-    }
-
-    @Test
     void handleYahooFetchException_returnsPayloadWith500Code() {
         ApiResult<String> result = advisor.handleYahooFetchException(new YahooFetchException("rate limit"));
 

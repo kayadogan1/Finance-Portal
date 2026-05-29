@@ -27,7 +27,7 @@ filebeat.inputs:
 
 
 output.elasticsearch:
-  hosts: ["http://elasticsearch:9200"]
+  hosts: ["${ELASTICSEARCH_HOSTS:http://3.71.200.208:9200}"]
   index: "finance-logs-%{+yyyy.MM.dd}"
 
 setup.ilm.enabled: false

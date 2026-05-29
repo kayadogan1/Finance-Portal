@@ -1,4 +1,9 @@
-package com.example;
+package com.example.api.v1;
+
+import com.example.api.v1.dto.ClassificationRequest;
+import com.example.api.v1.dto.ClassificationResponse;
+import com.example.api.v1.dto.HealthResponse;
+import com.example.service.NewsClassificationService;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

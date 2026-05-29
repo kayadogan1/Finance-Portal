@@ -1,4 +1,7 @@
-package com.example;
+package com.example.service;
+
+import com.example.api.v1.dto.ClassificationResponse;
+import com.example.model.HierarchicalPredictor;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

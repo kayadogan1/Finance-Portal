@@ -1,4 +1,4 @@
-package com.example;
+package com.example.api.error;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

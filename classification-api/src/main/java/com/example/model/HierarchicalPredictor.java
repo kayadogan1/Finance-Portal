@@ -1,4 +1,6 @@
-package com.example;
+package com.example.model;
+
+import com.example.service.NewsTextNormalizer;
 
 import opennlp.tools.doccat.DoccatModel;
 import opennlp.tools.doccat.DocumentCategorizerME;
@@ -58,11 +60,11 @@ public class HierarchicalPredictor {
         }
     }
 
-    static Prediction predict(String text) throws Exception {
+    public static Prediction predict(String text) throws Exception {
         return predictInternal(text, false);
     }
 
-    static Prediction predictConservative(String text) throws Exception {
+    public static Prediction predictConservative(String text) throws Exception {
         return predictInternal(text, true);
     }
 
@@ -519,7 +521,7 @@ public class HierarchicalPredictor {
         return existing == null ? loaded : existing;
     }
 
-    record Prediction(
+    public record Prediction(
             String text,
             String assetType,
             String symbol,
