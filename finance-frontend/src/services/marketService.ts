@@ -95,7 +95,7 @@ export interface BackendInstrument {
     id: string;
     symbol: string;
     name: string;
-    type: 'CRYPTO' | 'FIAT' | 'COMMODITY' | 'INDEX' | 'STOCK' | 'FOREX' | 'BOND';
+    type: BackendInstrumentType;
     currentPrice: number;
     baseCurrency: string;
     lastUpdateTime: string;

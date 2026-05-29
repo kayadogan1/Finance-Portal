@@ -1,4 +1,4 @@
-export type InstrumentType = 'CRYPTO' | 'FOREX' | 'STOCK' | 'COMMODITY' | 'INDEX' | 'BOND' | 'FIAT';
+export type InstrumentType = 'CRYPTO' | 'FOREX' | 'STOCK' | 'COMMODITY' | 'INDEX' | 'BOND' | 'FUND' | 'VIOP' | 'FIAT';
 
 export interface Instrument {
     id: string;

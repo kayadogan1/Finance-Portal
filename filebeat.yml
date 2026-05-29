@@ -20,10 +20,54 @@ filebeat.inputs:
     processors:
       - add_docker_metadata:
           host: "unix:///var/run/docker.sock"
+      - decode_json_fields:
+          fields: ["message", "log"]
+          target: ""
+          overwrite_keys: true
+          add_error_key: true
+      - add_fields:
+          when:
+            equals:
+              container.name: "api-gateway"
+          target: service
+          fields:
+            name: "api-gateway"
+      - add_fields:
+          when:
+            equals:
+              container.name: "finance-service"
+          target: service
+          fields:
+            name: "finance-service"
+      - add_fields:
+          when:
+            equals:
+              container.name: "news-service"
+          target: service
+          fields:
+            name: "news-service"
+      - add_fields:
+          when:
+            equals:
+              container.name: "classification-api"
+          target: service
+          fields:
+            name: "classification-api"
       - drop_event:
           when:
             equals:
               container.name: "finance_filebeat"
+      - drop_event:
+          when:
+            or:
+              - equals:
+                  log.logger: "org.hibernate.SQL"
+              - equals:
+                  log.logger: "org.hibernate.orm.jdbc.bind"
+              - equals:
+                  log.logger: "org.hibernate.type.descriptor.sql.BasicBinder"
+              - regexp:
+                  message: "(?i)^\\s*(select|insert|update|delete)\\s+"
 
 
 output.elasticsearch:

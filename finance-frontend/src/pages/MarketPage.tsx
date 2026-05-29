@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { MapPin, Globe2, Search, ChevronLeft, ChevronRight, ArrowUpRight, ChevronUp, ChevronDown as ChevronDownIcon } from 'lucide-react';
@@ -16,7 +16,7 @@ import { formatMarketPrice } from '../utils/currency';
 
 const PAGE_SIZE = 20;
 
-type MarketTab = 'stock' | 'crypto' | 'forex' | 'commodity' | 'indices' | 'bond' | 'gainers' | 'losers';
+type MarketTab = 'stock' | 'crypto' | 'forex' | 'commodity' | 'indices' | 'bond' | 'fund' | 'viop' | 'gainers' | 'losers';
 
 const MARKET_TABS: { key: MarketTab; label: string; tone?: 'up' | 'down' }[] = [
     { key: 'stock', label: 'Hisse' },
@@ -24,7 +24,9 @@ const MARKET_TABS: { key: MarketTab; label: string; tone?: 'up' | 'down' }[] = [
     { key: 'forex', label: 'Döviz' },
     { key: 'commodity', label: 'Emtia' },
     { key: 'indices', label: 'Endeks' },
-    { key: 'bond', label: 'Tahvil' },
+    { key: 'bond', label: 'Tahvil/Bono' },
+    { key: 'fund', label: 'Fon' },
+    { key: 'viop', label: 'VİOP' },
     { key: 'gainers', label: 'Artanlar', tone: 'up' },
     { key: 'losers', label: 'Düşenler', tone: 'down' },
 ];
@@ -313,6 +315,7 @@ function InstrumentList({
    ════════════════════════════════════════ */
 const MarketPage = () => {
     const navigate = useNavigate();
+    const searchInputRef = useRef<HTMLInputElement>(null);
     const [activeTab, setActiveTab] = useState<MarketTab>('stock');
     const [page, setPage] = useState(0);
     const [region, setRegion] = useState<'TR' | 'US'>('TR');
@@ -324,6 +327,18 @@ const MarketPage = () => {
         if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
         else { setSortCol(col); setSortDir(col === 'symbol' ? 'asc' : 'desc'); }
     };
+
+    useEffect(() => {
+        const handleShortcut = (event: KeyboardEvent) => {
+            const isSearchShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
+            if (!isSearchShortcut) return;
+            event.preventDefault();
+            searchInputRef.current?.focus();
+            searchInputRef.current?.select();
+        };
+        window.addEventListener('keydown', handleShortcut);
+        return () => window.removeEventListener('keydown', handleShortcut);
+    }, []);
 
     const sortInstruments = useMemo(() => (list: MarketInstrument[]) => {
         if (!sortCol) return list;
@@ -421,8 +436,10 @@ const MarketPage = () => {
             forex: regional.filter(i => i.type === 'FIAT' || i.type === 'FOREX'),
             commodity: regional.filter(i => i.type === 'COMMODITY'),
             indices: regional.filter(i => i.type === 'INDEX'),
-            stock: regional.filter(i => i.type === 'STOCK' || i.type === 'VIOP'),
-            bond: regional.filter(i => i.type === 'BOND' || i.type === 'FUND'),
+            stock: regional.filter(i => i.type === 'STOCK'),
+            bond: regional.filter(i => i.type === 'BOND'),
+            fund: regional.filter(i => i.type === 'FUND'),
+            viop: regional.filter(i => i.type === 'VIOP'),
             gainers: [...regional]
                 .filter(i => hasChange(i) && i.change24h > 0)
                 .sort((a, b) => (b.change24h ?? Number.NEGATIVE_INFINITY) - (a.change24h ?? Number.NEGATIVE_INFINITY))
@@ -486,6 +503,7 @@ const MarketPage = () => {
                 <Search size={20} className="shrink-0 text-muted-foreground" />
                 <div className="flex-1 min-w-0">
                     <input
+                        ref={searchInputRef}
                         type="text"
                         value={search}
                         onChange={e => { setSearch(e.target.value); setPage(0); }}

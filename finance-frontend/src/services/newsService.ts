@@ -70,7 +70,7 @@ export const TOPIC_LABELS: Record<string, string> = {
     STOCK: 'Hisse',
     INDEX: 'Endeks',
     BOND: 'Tahvil',
-    VIOP: 'Tahvil/Bono',
+    VIOP: 'VİOP',
     COMMODITY: 'Emtia',
     FOREX: 'Forex',
     FUND: 'Fon',
@@ -80,6 +80,7 @@ export const NEWS_CATEGORIES = [
     { key: '', label: 'Tümü', serverTopic: undefined },
     { key: 'STOCK', label: 'Hisse', serverTopic: 'STOCK' },
     { key: 'INDEX', label: 'Endeks', serverTopic: 'STOCK' },
+    { key: 'VIOP', label: 'VİOP', serverTopic: 'STOCK' },
     { key: 'FUND', label: 'Fon', serverTopic: 'FUND' },
     { key: 'BOND', label: 'Tahvil/Bono', serverTopic: 'BOND' },
     { key: 'COMMODITY', label: 'Emtia', serverTopic: 'COMMODITY' },
@@ -122,7 +123,8 @@ export const normalizeNewsCategory = (article: Pick<FilteredArticleDto, 'categor
     const raw = instrumentType || category;
 
     if (raw === 'INDEX' || text.includes('ENDEKS') || text.includes('BIST 100') || text.includes('XU100')) return 'INDEX';
-    if (raw === 'VIOP' || raw === 'BOND' || text.includes('TAHVIL') || text.includes('TAHVİL') || text.includes('BONO')) return 'BOND';
+    if (raw === 'VIOP') return 'VIOP';
+    if (raw === 'BOND' || text.includes('TAHVIL') || text.includes('TAHVİL') || text.includes('BONO')) return 'BOND';
     if (raw === 'STOCK' || raw === 'HISSE' || raw === 'HİSSE' || category === 'STOCK') return 'STOCK';
     if (raw === 'FUND' || text.includes('FON')) return 'FUND';
     if (raw === 'COMMODITY' || text.includes('ALTIN') || text.includes('PETROL') || text.includes('EMTIA')) return 'COMMODITY';

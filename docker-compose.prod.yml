@@ -36,6 +36,7 @@ services:
       - MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://grafana-lgtm:4318/v1/traces
     labels:
       - "co.elastic.logs/enabled=true"
+      - "service_name=api-gateway"
       - "co.elastic.logs/json.keys_under_root=true"
       - "co.elastic.logs/json.overwrite_keys=true"
       - "co.elastic.logs/json.add_error_key=true"
@@ -68,8 +69,15 @@ services:
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=https://keycloak:9090/realms/FinancePortal
       - MANAGEMENT_OTLP_METRICS_EXPORT_URL=http://grafana-lgtm:4318/v1/metrics
       - MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://grafana-lgtm:4318/v1/traces
+      - SPRING_JPA_SHOW_SQL=false
+      - SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL=false
+      - SPRING_JPA_PROPERTIES_HIBERNATE_GENERATE_STATISTICS=false
+      - LOGGING_LEVEL_ORG_HIBERNATE=OFF
+      - LOGGING_LEVEL_ORG_HIBERNATE_SQL=WARN
+      - LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_BIND=WARN
     labels:
       - "co.elastic.logs/enabled=true"
+      - "service_name=finance-service"
       - "co.elastic.logs/json.keys_under_root=true"
       - "co.elastic.logs/json.overwrite_keys=true"
       - "co.elastic.logs/json.add_error_key=true"
@@ -99,8 +107,14 @@ services:
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=https://keycloak:9090/realms/FinancePortal
       - MANAGEMENT_OTLP_METRICS_EXPORT_URL=http://grafana-lgtm:4318/v1/metrics
       - MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://grafana-lgtm:4318/v1/traces
+      - SPRING_JPA_SHOW_SQL=false
+      - SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL=false
+      - LOGGING_LEVEL_ORG_HIBERNATE=OFF
+      - LOGGING_LEVEL_ORG_HIBERNATE_SQL=WARN
+      - LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_BIND=WARN
     labels:
       - "co.elastic.logs/enabled=true"
+      - "service_name=news-service"
       - "co.elastic.logs/json.keys_under_root=true"
       - "co.elastic.logs/json.overwrite_keys=true"
       - "co.elastic.logs/json.add_error_key=true"
@@ -120,6 +134,7 @@ services:
       - CLASSIFICATION_AUDIT_PATH=/app/output/classification_audit.csv
     labels:
       - "co.elastic.logs/enabled=true"
+      - "service_name=classification-api"
       - "co.elastic.logs/json.keys_under_root=true"
       - "co.elastic.logs/json.overwrite_keys=true"
       - "co.elastic.logs/json.add_error_key=true"

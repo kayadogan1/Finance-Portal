@@ -35,6 +35,11 @@
             </providers>
         </encoder>
     </appender>
+
+    <logger name="org.hibernate" level="OFF" />
+    <logger name="org.hibernate.SQL" level="OFF" />
+    <logger name="org.hibernate.orm.jdbc.bind" level="OFF" />
+
     <root level="INFO">
         <appender-ref ref="CONSOLE_JSON" />
     </root>
