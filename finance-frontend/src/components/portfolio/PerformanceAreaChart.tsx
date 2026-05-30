@@ -12,6 +12,7 @@ import {
 import { getPortfolioHistory } from '../../services/portfolioService';
 import type { PerformanceLineChartDto, PortfolioRange } from '../../services/portfolioService';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { formatMarketPrice } from '../../utils/currency';
 
 /* ─── Range Tabs — maps to backend PortfolioRange enum ─── */
 
@@ -44,10 +45,6 @@ function formatDateFull(dateStr: string): string {
     return `${day} ${TR_MONTHS[d.getMonth()]} ${year}`;
 }
 
-function formatCurrency(value: number): string {
-    return value.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' ₺';
-}
-
 /* ─── Skeleton ─── */
 
 const ChartSkeleton = () => (
@@ -69,12 +66,12 @@ interface TooltipProps {
     label?: string;
 }
 
-const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
+const CustomTooltip = ({ active, payload, label, displayCurrency }: TooltipProps & { displayCurrency: string }) => {
     if (!active || !payload?.length || !label) return null;
     return (
         <div className="bg-card border border-border rounded px-3.5 py-2.5 shadow-none">
             <p className="text-meta mb-0.5">{formatDateFull(label)}</p>
-            <p className="text-[14px] font-bold tabular-nums text-foreground">{formatCurrency(payload[0].value)}</p>
+            <p className="text-[14px] font-bold tabular-nums text-foreground">{formatMarketPrice(payload[0].value, displayCurrency)}</p>
         </div>
     );
 };
@@ -83,14 +80,15 @@ const CustomTooltip = ({ active, payload, label }: TooltipProps) => {
 
 interface PerformanceAreaChartProps {
     portfolioId: string;
+    displayCurrency?: string;
 }
 
-export default function PerformanceAreaChart({ portfolioId }: PerformanceAreaChartProps) {
+export default function PerformanceAreaChart({ portfolioId, displayCurrency = 'TRY' }: PerformanceAreaChartProps) {
     const [range, setRange] = useState<PortfolioRange>('WEEKLY');
 
     const { data, isLoading, isError } = useQuery<PerformanceLineChartDto[]>({
-        queryKey: ['portfolioHistory', portfolioId, range],
-        queryFn: () => getPortfolioHistory(portfolioId, range),
+        queryKey: ['portfolioHistory', portfolioId, range, displayCurrency],
+        queryFn: () => getPortfolioHistory(portfolioId, range, displayCurrency),
         staleTime: 1000 * 60 * 10,
         gcTime: 1000 * 60 * 30,
         refetchOnWindowFocus: false,
@@ -134,7 +132,7 @@ export default function PerformanceAreaChart({ portfolioId }: PerformanceAreaCha
                 {chartData.length > 1 && !isLoading && (
                     <span className={`inline-flex items-center gap-1.5 ${isPositive ? 'badge-positive' : isNeutral ? 'bg-white/5 text-muted-foreground text-[12px] font-medium px-2 py-0.5 rounded-sm' : 'badge-negative'}`}>
                         {isPositive ? <TrendingUp size={12} /> : isNeutral ? <Minus size={12} /> : <TrendingDown size={12} />}
-                        {isPositive ? '+' : ''}{formatCurrency(change)}
+                        {isPositive ? '+' : ''}{formatMarketPrice(change, displayCurrency)}
                         <span className="text-[10px] opacity-60">({isPositive ? '+' : ''}{changePercent.toFixed(2)}%)</span>
                     </span>
                 )}
@@ -198,15 +196,15 @@ export default function PerformanceAreaChart({ portfolioId }: PerformanceAreaCha
                             domain={['dataMin - 1000', 'dataMax + 1000']}
                             tickFormatter={(val: number) =>
                                 val >= 1_000_000
-                                    ? `₺${(val / 1_000_000).toFixed(1)}M`
+                                    ? formatMarketPrice(val / 1_000_000, displayCurrency) + 'M'
                                     : val >= 1_000
-                                        ? `₺${(val / 1_000).toFixed(1)}K`
-                                        : `₺${val.toFixed(0)}`
+                                        ? formatMarketPrice(val / 1_000, displayCurrency) + 'K'
+                                        : formatMarketPrice(val, displayCurrency)
                             }
                         />
 
                         <Tooltip
-                            content={<CustomTooltip />}
+                            content={<CustomTooltip displayCurrency={displayCurrency} />}
                             cursor={{
                                 stroke: 'hsl(var(--subtle-foreground))',
                                 strokeWidth: 1,

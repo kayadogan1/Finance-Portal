@@ -475,6 +475,43 @@ class PortfolioServiceTest {
     }
 
     @Test
+    void getCalculatedPerformanceChartValues_whenUsdInstrumentAndTryDisplay_convertsDailyValue() {
+        String userId = "user123";
+        UUID portfolioId = UUID.randomUUID();
+        Portfolio portfolio = new Portfolio();
+        portfolio.setId(portfolioId);
+        portfolio.setCreatedAt(LocalDateTime.now().minusDays(10));
+
+        Instrument instrument = new Instrument();
+        instrument.setId(UUID.randomUUID());
+        instrument.setBaseCurrency(com.finance.shared.Currency.USD);
+
+        Instrument usdTry = new Instrument();
+        usdTry.setSymbol("USDTRY");
+        usdTry.setCurrentPrice(new BigDecimal("40"));
+
+        Transaction buy = new Transaction();
+        buy.setInstrument(instrument);
+        buy.setQuantity(BigDecimal.TEN);
+        buy.setType(TransactionType.BUY);
+        buy.setTimestamp(LocalDateTime.now().minusDays(5));
+
+        MarketData marketData = new MarketData();
+        marketData.setInstrument(instrument);
+        marketData.setPrice(new BigDecimal("100"));
+        marketData.setTimestamp(LocalDateTime.now().minusDays(2));
+
+        when(portfolioRepository.findByIdAndUserId(portfolioId, userId)).thenReturn(Optional.of(portfolio));
+        when(transactionRepository.findByPortfolioIdOrderByTimestampAsc(portfolioId)).thenReturn(List.of(buy));
+        when(marketDataRepository.findDailyClosingPrices(any(), any(), any())).thenReturn(List.of(marketData));
+        when(instrumentRepository.findInstrumentBySymbol("USDTRY")).thenReturn(Optional.of(usdTry));
+
+        List<PerformanceLineChartDto> result = portfolioService.getCalculatedPerformanceChartValues(userId, portfolioId, PortfolioRange.WEEKLY, com.finance.shared.Currency.TRY);
+
+        assertTrue(result.stream().anyMatch(point -> new BigDecimal("40000").compareTo(point.totalPrice()) == 0));
+    }
+
+    @Test
     void buyInstrument_whenUpdatingExisting_recalculatesAverageCost() {
         // Arrange
         String userId = "user123";

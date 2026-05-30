@@ -86,13 +86,14 @@ class PortfolioControllerTest {
     void getPortfolioHistory_returnsHistory() {
         UUID portfolioId = UUID.randomUUID();
         List<PerformanceLineChartDto> history = List.of(new PerformanceLineChartDto(LocalDate.now(), BigDecimal.TEN));
-        when(portfolioService.getCalculatedPerformanceChartValues("user-1", portfolioId, PortfolioRange.MONTHLY)).thenReturn(history);
+        when(portfolioService.getCalculatedPerformanceChartValues("user-1", portfolioId, PortfolioRange.MONTHLY, Currency.USD)).thenReturn(history);
 
         ResponseEntity<ApiResult<List<PerformanceLineChartDto>>> response =
-                portfolioController.getPortfolioHistory(jwt(), portfolioId, PortfolioRange.MONTHLY);
+                portfolioController.getPortfolioHistory(jwt(), portfolioId, PortfolioRange.MONTHLY, Currency.USD);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(1, response.getBody().data().size());
+        verify(portfolioService).getCalculatedPerformanceChartValues("user-1", portfolioId, PortfolioRange.MONTHLY, Currency.USD);
     }
 
     @Test

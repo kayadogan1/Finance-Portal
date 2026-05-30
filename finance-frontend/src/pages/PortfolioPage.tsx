@@ -468,7 +468,7 @@ const PortfolioPage = () => {
                                 <TrendingUp size={14} className="text-primary" />
                                 <span className="text-[14px] font-medium text-foreground">Portföy Performansı</span>
                             </div>
-                            {active?.id ? <PerformanceAreaChart portfolioId={active.id} /> : <div className="flex items-center justify-center h-[280px] text-meta">Portföy ID bulunamadı.</div>}
+                            {active?.id ? <PerformanceAreaChart portfolioId={active.id} displayCurrency={displayCurrency} /> : <div className="flex items-center justify-center h-[280px] text-meta">Portföy ID bulunamadı.</div>}
                         </div>
                     </div>
 

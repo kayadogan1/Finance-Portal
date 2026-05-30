@@ -189,10 +189,11 @@ export const getPortfolioTypeAllocation = async (
 export const getPortfolioHistory = async (
     portfolioId: string,
     portfolioRange: PortfolioRange = 'WEEKLY',
+    displayCurrency: string = 'TRY',
 ): Promise<PerformanceLineChartDto[]> => {
     const { data } = await privateApi.get<PerformanceLineChartDto[]>(
         `/api/portfolio/${portfolioId}/history`,
-        { params: { portfolioRange } },
+        { params: { portfolioRange, displayCurrency } },
     );
     return data ?? [];
 };

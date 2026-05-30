@@ -74,9 +74,10 @@ public class PortfolioController {
     public ResponseEntity<ApiResult<List<PerformanceLineChartDto>>> getPortfolioHistory(
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID portfolioId,
-            @RequestParam(defaultValue = "WEEKLY") PortfolioRange portfolioRange
+            @RequestParam(defaultValue = "WEEKLY") PortfolioRange portfolioRange,
+            @RequestParam(defaultValue = "TRY") Currency displayCurrency
     ) {
-        List<PerformanceLineChartDto> history = portfolioService.getCalculatedPerformanceChartValues(jwt.getSubject(), portfolioId, portfolioRange);
+        List<PerformanceLineChartDto> history = portfolioService.getCalculatedPerformanceChartValues(jwt.getSubject(), portfolioId, portfolioRange, displayCurrency);
         return ResponseEntity.ok(ApiResult.success(history,"user portfolio history fetched",200));
     }
     @GetMapping("/{portfolioId}/inflation-effect")

@@ -440,7 +440,9 @@ public class PortfolioService {
     }
 
 
-    public List<PerformanceLineChartDto> calculatePerformanceLineChart(PortfolioRange portfolioRange, Portfolio portfolio) {
+    public List<PerformanceLineChartDto> calculatePerformanceLineChart(PortfolioRange portfolioRange, Portfolio portfolio, Currency displayCurrency) {
+        Currency targetCurrency = normalizeCurrency(displayCurrency);
+        BigDecimal usdTryRate = resolveUsdTryRate();
         LocalDate today = LocalDate.now();
         LocalDate startDate = (portfolioRange == PortfolioRange.ALL)
                 ? portfolio.getCreatedAt().toLocalDate()
@@ -465,6 +467,13 @@ public class PortfolioService {
         }
 
         Map<UUID,BigDecimal> quantityMap = new HashMap<>();
+        Map<UUID, Currency> currencyMap = transactionList.stream()
+                .filter(transaction -> transaction.getInstrument() != null && transaction.getInstrument().getId() != null)
+                .collect(Collectors.toMap(
+                        transaction -> transaction.getInstrument().getId(),
+                        transaction -> normalizeCurrency(transaction.getInstrument().getBaseCurrency()),
+                        (existing, ignored) -> existing
+                ));
         for(Transaction transaction : transactionList){
             if(transaction.getTimestamp().toLocalDate().isBefore(startDate)){
                 applyTransaction(quantityMap, transaction);
@@ -494,7 +503,9 @@ public class PortfolioService {
                     price = lastKnownValueMap.getOrDefault(instrumentId,BigDecimal.ZERO);
                 }
 
-                dailyTotalValue = dailyTotalValue.add(price.multiply(quantity));
+                BigDecimal rawValue = price.multiply(quantity);
+                Currency instrumentCurrency = currencyMap.getOrDefault(instrumentId, Currency.TRY);
+                dailyTotalValue = dailyTotalValue.add(convertInstrumentValue(rawValue, instrumentCurrency, targetCurrency, usdTryRate));
 
 
             }
@@ -515,9 +526,13 @@ public class PortfolioService {
 
     }
     public List<PerformanceLineChartDto> getCalculatedPerformanceChartValues(String userId, UUID portfolioId, PortfolioRange range) {
+        return getCalculatedPerformanceChartValues(userId, portfolioId, range, Currency.TRY);
+    }
+
+    public List<PerformanceLineChartDto> getCalculatedPerformanceChartValues(String userId, UUID portfolioId, PortfolioRange range, Currency displayCurrency) {
         Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
         logger.info("calculating {} days performance line chart for :{}",range.toString(),userId);
-        return calculatePerformanceLineChart(range , portfolio);
+        return calculatePerformanceLineChart(range , portfolio, displayCurrency);
     }
     public List<PortfolioReadDto> getAllPortfolios() {
         return getAllPortfolios(Currency.TRY);

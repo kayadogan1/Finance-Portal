@@ -1,4 +1,16 @@
 services:
+  finance-frontend:
+    container_name: finance-frontend
+    image: ghcr.io/kayadogan1/finance-frontend:latest
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      - api-gateway
+      - keycloak
+    networks:
+      - finance-network
+    restart: always
+
   api-gateway:
     container_name: api-gateway
     image: ghcr.io/kayadogan1/api-gateway:latest

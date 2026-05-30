@@ -1,11 +1,27 @@
 services:
+  finance-frontend:
+    container_name: finance-frontend
+    build:
+      context: ./finance-frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-}
+        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL:-http://localhost:9090}
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    depends_on:
+      - api-gateway
+      - keycloak
+    networks:
+      - finance-network
+
   api-gateway:
     container_name: api-gateway
     build:
       context: .
       dockerfile: ./api-gateway/Dockerfile
     environment:
-      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://keycloak:9090/realms/FinancePortal
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=${KEYCLOAK_ISSUER_URI:-http://localhost:9090/realms/FinancePortal}
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI=http://keycloak:8080/realms/FinancePortal/protocol/openid-connect/certs
       - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_0_ID=news-service
       - SPRING_CLOUD_GATEWAY_SERVER_WEBFLUX_ROUTES_0_URI=http://news-service:8082
@@ -68,7 +84,7 @@ services:
       - SPRING_FLYWAY_USER=${DB_USER:-postgres}
       - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD:-253421}
       - EVDS_API_KEY=${EVDS_PASSWORD}
-      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://keycloak:9090/realms/FinancePortal
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=${KEYCLOAK_ISSUER_URI:-http://localhost:9090/realms/FinancePortal}
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI=http://keycloak:8080/realms/FinancePortal/protocol/openid-connect/certs
       - MANAGEMENT_OTLP_METRICS_EXPORT_URL=http://${REMOTE_OBSERVABILITY_HOST}:4318/v1/metrics
       - MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://${REMOTE_OBSERVABILITY_HOST}:4318/v1/traces
@@ -106,7 +122,7 @@ services:
       - SPRING_FLYWAY_PASSWORD=${DB_PASSWORD:-253421}
       - SPRING_FLYWAY_ENABLED=true
       - MODEL_SERVICE_API_URL=http://classification-api:8083/api/v1/news/classify
-      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=http://keycloak:9090/realms/FinancePortal
+      - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI=${KEYCLOAK_ISSUER_URI:-http://localhost:9090/realms/FinancePortal}
       - SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI=http://keycloak:8080/realms/FinancePortal/protocol/openid-connect/certs
       - MANAGEMENT_OTLP_METRICS_EXPORT_URL=http://${REMOTE_OBSERVABILITY_HOST}:4318/v1/metrics
       - MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT=http://${REMOTE_OBSERVABILITY_HOST}:4318/v1/traces
@@ -193,7 +209,7 @@ services:
     container_name: finance_keycloak
     command: start-dev --import-realm
     environment:
-      KC_HOSTNAME_URL: http://keycloak:9090
+      KC_HOSTNAME_URL: ${KEYCLOAK_HOSTNAME_URL:-http://localhost:9090}
       KC_HOSTNAME_STRICT: "false"
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
