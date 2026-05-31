@@ -74,6 +74,50 @@ username: admin
 password: admin
 ```
 
+### Admin Kullanıcı Nasıl Eklenir?
+
+Admin panelini, haber yenileme/onaylama akışını ve admin endpointlerini görebilmek için kullanıcıya `finance-gateway-client` client'ı altındaki `ADMIN` rolü verilmelidir.
+
+Arayüzden ekleme:
+
+1. [http://localhost:9090](http://localhost:9090) adresinden Keycloak admin console'u aç.
+2. `admin / admin` ile giriş yap.
+3. Sol üst realm seçiminden `FinancePortal` realm'ini seç.
+4. Sol menüden `Users` ekranına gir ve admin yapılacak kullanıcıyı aç.
+5. `Role mapping` sekmesine geç.
+6. `Assign role` butonuna bas.
+7. Filtreyi client roles tarafına alıp `finance-gateway-client ADMIN` rolünü seç.
+8. `Assign` ile kaydet.
+9. Uygulamadaki kullanıcı çıkış yapıp tekrar giriş yapsın.
+
+Container üzerinden hızlı ekleme:
+
+```bash
+docker exec finance_keycloak /opt/keycloak/bin/kcadm.sh config credentials \
+  --server http://localhost:8080 \
+  --realm master \
+  --user admin \
+  --password admin
+
+docker exec finance_keycloak /opt/keycloak/bin/kcadm.sh add-roles \
+  -r FinancePortal \
+  --uusername <kullanici-adi> \
+  --cclientid finance-gateway-client \
+  --rolename ADMIN
+```
+
+Örnek:
+
+```bash
+docker exec finance_keycloak /opt/keycloak/bin/kcadm.sh add-roles \
+  -r FinancePortal \
+  --uusername dodo \
+  --cclientid finance-gateway-client \
+  --rolename ADMIN
+```
+
+Admin rolü verildikten sonra frontend'de `Admin` menüsü görünür. Bu ekrandan provider durumları, admin metrikleri, enstrüman yönetimi ve haber yenileme/onaylama akışları kontrol edilebilir.
+
 ## 3. Container Üzerinden Kontrol
 
 Bu proje değerlendirme/test sürecinde container üzerinden çalıştırılacak şekilde hazırlanmıştır. Servisleri host makinede tek tek ayağa kaldırmak zorunlu değildir.
@@ -222,7 +266,7 @@ Gateway route'ları:
 | `GET` | `/api/v1/news/health` | Classification health |
 | `POST` | `/api/v1/news/classify` | Haber başlığını sınıflandırır |
 
-Detaylı endpoint dokümanı: [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md)
+Endpointlerin güncel ve detaylı hali için servislerin Swagger UI ekranları kullanılmalıdır.
 
 ## 6. Observability Bilgisi
 
@@ -376,7 +420,7 @@ flowchart LR
 
 Prod deployment akışı [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) içindedir.
 
-EC2 testlerinde karsilasilan hatalar ve cozum notlari: [docs/EC2_DEPLOYMENT_NOTES.md](docs/EC2_DEPLOYMENT_NOTES.md)
+EC2 testlerinde karsilasilan ana hatalar ve cozum notlari bu README icinde ozetlenmistir.
 
 Özet:
 
@@ -472,6 +516,50 @@ Local Keycloak admin credentials:
 username: admin
 password: admin
 ```
+
+### How to Add an Admin User
+
+To access the admin panel, news refresh/approval flow, and admin endpoints, the user must have the `ADMIN` role under the `finance-gateway-client` client.
+
+Add it from the UI:
+
+1. Open the Keycloak admin console at [http://localhost:9090](http://localhost:9090).
+2. Log in with `admin / admin`.
+3. Select the `FinancePortal` realm from the realm selector.
+4. Open `Users` from the left menu and select the target user.
+5. Go to the `Role mapping` tab.
+6. Click `Assign role`.
+7. Switch/filter to client roles and select `finance-gateway-client ADMIN`.
+8. Click `Assign`.
+9. Log out and log back in from the application.
+
+Quick container-based method:
+
+```bash
+docker exec finance_keycloak /opt/keycloak/bin/kcadm.sh config credentials \
+  --server http://localhost:8080 \
+  --realm master \
+  --user admin \
+  --password admin
+
+docker exec finance_keycloak /opt/keycloak/bin/kcadm.sh add-roles \
+  -r FinancePortal \
+  --uusername <username> \
+  --cclientid finance-gateway-client \
+  --rolename ADMIN
+```
+
+Example:
+
+```bash
+docker exec finance_keycloak /opt/keycloak/bin/kcadm.sh add-roles \
+  -r FinancePortal \
+  --uusername dodo \
+  --cclientid finance-gateway-client \
+  --rolename ADMIN
+```
+
+After the `ADMIN` role is assigned, the `Admin` menu appears in the frontend. From this page, provider status, admin metrics, instrument management, and news refresh/approval flows can be checked.
 
 ## 3. Container-Based Verification
 
@@ -621,7 +709,7 @@ Important endpoints:
 | `GET` | `/api/v1/news/health` | Classification health |
 | `POST` | `/api/v1/news/classify` | Classifies a news headline |
 
-Detailed endpoint document: [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md)
+Use the service Swagger UI pages for the latest detailed endpoint documentation.
 
 ## 6. Observability Notes
 
@@ -669,10 +757,6 @@ The default run does not require `.env`. If observability endpoints are unavaila
 
 ## 8. System Architecture
 
-Mermaid Live-ready architecture file:
-
-[docs/SYSTEM_ARCHITECTURE.mmd](docs/SYSTEM_ARCHITECTURE.mmd)
-
 Mermaid Live:
 
 [https://mermaid.live](https://mermaid.live)
@@ -706,7 +790,7 @@ The architecture is organized into these layers:
 
 The production deployment workflow is located at [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml).
 
-EC2 troubleshooting notes and lessons learned: [docs/EC2_DEPLOYMENT_NOTES.md](docs/EC2_DEPLOYMENT_NOTES.md)
+Main EC2 troubleshooting notes and lessons learned are summarized in this README.
 
 Summary:
 
