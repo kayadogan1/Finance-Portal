@@ -263,6 +263,9 @@ Default çalıştırmada `.env` gerekmez. Observability endpointleri yoksa ana u
 | Haberler sayfası | ![Haberler](docs/Screenshot%202026-05-27%20at%2000.06.26.png) |
 | Login sayfası | ![Login](docs/Screenshot%202026-05-27%20at%2000.07.22.png) |
 | Admin paneli | ![Admin](docs/Screenshot%202026-05-27%20at%2000.08.00.png) |
+| Enstrüman detay / fiyat grafiği ve al-sat paneli | ![Enstrüman detay](docs/Screenshot%202026-05-31%20at%2014.14.22.png) |
+| Portföy analitiği / getiri ve enflasyon analizi | ![Portföy analitiği](docs/Screenshot%202026-05-31%20at%2014.14.32.png) |
+| Genel bakış / varlık karşılaştırma grafiği | ![Genel bakış karşılaştırma](docs/Screenshot%202026-05-31%20at%2014.14.43.png) |
 | Kibana log dashboard üst görünüm | ![Kibana dashboard 1](docs/Screenshot%202026-05-05%20at%2018.00.37.png) |
 | Kibana log dashboard detay görünüm | ![Kibana dashboard 2](docs/Screenshot%202026-05-05%20at%2018.00.40.png) |
 
@@ -658,6 +661,9 @@ The default run does not require `.env`. If observability endpoints are unavaila
 | News page | ![News](docs/Screenshot%202026-05-27%20at%2000.06.26.png) |
 | Login page | ![Login](docs/Screenshot%202026-05-27%20at%2000.07.22.png) |
 | Admin panel | ![Admin](docs/Screenshot%202026-05-27%20at%2000.08.00.png) |
+| Instrument detail / price chart and buy-sell panel | ![Instrument detail](docs/Screenshot%202026-05-31%20at%2014.14.22.png) |
+| Portfolio analytics / return and inflation analysis | ![Portfolio analytics](docs/Screenshot%202026-05-31%20at%2014.14.32.png) |
+| Overview / asset comparison chart | ![Overview comparison](docs/Screenshot%202026-05-31%20at%2014.14.43.png) |
 | Kibana log dashboard overview | ![Kibana dashboard 1](docs/Screenshot%202026-05-05%20at%2018.00.37.png) |
 | Kibana log dashboard detail | ![Kibana dashboard 2](docs/Screenshot%202026-05-05%20at%2018.00.40.png) |
 
