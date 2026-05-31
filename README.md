@@ -27,6 +27,13 @@ Container durumunu kontrol et:
 docker compose ps
 ```
 
+İlk açılışta iki bootstrap container kısa süre çalışıp tamamlanır:
+
+- `finance_postgres_bootstrap`: `finance_db`, `news_db`, `keycloak` database'lerini kontrol eder ve eksik olanları oluşturur.
+- `finance_keycloak_bootstrap`: registration ayarını açar, default `USER` rol mapping'ini ekler ve mevcut kullanıcılara `USER` rolünü uygular.
+
+Bu container'ların `Exited (0)` görünmesi normaldir; görevlerini tamamlayıp kapanırlar.
+
 Ana sayfayı aç:
 
 [http://localhost:5173](http://localhost:5173)
@@ -97,8 +104,80 @@ Beklenen ana container'lar:
 | `finance_keycloak` | Kimlik yönetimi |
 | `finance_openldap` | LDAP directory |
 | `finance_filebeat` | Log collector |
+| `finance_postgres_bootstrap` | İlk açılış DB hazırlığı, tamamlanınca kapanır |
+| `finance_keycloak_bootstrap` | İlk açılış Keycloak ayarları, tamamlanınca kapanır |
 
-## 4. Endpoint Özeti
+### Bootstrap Container'ları Neden Var?
+
+Bootstrap container'ları ana uygulama servisi değildir. Bunlar `docker compose up` sırasında kısa süre çalışan, kurulum eksiklerini otomatik tamamlayan one-shot init job'lardır.
+
+Amaç, uygulamanın başka bir bilgisayarda veya EC2 gibi uzak bir sunucuda localdeki gibi manuel işlem gerektirmeden açılmasıdır.
+
+`finance_postgres_bootstrap` şunları yapar:
+
+- PostgreSQL hazır olana kadar bekler.
+- `finance_db`, `news_db` ve `keycloak` database'lerini kontrol eder.
+- Eksik database varsa oluşturur.
+- Database zaten varsa dokunmaz.
+- İşini bitirince kapanır.
+
+`finance_keycloak_bootstrap` şunları yapar:
+
+- Keycloak hazır olana kadar bekler.
+- `FinancePortal` realm hazır olana kadar bekler.
+- Kullanıcı kaydını açar: `registrationAllowed=true`.
+- Login temasını ayarlar: `loginTheme=finance`.
+- Yeni kullanıcılara otomatik `USER` rolü gelsin diye default role mapping ekler.
+- Daha önce oluşturulmuş kullanıcılara da `USER` rolünü vermeye çalışır.
+- İşini bitirince kapanır.
+
+Bu container'lar özel image build etmez. Hazır image kullanırlar:
+
+- `postgres:16-alpine`
+- `quay.io/keycloak/keycloak:23.0.7`
+
+Sadece [scripts](scripts) klasöründeki shell scriptleri mount edilip çalıştırılır.
+
+`docker compose ps -a` çıktısında şu şekilde görünmeleri normaldir:
+
+```text
+finance_postgres_bootstrap   Exited (0)
+finance_keycloak_bootstrap   Exited (0)
+```
+
+Bu durum hata değil, başarılı tamamlandı anlamına gelir.
+
+Bu bootstrap adımları olmasaydı yeni kurulumlarda şu işler manuel yapılmak zorunda kalırdı:
+
+- `keycloak` database'ini oluşturmak
+- Keycloak registration ayarını açmak
+- `finance` login temasını seçmek
+- `default-roles-financeportal` içine `USER` rol mapping'i eklemek
+- Mevcut kullanıcılara `USER` rolü vermek
+
+## 4. Başka PC'de İlk Çalıştırma ve Boş Veri Durumu
+
+Başka bir bilgisayarda ilk kez çalıştırıldığında PostgreSQL volume boş olur. Bu normaldir, uygulama patlamaz.
+
+Temiz kurulumda beklenen durum:
+
+- Flyway migration'ları tabloları otomatik oluşturur.
+- Keycloak realm import edilir, roller ve client ayarları gelir.
+- Finance tarafında enstrüman kataloğu uygulama açılışında `instruments.properties` ve `bist-instruments.json` üzerinden yüklenir.
+- Market fiyatları ve geçmiş veriler scheduler'lar çalıştıkça Yahoo Finance, Binance, Fintables ve diğer sağlayıcılardan çekilir.
+- Haberler ilk başta boş görünebilir; RSS scheduler veya admin panelindeki haber yenileme akışı çalışınca dolar.
+- Portföy verisi kullanıcıya bağlıdır; yeni kullanıcı portföy oluşturana kadar portföy ekranı boş olur.
+
+Dikkat edilmesi gerekenler:
+
+- İnternet yoksa dış veri sağlayıcılarından fiyat/haber çekilemez. Bu durumda ekranlar boş veri gösterebilir ama ana uygulama çalışmaya devam eder.
+- Chart endpointleri ilgili sembol için henüz market data yoksa boş liste dönebilir.
+- Geçmiş getiri hesaplama gibi market data isteyen işlemler, veri oluşmadan önce hata mesajı dönebilir.
+- Admin ekranı için Keycloak'ta kullanıcıya `ADMIN` rolü verilmelidir.
+
+Kısacası başka PC'de backup restore etmek zorunlu değildir. Uygulama default kurulumla açılır; veri tarafı zamanla scheduler'lar ve kullanıcı işlemleriyle dolar.
+
+## 5. Endpoint Özeti
 
 Tüm detaylar Swagger UI üzerinden görülebilir. Ana giriş noktası API Gateway'dir:
 
@@ -145,7 +224,7 @@ Gateway route'ları:
 
 Detaylı endpoint dokümanı: [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md)
 
-## 5. Observability Bilgisi
+## 6. Observability Bilgisi
 
 Projede observability iki parçadır:
 
@@ -175,7 +254,7 @@ REMOTE_OBSERVABILITY_HOST=<remote-host-or-ip> docker compose up -d --build
 
 Default çalıştırmada `.env` gerekmez. Observability endpointleri yoksa ana uygulama yine container üzerinden çalışır; sadece log/metric aktarımı uzak sisteme yapılamaz.
 
-## 6. Ekran Görüntüleri ve Sayfa Eşleştirmesi
+## 7. Ekran Görüntüleri ve Sayfa Eşleştirmesi
 
 | Sayfa | Görsel |
 | --- | --- |
@@ -187,7 +266,7 @@ Default çalıştırmada `.env` gerekmez. Observability endpointleri yoksa ana u
 | Kibana log dashboard üst görünüm | ![Kibana dashboard 1](docs/Screenshot%202026-05-05%20at%2018.00.37.png) |
 | Kibana log dashboard detay görünüm | ![Kibana dashboard 2](docs/Screenshot%202026-05-05%20at%2018.00.40.png) |
 
-## 7. Sistem Mimarisi
+## 8. Sistem Mimarisi
 
 
 
@@ -275,7 +354,7 @@ flowchart LR
     elastic --> kibana
 ```
 
-## 8. Kullanılan Teknolojiler
+## 9. Kullanılan Teknolojiler
 
 | Alan | Teknoloji |
 | --- | --- |
@@ -290,9 +369,11 @@ flowchart LR
 | Observability | Filebeat, Elasticsearch, Kibana, OpenTelemetry, Grafana OTEL LGTM |
 | DevOps | Docker, Docker Compose, GitHub Actions, GHCR, EC2 |
 
-## 9. Deployment Özeti
+## 10. Deployment Özeti
 
 Prod deployment akışı [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) içindedir.
+
+EC2 testlerinde karsilasilan hatalar ve cozum notlari: [docs/EC2_DEPLOYMENT_NOTES.md](docs/EC2_DEPLOYMENT_NOTES.md)
 
 Özet:
 
@@ -341,6 +422,13 @@ Check container status:
 ```bash
 docker compose ps
 ```
+
+On first startup, two bootstrap containers run briefly and then exit:
+
+- `finance_postgres_bootstrap`: checks and creates `finance_db`, `news_db`, and `keycloak` databases when missing.
+- `finance_keycloak_bootstrap`: enables registration, adds the default `USER` role mapping, and applies `USER` to existing users.
+
+Seeing these containers as `Exited (0)` is expected; they complete their setup task and stop.
 
 Open the homepage:
 
@@ -412,8 +500,80 @@ Expected main containers:
 | `finance_keycloak` | Identity management |
 | `finance_openldap` | LDAP directory |
 | `finance_filebeat` | Log collector |
+| `finance_postgres_bootstrap` | First-start database setup, exits after completion |
+| `finance_keycloak_bootstrap` | First-start Keycloak setup, exits after completion |
 
-## 4. Endpoint Summary
+### Why Do Bootstrap Containers Exist?
+
+Bootstrap containers are not main application services. They are short-lived one-shot init jobs that run during `docker compose up` and automatically complete setup tasks.
+
+The goal is to make the application start on another computer or on a remote EC2 server without manual setup, similar to the local development experience.
+
+`finance_postgres_bootstrap` does the following:
+
+- Waits for PostgreSQL to become ready.
+- Checks `finance_db`, `news_db`, and `keycloak` databases.
+- Creates missing databases.
+- Leaves existing databases untouched.
+- Exits after completion.
+
+`finance_keycloak_bootstrap` does the following:
+
+- Waits for Keycloak to become ready.
+- Waits for the `FinancePortal` realm to become available.
+- Enables user registration: `registrationAllowed=true`.
+- Sets the login theme: `loginTheme=finance`.
+- Adds the default `USER` role mapping for new users.
+- Tries to assign the `USER` role to already existing users.
+- Exits after completion.
+
+These containers do not build custom images. They use existing images:
+
+- `postgres:16-alpine`
+- `quay.io/keycloak/keycloak:23.0.7`
+
+They only mount and execute shell scripts from the [scripts](scripts) directory.
+
+Seeing this in `docker compose ps -a` is expected:
+
+```text
+finance_postgres_bootstrap   Exited (0)
+finance_keycloak_bootstrap   Exited (0)
+```
+
+This is not an error. It means the bootstrap task completed successfully.
+
+Without these bootstrap steps, new installations would require these manual actions:
+
+- Create the `keycloak` database
+- Enable Keycloak registration
+- Select the `finance` login theme
+- Add the `USER` role mapping to `default-roles-financeportal`
+- Assign the `USER` role to existing users
+
+## 4. First Run on Another PC and Empty Data State
+
+When the project runs for the first time on another computer, the PostgreSQL volume starts empty. This is expected, and the application should not break.
+
+Expected clean-install behavior:
+
+- Flyway migrations create the database tables automatically.
+- Keycloak imports the realm, client, and role configuration.
+- The finance service loads the instrument catalog on startup from `instruments.properties` and `bist-instruments.json`.
+- Market prices and historical data are populated by schedulers from Yahoo Finance, Binance, Fintables, and other providers.
+- News may look empty at first; it is populated after the RSS scheduler or the admin refresh flow runs.
+- Portfolio data is user-specific; the portfolio page stays empty until the user creates a portfolio.
+
+Important notes:
+
+- Without internet access, external provider data cannot be fetched. In that case, pages may show empty data, but the main application still runs.
+- Chart endpoints may return an empty list if market data has not been collected for the selected symbol yet.
+- Historical return calculations can return an error until the required market data exists.
+- The admin page requires the user to have the `ADMIN` role in Keycloak.
+
+In short, restoring a database backup is not required on another PC. The application starts with defaults, and data is populated over time by schedulers and user actions.
+
+## 5. Endpoint Summary
 
 All details are available through Swagger UI. The main API entry point is the API Gateway:
 
@@ -460,7 +620,7 @@ Important endpoints:
 
 Detailed endpoint document: [docs/API_ENDPOINTS.md](docs/API_ENDPOINTS.md)
 
-## 5. Observability Notes
+## 6. Observability Notes
 
 Observability has two main parts:
 
@@ -489,7 +649,7 @@ REMOTE_OBSERVABILITY_HOST=<remote-host-or-ip> docker compose up -d --build
 
 The default run does not require `.env`. If observability endpoints are unavailable, the main application still runs through containers; only log/metric forwarding to the remote stack is unavailable.
 
-## 6. Screenshots and Page Mapping
+## 7. Screenshots and Page Mapping
 
 | Page | Screenshot |
 | --- | --- |
@@ -501,7 +661,7 @@ The default run does not require `.env`. If observability endpoints are unavaila
 | Kibana log dashboard overview | ![Kibana dashboard 1](docs/Screenshot%202026-05-05%20at%2018.00.37.png) |
 | Kibana log dashboard detail | ![Kibana dashboard 2](docs/Screenshot%202026-05-05%20at%2018.00.40.png) |
 
-## 7. System Architecture
+## 8. System Architecture
 
 Mermaid Live-ready architecture file:
 
@@ -521,7 +681,7 @@ The architecture is organized into these layers:
 - External Data Providers
 - Observability Layer
 
-## 8. Technologies Used
+## 9. Technologies Used
 
 | Area | Technology |
 | --- | --- |
@@ -536,9 +696,11 @@ The architecture is organized into these layers:
 | Observability | Filebeat, Elasticsearch, Kibana, OpenTelemetry, Grafana OTEL LGTM |
 | DevOps | Docker, Docker Compose, GitHub Actions, GHCR, EC2 |
 
-## 9. Deployment Summary
+## 10. Deployment Summary
 
 The production deployment workflow is located at [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml).
+
+EC2 troubleshooting notes and lessons learned: [docs/EC2_DEPLOYMENT_NOTES.md](docs/EC2_DEPLOYMENT_NOTES.md)
 
 Summary:
 

@@ -27,10 +27,11 @@
   "oauth2DevicePollingInterval": 5,
   "enabled": true,
   "sslRequired": "external",
-  "registrationAllowed": false,
+  "registrationAllowed": true,
   "registrationEmailAsUsername": false,
   "rememberMe": true,
   "verifyEmail": false,
+  "loginTheme": "finance",
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": false,
@@ -68,6 +69,9 @@
             "account": [
               "manage-account",
               "view-profile"
+            ],
+            "finance-gateway-client": [
+              "USER"
             ]
           }
         },
