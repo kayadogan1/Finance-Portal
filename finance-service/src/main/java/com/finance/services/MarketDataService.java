@@ -31,6 +31,9 @@ import java.util.Optional;
 
 @Service
 
+/**
+ * Service component that handles market data operations.
+ */
 public class MarketDataService {
 
     private final InstrumentRepository instrumentRepository;
@@ -38,11 +41,21 @@ public class MarketDataService {
     private final MarketDataRepository marketDataRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
     private static final Logger logger = LogManager.getLogger(MarketDataService.class);
+    /**
+     * Creates a new MarketDataService with its required dependencies.
+     *
+     * @param instrumentRepository instrument repository value
+     * @param marketDataRepository market data repository value
+     * @param instrumentProperties instrument properties value
+     */
     public MarketDataService(InstrumentRepository instrumentRepository, MarketDataRepository marketDataRepository, InstrumentPropertiesConfig instrumentProperties) {
         this.instrumentRepository = instrumentRepository;
         this.marketDataRepository = marketDataRepository;
         this.instrumentProperties = instrumentProperties;
     }
+    /**
+     * Performs init default instruments.
+     */
     @PostConstruct
     public void initDefaultInstruments() {
 
@@ -58,6 +71,11 @@ public class MarketDataService {
 
             logger.info("Instruments loaded successfully");
     }
+    /**
+     * Saves stock instruments.
+     *
+     * @param stockInstruments stock instruments value
+     */
     private void saveStockInstruments(Map<String, Map<String, String>> stockInstruments) {
         if (stockInstruments == null || stockInstruments.isEmpty()) {
             return;
@@ -103,6 +121,11 @@ public class MarketDataService {
         });
     }
 
+    /**
+     * Returns the result of read bist instrument names.
+     *
+     * @return read bist instrument names result
+     */
     private Map<String, String> readBistInstrumentNames() {
         ClassPathResource resource = new ClassPathResource("instruments/bist-instruments.json");
         try (InputStream inputStream = resource.getInputStream()) {
@@ -121,6 +144,13 @@ public class MarketDataService {
         }
     }
 
+    /**
+     * Returns the result of resolve base currency.
+     *
+     * @param symbol instrument symbol used to locate market data
+     * @param type type value
+     * @return resolve base currency result
+     */
     private Currency resolveBaseCurrency(String symbol,InstrumentType type) {
 
         return switch (type) {
@@ -141,6 +171,12 @@ public class MarketDataService {
             }
         };
     }
+    /**
+     * Returns the result of extract quote currency.
+     *
+     * @param forexPair forex pair value
+     * @return extract quote currency result
+     */
     private Currency extractQuoteCurrency(String forexPair) {
         if (forexPair == null || forexPair.length() != 6) {
             logger.error("Unsupported or unexpected  forexPair:{} " , forexPair);
@@ -153,6 +189,14 @@ public class MarketDataService {
             return Currency.USD;
         }
     }
+    /**
+     * Returns market data history.
+     *
+     * @param symbol instrument symbol used to locate market data
+     * @param fromTimestamp from timestamp value
+     * @param slot slot value
+     * @return market data history result
+     */
     public List<CandleDto> getMarketDataHistory(String symbol, LocalDateTime fromTimestamp, TimeSlot slot) {
         if (symbol == null || symbol.isEmpty()) {
             throw new BadRequestException("Symbol can not be null or empty");
@@ -214,6 +258,13 @@ public class MarketDataService {
         logger.info("totally {} candle found", candleDtoList.size());
         return candleDtoList;
     }
+    /**
+     * Returns line chart data from.
+     *
+     * @param symbol instrument symbol used to locate market data
+     * @param from from value
+     * @return line chart data from result
+     */
     public List<LineChartDto> getLineChartDataFrom(String symbol, LocalDateTime from){
         if(symbol == null || symbol.isEmpty()){
             throw new BadRequestException("symbol can not empty or null");
@@ -234,6 +285,15 @@ public class MarketDataService {
                 .toList();
     }
 
+    /**
+     * Calculates hypothetical return.
+     *
+     * @param symbol instrument symbol used to locate market data
+     * @param purchaseDate purchase date value
+     * @param quantity quantity value
+     * @param displayCurrency display currency value
+     * @return calculate hypothetical return result
+     */
     public HypotheticalReturnDto calculateHypotheticalReturn(
             String symbol,
             LocalDate purchaseDate,
@@ -294,6 +354,13 @@ public class MarketDataService {
     }
 
 
+    /**
+     * Returns the result of truncate time.
+     *
+     * @param dateTime date time value
+     * @param slot slot value
+     * @return truncate time result
+     */
     private LocalDateTime truncateTime(LocalDateTime dateTime, TimeSlot slot) {
         return switch (slot){
             case D1 -> dateTime.toLocalDate().atStartOfDay();
@@ -318,6 +385,12 @@ public class MarketDataService {
 
     }
 
+    /**
+     * Saves instruments.
+     *
+     * @param instruments instruments value
+     * @param type type value
+     */
     private void saveInstruments(Map<String, String> instruments, InstrumentType type) {
         if (instruments == null || instruments.isEmpty()) {
             return;
@@ -358,6 +431,12 @@ public class MarketDataService {
         });
     }
 
+    /**
+     * Returns the result of normalize currency.
+     *
+     * @param currency currency value
+     * @return normalize currency result
+     */
     private Currency normalizeCurrency(Currency currency) {
         if (currency == null) return Currency.TRY;
         return switch (currency) {
@@ -366,6 +445,11 @@ public class MarketDataService {
         };
     }
 
+    /**
+     * Returns the result of resolve usd try rate.
+     *
+     * @return resolve usd try rate result
+     */
     private BigDecimal resolveUsdTryRate() {
         return instrumentRepository.findInstrumentBySymbol("USDTRY")
                 .or(() -> instrumentRepository.findInstrumentBySymbol("TRY"))
@@ -374,6 +458,15 @@ public class MarketDataService {
                 .orElse(BigDecimal.ONE);
     }
 
+    /**
+     * Returns the result of convert value.
+     *
+     * @param value value value
+     * @param sourceCurrency source currency value
+     * @param displayCurrency display currency value
+     * @param usdTryRate usd try rate value
+     * @return convert value result
+     */
     private BigDecimal convertValue(BigDecimal value, Currency sourceCurrency, Currency displayCurrency, BigDecimal usdTryRate) {
         Currency source = normalizeCurrency(sourceCurrency);
         Currency target = normalizeCurrency(displayCurrency);
@@ -388,6 +481,14 @@ public class MarketDataService {
         return value;
     }
 
+    /**
+     * Returns the result of resolve fx rate.
+     *
+     * @param sourceCurrency source currency value
+     * @param displayCurrency display currency value
+     * @param usdTryRate usd try rate value
+     * @return resolve fx rate result
+     */
     private BigDecimal resolveFxRate(Currency sourceCurrency, Currency displayCurrency, BigDecimal usdTryRate) {
         Currency source = normalizeCurrency(sourceCurrency);
         Currency target = normalizeCurrency(displayCurrency);

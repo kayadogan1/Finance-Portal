@@ -12,14 +12,27 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Domain model that represents instrument catalog data.
+ */
 public final class InstrumentCatalog {
 
     static final String RESOURCE_DIR = "src/main/resources/data/";
     static final String INSTRUMENTS = RESOURCE_DIR + "instruments.csv";
 
+    /**
+     * Creates a new InstrumentCatalog with its required dependencies.
+     */
     private InstrumentCatalog() {
     }
 
+    /**
+     * Returns the result of load instruments.
+     *
+     * @param path path value
+     * @return load instruments result
+     * @throws IOException when the operation cannot be completed
+     */
     static List<Instrument> loadInstruments(String path) throws IOException {
         List<Instrument> instruments = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(
@@ -49,6 +62,13 @@ public final class InstrumentCatalog {
         return instruments;
     }
 
+    /**
+     * Returns the result of open resource.
+     *
+     * @param path path value
+     * @return open resource result
+     * @throws IOException when the operation cannot be completed
+     */
     static InputStream openResource(String path) throws IOException {
         File file = new File(path);
         if (file.exists()) {
@@ -67,6 +87,13 @@ public final class InstrumentCatalog {
         throw new FileNotFoundException("Resource not found: " + path);
     }
 
+    /**
+     * Returns the result of split csv.
+     *
+     * @param line line value
+     * @param expectedParts expected parts value
+     * @return split csv result
+     */
     static String[] splitCsv(String line, int expectedParts) {
         List<String> parts = new ArrayList<>();
         StringBuilder current = new StringBuilder();
@@ -90,6 +117,9 @@ public final class InstrumentCatalog {
         return parts.toArray(String[]::new);
     }
 
+    /**
+     * Data transfer object that carries instrument data.
+     */
     record Instrument(
             String symbol,
             String assetType,

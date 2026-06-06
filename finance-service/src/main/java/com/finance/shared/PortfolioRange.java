@@ -1,5 +1,8 @@
 package com.finance.shared;
 
+/**
+ * Enumeration of supported portfolio range values.
+ */
 public enum PortfolioRange {
 
     DAILY,

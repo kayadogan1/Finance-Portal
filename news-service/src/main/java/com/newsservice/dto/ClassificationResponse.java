@@ -2,6 +2,9 @@ package com.newsservice.dto;
 
 import java.util.List;
 
+/**
+ * Data transfer object that carries classification response data.
+ */
 public record ClassificationResponse(
         String headline,
         String assetType,
@@ -13,6 +16,11 @@ public record ClassificationResponse(
         boolean unknown,
         String modelVersion
 ) {
+    /**
+     * Returns the result of instrument symbol.
+     *
+     * @return instrument symbol result
+     */
     public String instrumentSymbol() {
         return unknown || symbol == null || symbol.isBlank() ? null : symbol;
     }

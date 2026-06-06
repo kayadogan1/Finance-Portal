@@ -8,14 +8,28 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
 
+/**
+ * Spring configuration for security.
+ */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
     private final KeycloakRoleConverter keycloakRoleConverter;
+    /**
+     * Creates a new SecurityConfig with its required dependencies.
+     *
+     * @param keycloakRoleConverter keycloak role converter value
+     */
     public SecurityConfig(KeycloakRoleConverter keycloakRoleConverter) {
         this.keycloakRoleConverter = keycloakRoleConverter;
     }
+    /**
+     * Returns the result of security filter chain.
+     *
+     * @param http http value
+     * @return security filter chain result
+     */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http)  {
         http

@@ -14,16 +14,31 @@ import reactor.core.publisher.Mono;
 
 import java.util.Objects;
 
+/**
+ * Class that provides rate limit filter behavior.
+ */
 @Component
 @Order(-1)
 public class RateLimitFilter implements WebFilter {
 
     private final GatewayRateLimiter gatewayRateLimiter;
 
+    /**
+     * Creates a new RateLimitFilter with its required dependencies.
+     *
+     * @param gatewayRateLimiter gateway rate limiter value
+     */
     public RateLimitFilter(GatewayRateLimiter gatewayRateLimiter) {
         this.gatewayRateLimiter = gatewayRateLimiter;
     }
 
+    /**
+     * Returns the result of filter.
+     *
+     * @param exchange exchange value
+     * @param chain chain value
+     * @return filter result
+     */
     @Override
     @NonNull
     public Mono<Void> filter(@NonNull ServerWebExchange exchange,
@@ -74,6 +89,12 @@ public class RateLimitFilter implements WebFilter {
         }
     }
 
+    /**
+     * Returns the result of extract client ip.
+     *
+     * @param exchange exchange value
+     * @return extract client ip result
+     */
     private String extractClientIp(ServerWebExchange exchange) {
         String forwarded = exchange.getRequest()
                 .getHeaders()
@@ -95,6 +116,12 @@ public class RateLimitFilter implements WebFilter {
         );
     }
 
+    /**
+     * Returns the result of extract service.
+     *
+     * @param path path value
+     * @return extract service result
+     */
     private String extractService(String path) {
         if (path.startsWith("/api/news"))           return "news";
 

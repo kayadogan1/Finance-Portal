@@ -10,6 +10,9 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Data transfer object that carries portfolio read dto data.
+ */
 @Builder
 public record PortfolioReadDto(
         @NotNull

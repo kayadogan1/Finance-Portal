@@ -6,6 +6,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.PropertySource;
 
 import java.util.Map;
+/**
+ * Spring configuration for instrument properties.
+ */
 @Data
 @Configuration
 @ConfigurationProperties(prefix = "instruments")

@@ -4,6 +4,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
+/**
+ * Data transfer object that carries hypothetical return dto data.
+ */
 public record HypotheticalReturnDto(
         String symbol,
         String name,

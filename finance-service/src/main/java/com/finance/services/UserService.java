@@ -9,14 +9,28 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Service component that handles user operations.
+ */
 @Service
 @Transactional
 public class UserService {
     private final UserRepository userRepository;
     private final static Logger logger = LogManager.getLogger(UserService.class);
+    /**
+     * Creates a new UserService with its required dependencies.
+     *
+     * @param userRepository user repository value
+     */
     public UserService(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
+    /**
+     * Returns or create user.
+     *
+     * @param jwt jwt value
+     * @return or create user result
+     */
     public User getOrCreateUser(Jwt jwt){
         String userId = jwt.getSubject();
         logger.info("user id: {}",userId);
@@ -24,6 +38,12 @@ public class UserService {
                 .map(existingUser-> updateUser(existingUser,jwt))
                 .orElseGet(()-> createUser(jwt));
     }
+    /**
+     * Creates user.
+     *
+     * @param jwt jwt value
+     * @return create user result
+     */
     private User createUser(Jwt jwt){
          User user=  User.builder()
                 .id(jwt.getSubject())
@@ -35,6 +55,13 @@ public class UserService {
                 .build();
         return userRepository.save(user);
     }
+    /**
+     * Updates user.
+     *
+     * @param user user value
+     * @param jwt jwt value
+     * @return update user result
+     */
     private User updateUser(User user, Jwt jwt){
         String email = jwt.getClaim("email");
         String name = jwt.getClaim("name");

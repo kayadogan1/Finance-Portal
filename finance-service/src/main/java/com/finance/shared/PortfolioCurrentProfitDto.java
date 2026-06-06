@@ -2,6 +2,9 @@ package com.finance.shared;
 
 import java.math.BigDecimal;
 
+/**
+ * Data transfer object that carries portfolio current profit dto data.
+ */
 public record PortfolioCurrentProfitDto(
         String label,
         String symbol,

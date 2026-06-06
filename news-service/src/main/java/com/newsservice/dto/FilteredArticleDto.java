@@ -2,6 +2,9 @@ package com.newsservice.dto;
 
 import java.util.List;
 
+/**
+ * Data transfer object that carries filtered article dto data.
+ */
 public record FilteredArticleDto(
         Source source,
         String author,

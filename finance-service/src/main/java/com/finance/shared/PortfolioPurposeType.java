@@ -1,5 +1,8 @@
 package com.finance.shared;
 
+/**
+ * Enumeration of supported portfolio purpose type values.
+ */
 public enum PortfolioPurposeType {
     LONG_TERM_SAVINGS,      // Uzun vadeli birikim
     RETIREMENT,             // Emeklilik

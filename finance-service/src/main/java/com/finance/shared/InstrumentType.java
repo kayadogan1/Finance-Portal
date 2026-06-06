@@ -1,5 +1,8 @@
 package com.finance.shared;
 
+/**
+ * Enumeration of supported instrument type values.
+ */
 public enum InstrumentType {
     FIAT,              // Para birimleri
     STOCK,             // Hisse senetleri

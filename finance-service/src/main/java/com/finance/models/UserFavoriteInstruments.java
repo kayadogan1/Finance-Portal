@@ -5,6 +5,9 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 
+/**
+ * Domain model that represents user favorite instruments data.
+ */
 @Entity
 @Data
 @Table(name = "user_favorite_instruments")

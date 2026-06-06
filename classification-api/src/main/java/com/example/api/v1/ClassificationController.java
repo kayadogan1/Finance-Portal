@@ -16,6 +16,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * REST controller for classification operations.
+ */
 @RestController
 @RequestMapping("/api/v1/news")
 public class ClassificationController {
@@ -24,16 +27,33 @@ public class ClassificationController {
 
     private final NewsClassificationService newsClassificationService;
 
+    /**
+     * Creates a new ClassificationController with its required dependencies.
+     *
+     * @param newsClassificationService news classification service value
+     */
     public ClassificationController(NewsClassificationService newsClassificationService) {
         this.newsClassificationService = newsClassificationService;
     }
 
+    /**
+     * Handles read requests for health.
+     *
+     * @return health result
+     */
     @GetMapping("/health")
     public HealthResponse health() {
         logger.debug("Health check requested for classification-api");
         return new HealthResponse("ok", "classification-api");
     }
 
+    /**
+     * Handles create or command requests for classify.
+     *
+     * @param request request payload supplied by the client
+     * @return classify result
+     * @throws Exception when the operation cannot be completed
+     */
     @PostMapping("/classify")
     @ResponseStatus(HttpStatus.OK)
     public ClassificationResponse classify(@RequestBody ClassificationRequest request) throws Exception {
@@ -45,6 +65,13 @@ public class ClassificationController {
         return newsClassificationService.classify(request.headline().trim());
     }
 
+    /**
+     * Handles create or command requests for classify text.
+     *
+     * @param text text value
+     * @return classify text result
+     * @throws Exception when the operation cannot be completed
+     */
     @PostMapping(value = "/classify-text", consumes = MediaType.TEXT_PLAIN_VALUE)
     @ResponseStatus(HttpStatus.OK)
     public ClassificationResponse classifyText(@RequestBody String text) throws Exception {
@@ -56,6 +83,13 @@ public class ClassificationController {
         return newsClassificationService.classify(text.trim());
     }
 
+    /**
+     * Handles create or command requests for classify safe.
+     *
+     * @param request request payload supplied by the client
+     * @return classify safe result
+     * @throws Exception when the operation cannot be completed
+     */
     @PostMapping("/classify-safe")
     @ResponseStatus(HttpStatus.OK)
     public ClassificationResponse classifySafe(@RequestBody ClassificationRequest request) throws Exception {
@@ -67,6 +101,13 @@ public class ClassificationController {
         return newsClassificationService.classifyConservative(request.headline().trim());
     }
 
+    /**
+     * Handles create or command requests for classify safe text.
+     *
+     * @param text text value
+     * @return classify safe text result
+     * @throws Exception when the operation cannot be completed
+     */
     @PostMapping(value = "/classify-safe-text", consumes = MediaType.TEXT_PLAIN_VALUE)
     @ResponseStatus(HttpStatus.OK)
     public ClassificationResponse classifySafeText(@RequestBody String text) throws Exception {

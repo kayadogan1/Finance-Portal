@@ -4,6 +4,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
 
 
+/**
+ * Data transfer object that carries news item data.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record NewsItem(
         @JacksonXmlProperty(localName = "description")
@@ -21,6 +24,9 @@ public record NewsItem(
         @JacksonXmlProperty(localName = "content")
         MediaContent mediaContent
 ) {
+    /**
+     * Data transfer object that carries media content data.
+     */
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record MediaContent(
             @JacksonXmlProperty(localName = "url", isAttribute = true)

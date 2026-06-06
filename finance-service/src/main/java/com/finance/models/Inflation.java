@@ -5,6 +5,9 @@ import lombok.*;
 
 import java.time.LocalDate;
 
+/**
+ * Domain model that represents inflation data.
+ */
 @Entity
 @Getter
 @Setter

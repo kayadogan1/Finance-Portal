@@ -10,6 +10,9 @@ import org.springframework.web.client.RestClient;
 
 import java.math.BigDecimal;
 
+/**
+ * Service component that handles crypto operations.
+ */
 @Service
 public class CryptoService {
 
@@ -20,11 +23,22 @@ public class CryptoService {
     @Value("${finance.binance.api.base-url}")
     private String CRYPTO_API_URL;
 
+    /**
+     * Creates a new CryptoService with its required dependencies.
+     *
+     * @param restClient rest client value
+     * @param persistenceService persistence service value
+     */
     public CryptoService(RestClient restClient,
                          MarketDataPersistenceService persistenceService) {
         this.restClient = restClient;
         this.persistenceService = persistenceService;
     }
+    /**
+     * Fetches and store crypto data.
+     *
+     * @param symbol instrument symbol used to locate market data
+     */
     @Observed
     public void fetchAndStoreCryptoData(String symbol) {
         String binanceSymbol = symbol.toUpperCase();

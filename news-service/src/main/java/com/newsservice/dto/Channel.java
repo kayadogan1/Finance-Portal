@@ -6,6 +6,9 @@ import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
 
 import java.util.List;
 
+/**
+ * Data transfer object that carries channel data.
+ */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record Channel(
         @JacksonXmlElementWrapper(useWrapping = false)

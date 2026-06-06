@@ -12,8 +12,18 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Class that provides chart response to model behavior.
+ */
 public class ChartResponseToModel {
 
+    /**
+     * Converts data to market data list.
+     *
+     * @param yahooChartResponse yahoo chart response value
+     * @param instrument instrument value
+     * @return to market data list result
+     */
     public static List<MarketData> toMarketDataList(YahooChartResponse yahooChartResponse, Instrument instrument) {
         var result = yahooChartResponse.chart().result().getFirst();
 

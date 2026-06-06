@@ -11,6 +11,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Domain model that represents news article data.
+ */
 @Entity
 @Table(name = "news_articles")
 @Builder

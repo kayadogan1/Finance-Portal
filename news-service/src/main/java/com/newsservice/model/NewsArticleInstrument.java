@@ -5,6 +5,9 @@ import lombok.*;
 
 import java.util.UUID;
 
+/**
+ * Domain model that represents news article instrument data.
+ */
 @Entity
 @Table(
         name = "news_article_instruments",

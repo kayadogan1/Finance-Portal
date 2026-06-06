@@ -6,6 +6,9 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+/**
+ * Data transfer object that represents instrument lot data.
+ */
 @Builder
 @Getter
 @Setter

@@ -10,6 +10,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.concurrent.Executors;
 
+/**
+ * Service component that handles scheduler operations.
+ */
 @Service
 public class SchedulerService {
     private final FetchMarketDataService yahooService;
@@ -17,12 +20,23 @@ public class SchedulerService {
     private final InstrumentPropertiesConfig config;
     private final Tracer tracer;
     private final Logger logger = LogManager.getLogger(SchedulerService.class);
+    /**
+     * Creates a new SchedulerService with its required dependencies.
+     *
+     * @param yahooService yahoo service value
+     * @param cryptoService crypto service value
+     * @param tracer tracer value
+     * @param config config value
+     */
     public SchedulerService(FetchMarketDataService yahooService, CryptoService cryptoService,Tracer tracer ,InstrumentPropertiesConfig config) {
         this.yahooService = yahooService;
         this.cryptoService = cryptoService;
         this.config = config;
         this.tracer = tracer;
     }
+   /**
+    * Updates general markets.
+    */
    @Scheduled(initialDelay = 0, fixedRate = 500000)
     public void updateGeneralMarkets() {
         Span span = tracer.nextSpan().name("scheduler.update-general-markets").start();
@@ -37,6 +51,9 @@ public class SchedulerService {
         }
     }
 
+    /**
+     * Updates binance crypto data.
+     */
     @Scheduled(initialDelay = 0, fixedRate = 500000)
     public void updateBinanceCryptoData() {
         Span span = tracer.nextSpan().name("scheduler.update-binance-crypto").start();

@@ -9,6 +9,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * Domain model that represents instrument data.
+ */
 @Entity
 @Builder
 @Getter

@@ -1,5 +1,8 @@
 package com.finance.shared;
 
+/**
+ * Enumeration of supported currency values.
+ */
 public enum Currency {
     AUD,  // Australian Dollar
     CAD,  // Canadian Dollar

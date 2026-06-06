@@ -3,6 +3,9 @@ package com.finance.shared;
 import lombok.Builder;
 
 import java.math.BigDecimal;
+/**
+ * Data transfer object that carries pie chart dto data.
+ */
 @Builder
 public record PieChartDto(
         String label,

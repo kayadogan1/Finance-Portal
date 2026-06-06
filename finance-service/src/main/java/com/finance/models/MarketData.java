@@ -7,6 +7,9 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
+/**
+ * Domain model that represents market data data.
+ */
 @Entity
 @Getter
 @Builder

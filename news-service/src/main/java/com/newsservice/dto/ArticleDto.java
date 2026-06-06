@@ -1,5 +1,8 @@
 package com.newsservice.dto;
 
+/**
+ * Data transfer object that carries article dto data.
+ */
 public record ArticleDto(
         Source source,
         String author,

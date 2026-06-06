@@ -6,9 +6,17 @@ import io.swagger.v3.oas.models.info.Info;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Spring configuration for open api.
+ */
 @Configuration
 public class OpenApiConfig {
 
+    /**
+     * Returns the result of news open api.
+     *
+     * @return news open api result
+     */
     @Bean
     public OpenAPI newsOpenAPI() {
         return new OpenAPI()

@@ -6,6 +6,9 @@ import lombok.*;
 
 import java.util.List;
 
+/**
+ * Domain model that represents user data.
+ */
 @Entity
 @Table(name = "users")
 @Builder

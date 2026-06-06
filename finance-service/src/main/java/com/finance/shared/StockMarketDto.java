@@ -5,6 +5,9 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 
+/**
+ * Data transfer object that represents stock market data.
+ */
 @Data
 @Builder
 public class StockMarketDto {

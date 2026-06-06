@@ -6,11 +6,24 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+/**
+ * Domain model that represents lexicon matcher data.
+ */
 public final class LexiconMatcher {
 
+    /**
+     * Creates a new LexiconMatcher with its required dependencies.
+     */
     private LexiconMatcher() {
     }
 
+    /**
+     * Returns the result of match headline.
+     *
+     * @param headline headline value
+     * @param instruments instruments value
+     * @return match headline result
+     */
     static List<MatchedInstrument> matchHeadline(
             String headline,
             List<InstrumentCatalog.Instrument> instruments) {
@@ -45,6 +58,14 @@ public final class LexiconMatcher {
         return matches;
     }
 
+    /**
+     * Returns the result of should skip alias match.
+     *
+     * @param headline headline value
+     * @param instrument instrument value
+     * @param alias alias value
+     * @return true when should skip alias match succeeds or matches its condition
+     */
     static boolean shouldSkipAliasMatch(
             String headline,
             InstrumentCatalog.Instrument instrument,
@@ -75,6 +96,13 @@ public final class LexiconMatcher {
         return false;
     }
 
+    /**
+     * Returns the result of should skip crypto symbol alias.
+     *
+     * @param headline headline value
+     * @param alias alias value
+     * @return true when should skip crypto symbol alias succeeds or matches its condition
+     */
     static boolean shouldSkipCryptoSymbolAlias(String headline, String alias) {
         if (!alias.matches("[A-Z]{2,5}")) {
             return false;
@@ -88,10 +116,22 @@ public final class LexiconMatcher {
         return !containsCryptoContext(headline);
     }
 
+    /**
+     * Indicates whether ambiguous crypto symbol.
+     *
+     * @param alias alias value
+     * @return true when is ambiguous crypto symbol succeeds or matches its condition
+     */
     static boolean isAmbiguousCryptoSymbol(String alias) {
         return Set.of("ATOM", "DOT", "FLOW", "ONE", "NEAR").contains(alias);
     }
 
+    /**
+     * Returns the result of contains crypto context.
+     *
+     * @param headline headline value
+     * @return true when contains crypto context succeeds or matches its condition
+     */
     static boolean containsCryptoContext(String headline) {
         String normalized = normalize(headline);
         return normalized.contains("crypto")
@@ -111,11 +151,25 @@ public final class LexiconMatcher {
                 || normalized.contains("eth/usd");
     }
 
+    /**
+     * Returns the result of contains exact token.
+     *
+     * @param text text value
+     * @param token token value
+     * @return true when contains exact token succeeds or matches its condition
+     */
     static boolean containsExactToken(String text, String token) {
         String pattern = "(^|[^A-Za-z0-9])" + Pattern.quote(token) + "([^A-Za-z0-9]|$)";
         return Pattern.compile(pattern).matcher(text == null ? "" : text).find();
     }
 
+    /**
+     * Returns the result of contains foreign short ticker signal.
+     *
+     * @param headline headline value
+     * @param ticker ticker value
+     * @return true when contains foreign short ticker signal succeeds or matches its condition
+     */
     static boolean containsForeignShortTickerSignal(String headline, String ticker) {
         String trimmed = headline == null ? "" : headline.trim();
         if (trimmed.startsWith(ticker + " ")) {
@@ -124,6 +178,13 @@ public final class LexiconMatcher {
         return trimmed.contains("(" + ticker + ")");
     }
 
+    /**
+     * Returns the result of alias kind.
+     *
+     * @param instrument instrument value
+     * @param alias alias value
+     * @return alias kind result
+     */
     static String aliasKind(InstrumentCatalog.Instrument instrument, String alias) {
         if (alias.equalsIgnoreCase(instrument.symbol())) {
             return "symbol";
@@ -134,6 +195,12 @@ public final class LexiconMatcher {
         return "alias";
     }
 
+    /**
+     * Returns the result of alias score.
+     *
+     * @param alias alias value
+     * @return alias score result
+     */
     static double aliasScore(String alias) {
         if (alias == null) {
             return 0.0;
@@ -149,6 +216,12 @@ public final class LexiconMatcher {
         return Math.min(score, 1.2);
     }
 
+    /**
+     * Returns the result of all names.
+     *
+     * @param instrument instrument value
+     * @return all names result
+     */
     static List<String> allNames(InstrumentCatalog.Instrument instrument) {
         List<String> names = new ArrayList<>();
         names.add(instrument.canonicalName());
@@ -157,6 +230,13 @@ public final class LexiconMatcher {
         return names;
     }
 
+    /**
+     * Returns the result of contains phrase.
+     *
+     * @param normalizedHeadline normalized headline value
+     * @param normalizedNeedle normalized needle value
+     * @return true when contains phrase succeeds or matches its condition
+     */
     static boolean containsPhrase(String normalizedHeadline, String normalizedNeedle) {
         if (normalizedNeedle.length() <= 1) {
             return false;
@@ -165,6 +245,12 @@ public final class LexiconMatcher {
         return Pattern.compile(pattern).matcher(normalizedHeadline).find();
     }
 
+    /**
+     * Returns the result of normalize.
+     *
+     * @param text text value
+     * @return normalize result
+     */
     static String normalize(String text) {
         return (text == null ? "" : text)
                 .toLowerCase()
@@ -182,12 +268,18 @@ public final class LexiconMatcher {
                 .replace('Ç', 'c');
     }
 
+    /**
+     * Data transfer object that carries matched instrument data.
+     */
     record MatchedInstrument(InstrumentCatalog.Instrument instrument, AliasMatch alias) {
         double score() {
             return alias.score();
         }
     }
 
+    /**
+     * Data transfer object that carries alias match data.
+     */
     record AliasMatch(String alias, String kind, double score) {
     }
 }

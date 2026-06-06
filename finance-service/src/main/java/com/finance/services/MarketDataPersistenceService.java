@@ -17,6 +17,9 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Service component that handles market data persistence operations.
+ */
 @Service
 public class MarketDataPersistenceService {
 
@@ -25,6 +28,13 @@ public class MarketDataPersistenceService {
     private final RedisCacheService redisCacheService;
     private static final Logger logger = LogManager.getLogger(MarketDataPersistenceService.class);
 
+    /**
+     * Creates a new MarketDataPersistenceService with its required dependencies.
+     *
+     * @param instrumentRepository instrument repository value
+     * @param marketDataRepository market data repository value
+     * @param redisCacheService redis cache service value
+     */
     public MarketDataPersistenceService(InstrumentRepository instrumentRepository,
                                         MarketDataRepository marketDataRepository,
                                         RedisCacheService redisCacheService) {
@@ -32,6 +42,13 @@ public class MarketDataPersistenceService {
         this.marketDataRepository = marketDataRepository;
         this.redisCacheService = redisCacheService;
     }
+    /**
+     * Saves historical data batch.
+     *
+     * @param symbol instrument symbol used to locate market data
+     * @param closes closes value
+     * @param timestamps timestamps value
+     */
     @Transactional
     public void saveHistoricalDataBatch(String symbol, List<BigDecimal> closes, List<Long> timestamps) {
         if (timestamps == null || closes == null || timestamps.size() != closes.size() || closes.isEmpty()) {
@@ -87,6 +104,12 @@ public class MarketDataPersistenceService {
         logger.info("Batch inserted {} records for {}", marketDataList.size(), symbol);
     }
 
+    /**
+     * Saves market data.
+     *
+     * @param symbol instrument symbol used to locate market data
+     * @param price price value
+     */
     @Transactional
     public void saveMarketData(String symbol, BigDecimal price) {
         var instrumentOptional = instrumentRepository.findInstrumentBySymbol(symbol);
@@ -112,6 +135,12 @@ public class MarketDataPersistenceService {
             logger.warn("Instrument not found in DB: {}", symbol);
         }
     }
+    /**
+     * Returns the result of resolve previous close.
+     *
+     * @param instrument instrument value
+     * @return resolve previous close result
+     */
     private BigDecimal resolvePreviousClose(Instrument instrument) {
         LocalDate today = LocalDate.now(ZoneId.of("Europe/Istanbul"));
         LocalDateTime startOfDay = today.atStartOfDay();

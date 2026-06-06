@@ -25,6 +25,9 @@ import java.util.Optional;
 import java.util.Queue;
 import java.util.UUID;
 
+/**
+ * Service component that handles inflation operations.
+ */
 @Service
 public class InflationService {
 
@@ -34,6 +37,15 @@ public class InflationService {
     private final PortfolioRepository portfolioRepository;
     private final PortfolioService portfolioService;
     private final TransactionRepository transactionRepository;
+    /**
+     * Creates a new InflationService with its required dependencies.
+     *
+     * @param inflationRepository inflation repository value
+     * @param instrumentRepository instrument repository value
+     * @param portfolioRepository portfolio repository value
+     * @param portfolioService portfolio service value
+     * @param transactionRepository transaction repository value
+     */
     public InflationService(InflationRepository inflationRepository, InstrumentRepository instrumentRepository, PortfolioRepository portfolioRepository, PortfolioService portfolioService, TransactionRepository transactionRepository) {
         this.inflationRepository = inflationRepository;
         this.instrumentRepository = instrumentRepository;
@@ -42,12 +54,27 @@ public class InflationService {
         this.transactionRepository = transactionRepository;
     }
 
+    /**
+     * Calculates inflation effect in portfolio.
+     *
+     * @param userId identifier of the user
+     * @param portfolioId identifier of the portfolio
+     * @param currency currency value
+     * @return calculate inflation effect in portfolio result
+     */
     public PerformanceLineChartDtoWithInflationDto calculateInflationEffectInPortfolio(String userId, UUID portfolioId, Currency currency) {
         Portfolio portfolio = portfolioRepository.findByIdAndUserId(portfolioId, userId)
                 .orElseThrow(() -> new NotFoundException("portfolio not found"));
         return calculateInflationEffectInPortfolio(portfolio,currency);
     }
 
+    /**
+     * Calculates inflation effect in portfolio.
+     *
+     * @param portfolio portfolio value
+     * @param currency currency value
+     * @return calculate inflation effect in portfolio result
+     */
     public PerformanceLineChartDtoWithInflationDto calculateInflationEffectInPortfolio(Portfolio portfolio,Currency currency){
         Currency targetCurrency = normalizeCurrency(currency);
         BigDecimal usdTryRate = resolveUsdTryRate();
@@ -128,6 +155,12 @@ public class InflationService {
                 .build();
 
     }
+    /**
+     * Performs consume lots.
+     *
+     * @param quantity quantity value
+     * @param lots lots value
+     */
     private void consumeLots(BigDecimal quantity, Queue<InstrumentLot> lots){
         if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
             logger.warn("quantity is null ");
@@ -159,6 +192,12 @@ public class InflationService {
         }
     }
 
+    /**
+     * Calculates cumulative inflation.
+     *
+     * @param startDay start day value
+     * @return calculate cumulative inflation result
+     */
     public Double calculateCumulativeInflation(LocalDate startDay) {
         LocalDate startMonth = startDay.withDayOfMonth(1);
         List<Inflation> inflationList = inflationRepository.findByTimestampGreaterThanEqualOrderByTimestampAsc(startMonth);
@@ -194,6 +233,12 @@ public class InflationService {
         return cumulativeInflation * Math.pow(lastInflationMultiplier, missingMonthCount);
     }
 
+    /**
+     * Returns the result of normalize currency.
+     *
+     * @param currency currency value
+     * @return normalize currency result
+     */
     private Currency normalizeCurrency(Currency currency) {
         if (currency == null) {
             return Currency.TRY;
@@ -204,6 +249,11 @@ public class InflationService {
         };
     }
 
+    /**
+     * Returns the result of resolve usd try rate.
+     *
+     * @return resolve usd try rate result
+     */
     private BigDecimal resolveUsdTryRate() {
         return instrumentRepository.findInstrumentBySymbol("USDTRY")
                 .or(() -> instrumentRepository.findInstrumentBySymbol("TRY"))
@@ -212,6 +262,15 @@ public class InflationService {
                 .orElse(BigDecimal.ONE);
     }
 
+    /**
+     * Returns the result of convert value.
+     *
+     * @param value value value
+     * @param sourceCurrency source currency value
+     * @param displayCurrency display currency value
+     * @param usdTryRate usd try rate value
+     * @return convert value result
+     */
     private BigDecimal convertValue(BigDecimal value, Currency sourceCurrency, Currency displayCurrency, BigDecimal usdTryRate) {
         Currency source = normalizeCurrency(sourceCurrency);
         Currency target = normalizeCurrency(displayCurrency);
@@ -230,6 +289,12 @@ public class InflationService {
         return amount;
     }
 
+    /**
+     * Returns the result of value or zero.
+     *
+     * @param value value value
+     * @return value or zero result
+     */
     private BigDecimal valueOrZero(BigDecimal value) {
         return Optional.ofNullable(value).orElse(BigDecimal.ZERO);
     }

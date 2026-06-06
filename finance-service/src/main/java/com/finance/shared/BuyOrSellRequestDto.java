@@ -7,6 +7,9 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+/**
+ * Data transfer object that carries buy or sell request dto data.
+ */
 public record BuyOrSellRequestDto(
         @NotNull UUID portfolioId,
         @NotBlank String instrumentSymbol,

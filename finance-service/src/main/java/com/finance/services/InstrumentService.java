@@ -16,6 +16,9 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Service component that handles instrument operations.
+ */
 @Service
 public class InstrumentService {
 
@@ -23,10 +26,27 @@ public class InstrumentService {
     private final RedisCacheService redisCacheService;
     private final Logger logger = LogManager.getLogger(InstrumentService.class);
 
+    /**
+     * Creates a new InstrumentService with its required dependencies.
+     *
+     * @param instrumentRepository instrument repository value
+     * @param redisCacheService redis cache service value
+     */
     public InstrumentService(InstrumentRepository instrumentRepository, RedisCacheService redisCacheService) {
         this.instrumentRepository = instrumentRepository;
         this.redisCacheService = redisCacheService;
     }
+    /**
+     * Returns all instruments.
+     *
+     * @param q q value
+     * @param type type value
+     * @param market market value
+     * @param currency currency value
+     * @param page page value
+     * @param size size value
+     * @return all instruments result
+     */
     public Page<InstrumentDto> getAllInstruments(
             String q, InstrumentType type, String market, Currency currency,
             int page, int size) {
@@ -44,6 +64,13 @@ public class InstrumentService {
                 .map(this::toInstrumentDto);
     }
 
+    /**
+     * Returns the result of resolve currency filter.
+     *
+     * @param market market value
+     * @param currency currency value
+     * @return resolve currency filter result
+     */
     private Currency resolveCurrencyFilter(String market, Currency currency) {
         if (currency != null) {
             return currency;
@@ -58,6 +85,17 @@ public class InstrumentService {
         };
     }
 
+    /**
+     * Returns market movers.
+     *
+     * @param direction direction value
+     * @param market market value
+     * @param type type value
+     * @param currency currency value
+     * @param page page value
+     * @param size size value
+     * @return market movers result
+     */
     public Page<InstrumentDto> getMarketMovers(
             String direction,
             String market,
@@ -84,6 +122,12 @@ public class InstrumentService {
         return result.map(this::toInstrumentDto);
     }
 
+    /**
+     * Returns instrument by symbol.
+     *
+     * @param symbol instrument symbol used to locate market data
+     * @return instrument by symbol result
+     */
     public Instrument getInstrumentBySymbol(String symbol) {
         Instrument cachedInstrument = redisCacheService.get(symbol, Instrument.class);
 
@@ -103,6 +147,11 @@ public class InstrumentService {
         return dbInstrument.orElseThrow(() -> new InstrumentNotFoundException("Instrument not found in DB"));
     }
 
+    /**
+     * Returns inactive instruments.
+     *
+     * @return inactive instruments result
+     */
     public List<InstrumentDto> getInactiveInstruments() {
         logger.info("fetching inactive instruments...");
         return instrumentRepository.findByIsActiveFalse()
@@ -111,6 +160,13 @@ public class InstrumentService {
                 .toList();
     }
 
+    /**
+     * Updates instrument active status.
+     *
+     * @param symbol instrument symbol used to locate market data
+     * @param active active value
+     * @return update instrument active status result
+     */
     public InstrumentDto updateInstrumentActiveStatus(String symbol, boolean active) {
         Instrument instrument = instrumentRepository.findInstrumentBySymbol(symbol)
                 .orElseThrow(() -> new InstrumentNotFoundException("Instrument not found: " + symbol));
@@ -120,6 +176,12 @@ public class InstrumentService {
         return toInstrumentDto(savedInstrument);
     }
 
+    /**
+     * Converts data to instrument dto.
+     *
+     * @param instrument instrument value
+     * @return to instrument dto result
+     */
     public InstrumentDto toInstrumentDto(Instrument instrument) {
         return new InstrumentDto(instrument.getSymbol(),instrument.getName(),instrument.getType(),instrument.getCurrentPrice(),instrument.getPreviousPrice(),instrument.getBaseCurrency(),instrument.getBaseCurrency()== Currency.TRY? "TR BORSA":"US BORSA",instrument.getLastUpdateTime(),instrument.isActive(),instrument.isHistoricalDataLoaded());
     }

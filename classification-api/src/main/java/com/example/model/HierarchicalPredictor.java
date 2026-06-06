@@ -22,6 +22,9 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+/**
+ * Domain model that represents hierarchical predictor data.
+ */
 public class HierarchicalPredictor {
 
     private static final Logger logger = LogManager.getLogger(HierarchicalPredictor.class);
@@ -40,6 +43,12 @@ public class HierarchicalPredictor {
     private static final ConcurrentMap<String, List<InstrumentCatalog.Instrument>> INSTRUMENT_CACHE = new ConcurrentHashMap<>();
     private static final ConcurrentMap<String, Set<String>> ALLOWED_SYMBOLS_CACHE = new ConcurrentHashMap<>();
 
+    /**
+     * Starts the application.
+     *
+     * @param args command-line arguments passed to the application
+     * @throws Exception when the operation cannot be completed
+     */
     public static void main(String[] args) throws Exception {
         if (args.length == 0) {
             throw new IllegalArgumentException("Bir haber metni ver. Ornek: \"THY yeni ucak siparisi verdi\"");
@@ -60,14 +69,36 @@ public class HierarchicalPredictor {
         }
     }
 
+    /**
+     * Returns the result of predict.
+     *
+     * @param text text value
+     * @return predict result
+     * @throws Exception when the operation cannot be completed
+     */
     public static Prediction predict(String text) throws Exception {
         return predictInternal(text, false);
     }
 
+    /**
+     * Returns the result of predict conservative.
+     *
+     * @param text text value
+     * @return predict conservative result
+     * @throws Exception when the operation cannot be completed
+     */
     public static Prediction predictConservative(String text) throws Exception {
         return predictInternal(text, true);
     }
 
+    /**
+     * Returns the result of predict internal.
+     *
+     * @param text text value
+     * @param conservative conservative value
+     * @return predict internal result
+     * @throws Exception when the operation cannot be completed
+     */
     static Prediction predictInternal(String text, boolean conservative) throws Exception {
         long startedAt = System.currentTimeMillis();
         List<InstrumentCatalog.Instrument> instruments = loadInstruments(InstrumentCatalog.INSTRUMENTS);
@@ -132,10 +163,24 @@ public class HierarchicalPredictor {
         return prediction;
     }
 
+    /**
+     * Returns the result of load.
+     *
+     * @param modelName model name value
+     * @return load result
+     * @throws IOException when the operation cannot be completed
+     */
     static DocumentCategorizerME load(String modelName) throws IOException {
         return new DocumentCategorizerME(loadModel(modelName));
     }
 
+    /**
+     * Returns the result of load level2 models.
+     *
+     * @param assetType asset type value
+     * @return load level2 models result
+     * @throws IOException when the operation cannot be completed
+     */
     static Level2Models loadLevel2Models(String assetType) throws IOException {
         return new Level2Models(
                 loadIfExists("tr-doccat-level2-" + assetType + "-focused.bin"),
@@ -144,6 +189,13 @@ public class HierarchicalPredictor {
                 load("tr-doccat-level2.bin"));
     }
 
+    /**
+     * Returns the result of load if exists.
+     *
+     * @param modelName model name value
+     * @return load if exists result
+     * @throws IOException when the operation cannot be completed
+     */
     static DocumentCategorizerME loadIfExists(String modelName) throws IOException {
         if (!modelExists(modelName)) {
             return null;
@@ -151,6 +203,13 @@ public class HierarchicalPredictor {
         return load(modelName);
     }
 
+    /**
+     * Returns the result of load model.
+     *
+     * @param modelName model name value
+     * @return load model result
+     * @throws IOException when the operation cannot be completed
+     */
     static DoccatModel loadModel(String modelName) throws IOException {
         String cacheKey = modelCacheKey(modelName);
         DoccatModel cached = MODEL_CACHE.get(cacheKey);
@@ -167,6 +226,12 @@ public class HierarchicalPredictor {
         }
     }
 
+    /**
+     * Returns the result of model cache key.
+     *
+     * @param modelName model name value
+     * @return model cache key result
+     */
     static String modelCacheKey(String modelName) {
         String externalModelDir = System.getProperty(EXTERNAL_MODEL_DIR_PROP);
         String modelRoot = externalModelDir == null || externalModelDir.isBlank()
@@ -175,6 +240,12 @@ public class HierarchicalPredictor {
         return modelRoot + "/" + modelName;
     }
 
+    /**
+     * Returns the result of model exists.
+     *
+     * @param modelName model name value
+     * @return true when model exists succeeds or matches its condition
+     */
     static boolean modelExists(String modelName) {
         String externalModelDir = System.getProperty(EXTERNAL_MODEL_DIR_PROP);
         if (externalModelDir != null && !externalModelDir.isBlank()) {
@@ -189,6 +260,13 @@ public class HierarchicalPredictor {
         return HierarchicalPredictor.class.getClassLoader().getResource("models/" + modelName) != null;
     }
 
+    /**
+     * Returns the result of open model stream.
+     *
+     * @param modelName model name value
+     * @return open model stream result
+     * @throws IOException when the operation cannot be completed
+     */
     static InputStream openModelStream(String modelName) throws IOException {
         String externalModelDir = System.getProperty(EXTERNAL_MODEL_DIR_PROP);
         if (externalModelDir != null && !externalModelDir.isBlank()) {
@@ -216,6 +294,13 @@ public class HierarchicalPredictor {
         throw new IOException("Model bulunamadi: " + modelName);
     }
 
+    /**
+     * Returns the result of combine score maps.
+     *
+     * @param models models value
+     * @param tokens tokens value
+     * @return combine score maps result
+     */
     static Map<String, Double> combineScoreMaps(Level2Models models, String[] tokens) {
         Map<String, Double> combined = new LinkedHashMap<>();
         addWeightedScores(combined, models.typedFocused(), tokens, TYPED_FOCUSED_WEIGHT);
@@ -225,6 +310,14 @@ public class HierarchicalPredictor {
         return combined;
     }
 
+    /**
+     * Performs add weighted scores.
+     *
+     * @param combined combined value
+     * @param model model value
+     * @param tokens tokens value
+     * @param weight weight value
+     */
     static void addWeightedScores(
             Map<String, Double> combined,
             DocumentCategorizerME model,
@@ -240,6 +333,12 @@ public class HierarchicalPredictor {
         }
     }
 
+    /**
+     * Converts data to kenize.
+     *
+     * @param text text value
+     * @return tokenize result
+     */
     static String[] tokenize(String text) {
         return Arrays.stream(text.split("\\s+"))
                 .map(String::trim)
@@ -247,6 +346,12 @@ public class HierarchicalPredictor {
                 .toArray(String[]::new);
     }
 
+    /**
+     * Converts data to p score.
+     *
+     * @param probs probs value
+     * @return top score result
+     */
     static String topScore(double[] probs) {
         double max = 0.0;
         for (double prob : probs) {
@@ -255,6 +360,13 @@ public class HierarchicalPredictor {
         return String.format("%.4f", max);
     }
 
+    /**
+     * Returns the result of best symbol for type.
+     *
+     * @param allowedSymbols allowed symbols value
+     * @param scoreMap score map value
+     * @return best symbol for type result
+     */
     static String bestSymbolForType(Set<String> allowedSymbols, Map<String, Double> scoreMap) {
         return scoreMap.entrySet().stream()
                 .filter(entry -> allowedSymbols.contains(entry.getKey()))
@@ -266,6 +378,15 @@ public class HierarchicalPredictor {
                         .orElse("UNKNOWN"));
     }
 
+    /**
+     * Returns the result of resolve symbol.
+     *
+     * @param assetType asset type value
+     * @param allowedSymbols allowed symbols value
+     * @param scoreMap score map value
+     * @param lexiconSymbol lexicon symbol value
+     * @return resolve symbol result
+     */
     static String resolveSymbol(
             String assetType,
             Set<String> allowedSymbols,
@@ -294,10 +415,24 @@ public class HierarchicalPredictor {
         return bestSymbol;
     }
 
+    /**
+     * Returns the result of score of.
+     *
+     * @param symbol instrument symbol used to locate market data
+     * @param scoreMap score map value
+     * @return score of result
+     */
     static String scoreOf(String symbol, Map<String, Double> scoreMap) {
         return String.format("%.4f", scoreMap.getOrDefault(symbol, 0.0));
     }
 
+    /**
+     * Returns the result of best contextual lexicon match.
+     *
+     * @param text text value
+     * @param matches matches value
+     * @return best contextual lexicon match result
+     */
     static LexiconMatcher.MatchedInstrument bestContextualLexiconMatch(
             String text,
             List<LexiconMatcher.MatchedInstrument> matches) {
@@ -307,6 +442,13 @@ public class HierarchicalPredictor {
                 .orElse(matches.getFirst());
     }
 
+    /**
+     * Returns the result of contextual lexicon score.
+     *
+     * @param text text value
+     * @param match match value
+     * @return contextual lexicon score result
+     */
     static double contextualLexiconScore(String text, LexiconMatcher.MatchedInstrument match) {
         int position = normalizedIndexOf(text, match.alias().alias());
         double score = match.score();
@@ -335,6 +477,14 @@ public class HierarchicalPredictor {
         return score;
     }
 
+    /**
+     * Returns the result of related lexicon candidates.
+     *
+     * @param text text value
+     * @param matches matches value
+     * @param selectedSymbol selected symbol value
+     * @return related lexicon candidates result
+     */
     static List<String> relatedLexiconCandidates(
             String text,
             List<LexiconMatcher.MatchedInstrument> matches,
@@ -367,6 +517,13 @@ public class HierarchicalPredictor {
         return candidates;
     }
 
+    /**
+     * Indicates whether high confidence related match.
+     *
+     * @param text text value
+     * @param match match value
+     * @return true when is high confidence related match succeeds or matches its condition
+     */
     static boolean isHighConfidenceRelatedMatch(String text, LexiconMatcher.MatchedInstrument match) {
         if (!isHighConfidenceLexiconMatch(match, List.of(match))) {
             return false;
@@ -380,12 +537,26 @@ public class HierarchicalPredictor {
         return contextualLexiconScore(text, match) >= 0.50;
     }
 
+    /**
+     * Returns the result of normalized index of.
+     *
+     * @param text text value
+     * @param alias alias value
+     * @return normalized index of result
+     */
     static int normalizedIndexOf(String text, String alias) {
         String normalizedText = LexiconMatcher.normalize(text == null ? "" : text);
         String normalizedAlias = LexiconMatcher.normalize(alias == null ? "" : alias);
         return normalizedText.indexOf(normalizedAlias);
     }
 
+    /**
+     * Returns the result of has stock context near alias.
+     *
+     * @param text text value
+     * @param alias alias value
+     * @return true when has stock context near alias succeeds or matches its condition
+     */
     static boolean hasStockContextNearAlias(String text, String alias) {
         String normalizedText = LexiconMatcher.normalize(text == null ? "" : text);
         String normalizedAlias = LexiconMatcher.normalize(alias == null ? "" : alias);
@@ -405,6 +576,13 @@ public class HierarchicalPredictor {
                 || window.contains("temettu");
     }
 
+    /**
+     * Indicates whether benchmark comparison context.
+     *
+     * @param text text value
+     * @param alias alias value
+     * @return true when is benchmark comparison context succeeds or matches its condition
+     */
     static boolean isBenchmarkComparisonContext(String text, String alias) {
         String normalizedText = LexiconMatcher.normalize(text == null ? "" : text);
         String normalizedAlias = LexiconMatcher.normalize(alias == null ? "" : alias);
@@ -422,10 +600,23 @@ public class HierarchicalPredictor {
                 || window.contains("kiyasla");
     }
 
+    /**
+     * Returns the result of looks like ticker alias.
+     *
+     * @param alias alias value
+     * @return true when looks like ticker alias succeeds or matches its condition
+     */
     static boolean looksLikeTickerAlias(String alias) {
         return alias.equals(alias.toUpperCase()) && alias.length() >= 3 && alias.length() <= 5;
     }
 
+    /**
+     * Indicates whether high confidence lexicon match.
+     *
+     * @param bestMatch best match value
+     * @param allMatches all matches value
+     * @return true when is high confidence lexicon match succeeds or matches its condition
+     */
     static boolean isHighConfidenceLexiconMatch(
             LexiconMatcher.MatchedInstrument bestMatch,
             List<LexiconMatcher.MatchedInstrument> allMatches) {
@@ -461,6 +652,13 @@ public class HierarchicalPredictor {
         return bestMatch.score() >= 0.70 && scoreGap >= 0.10 && !looksLikeTickerAlias(alias);
     }
 
+    /**
+     * Returns the result of has ambiguous competing lexicon match.
+     *
+     * @param bestMatch best match value
+     * @param allMatches all matches value
+     * @return true when has ambiguous competing lexicon match succeeds or matches its condition
+     */
     static boolean hasAmbiguousCompetingLexiconMatch(
             LexiconMatcher.MatchedInstrument bestMatch,
             List<LexiconMatcher.MatchedInstrument> allMatches) {
@@ -478,6 +676,12 @@ public class HierarchicalPredictor {
         return false;
     }
 
+    /**
+     * Indicates whether strong competing entity match.
+     *
+     * @param match match value
+     * @return true when is strong competing entity match succeeds or matches its condition
+     */
     static boolean isStrongCompetingEntityMatch(LexiconMatcher.MatchedInstrument match) {
         String alias = match.alias().alias();
         String kind = match.alias().kind();
@@ -494,6 +698,13 @@ public class HierarchicalPredictor {
         return false;
     }
 
+    /**
+     * Returns the result of allowed symbols.
+     *
+     * @param assetType asset type value
+     * @return allowed symbols result
+     * @throws Exception when the operation cannot be completed
+     */
     static Set<String> allowedSymbols(String assetType) throws Exception {
         Set<String> cached = ALLOWED_SYMBOLS_CACHE.get(assetType);
         if (cached != null) {
@@ -510,6 +721,13 @@ public class HierarchicalPredictor {
         return existing == null ? Set.copyOf(symbols) : existing;
     }
 
+    /**
+     * Returns the result of load instruments.
+     *
+     * @param path path value
+     * @return load instruments result
+     * @throws Exception when the operation cannot be completed
+     */
     static List<InstrumentCatalog.Instrument> loadInstruments(String path) throws Exception {
         List<InstrumentCatalog.Instrument> cached = INSTRUMENT_CACHE.get(path);
         if (cached != null) {
@@ -521,6 +739,9 @@ public class HierarchicalPredictor {
         return existing == null ? loaded : existing;
     }
 
+    /**
+     * Data transfer object that carries prediction data.
+     */
     public record Prediction(
             String text,
             String assetType,
@@ -531,6 +752,9 @@ public class HierarchicalPredictor {
             List<String> topCandidates) {
     }
 
+    /**
+     * Data transfer object that carries level2 models data.
+     */
     record Level2Models(
             DocumentCategorizerME typedFocused,
             DocumentCategorizerME typed,

@@ -14,9 +14,21 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+/**
+ * Spring Data repository for instrument persistence operations.
+ */
 @Repository
 public interface InstrumentRepository extends JpaRepository<Instrument,UUID> {
 
+    /**
+     * Returns the result of search instruments.
+     *
+     * @param q q value
+     * @param type type value
+     * @param currency currency value
+     * @param pageable pageable value
+     * @return search instruments result
+     */
     @Query("""
     SELECT i FROM Instrument i
     WHERE (:q = '' OR LOWER(i.symbol) LIKE LOWER(CONCAT('%',:q,'%'))
@@ -31,9 +43,29 @@ public interface InstrumentRepository extends JpaRepository<Instrument,UUID> {
             @Param("currency") Currency currency,
             Pageable pageable
     );
+    /**
+     * Finds instrument by symbol.
+     *
+     * @param symbol instrument symbol used to locate market data
+     * @return matching instrument by symbol result
+     */
     Optional<Instrument> findInstrumentBySymbol(String symbol);
+    /**
+     * Finds by type.
+     *
+     * @param type type value
+     * @return matching by type result
+     */
     List<Instrument> findByType(InstrumentType type);
 
+    /**
+     * Finds top gainers.
+     *
+     * @param type type value
+     * @param currency currency value
+     * @param pageable pageable value
+     * @return matching top gainers result
+     */
     @Query("""
 SELECT i FROM Instrument i
 WHERE i.isActive = true
@@ -50,6 +82,14 @@ ORDER BY ((i.currentPrice - i.previousPrice) / i.previousPrice) DESC
             Pageable pageable
     );
 
+    /**
+     * Finds top losers.
+     *
+     * @param type type value
+     * @param currency currency value
+     * @param pageable pageable value
+     * @return matching top losers result
+     */
     @Query("""
 SELECT i FROM Instrument i
 WHERE i.isActive = true
@@ -65,6 +105,17 @@ ORDER BY ((i.currentPrice - i.previousPrice) / i.previousPrice) ASC
             @Param("currency") Currency currency,
             Pageable pageable
     );
+    /**
+     * Finds by symbol.
+     *
+     * @param symbol instrument symbol used to locate market data
+     * @return matching by symbol result
+     */
     Optional<Instrument> findBySymbol(String symbol);
+    /**
+     * Finds by is active false.
+     *
+     * @return matching by is active false result
+     */
     List<Instrument> findByIsActiveFalse();
 }

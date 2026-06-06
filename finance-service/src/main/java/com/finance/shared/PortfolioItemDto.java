@@ -2,6 +2,9 @@ package com.finance.shared;
 
 import java.math.BigDecimal;
 
+/**
+ * Data transfer object that carries portfolio item dto data.
+ */
 public record PortfolioItemDto(
         InstrumentDto instrumentDto,
         BigDecimal amount,

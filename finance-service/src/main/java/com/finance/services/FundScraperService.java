@@ -25,6 +25,9 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Service component that handles fund scraper operations.
+ */
 @Service
 public class FundScraperService {
     private final Logger logger = LogManager.getLogger(FundScraperService.class);
@@ -42,6 +45,16 @@ public class FundScraperService {
     private static final int MAX_CONCURRENT_REQUESTS = 5;
     private static final int DELAY_BETWEEN_REQUESTS_MS = 200;
 
+    /**
+     * Creates a new FundScraperService with its required dependencies.
+     *
+     * @param marketDataPersistenceService market data persistence service value
+     * @param restClient rest client value
+     * @param instrumentPropertiesConfig instrument properties config value
+     * @param marketDataRepository market data repository value
+     * @param instrumentRepository instrument repository value
+     * @param tracer tracer value
+     */
     public FundScraperService(MarketDataPersistenceService marketDataPersistenceService,
                               RestClient restClient,
                               InstrumentPropertiesConfig instrumentPropertiesConfig, MarketDataRepository marketDataRepository, InstrumentRepository instrumentRepository, Tracer tracer) {
@@ -53,6 +66,9 @@ public class FundScraperService {
         this.viops = instrumentPropertiesConfig.getViop();
         this.tracer = tracer;
     }
+    /**
+     * Performs scrape funds.
+     */
     @Scheduled(fixedDelay = 50000000)
     @Scheduled(cron = "0 40 19 * * *", zone = "Europe/Istanbul")
     public void scrapeFunds() {
@@ -82,6 +98,14 @@ public class FundScraperService {
         logger.info("All scraping tasks completed.");
     }
 
+    /**
+     * Performs submit task.
+     *
+     * @param executor executor value
+     * @param semaphore semaphore value
+     * @param instrumentName instrument name value
+     * @param parentSpan parent span value
+     */
     private void submitTask(ExecutorService executor, Semaphore semaphore, String instrumentName, Span parentSpan) {
         executor.submit(tracer.currentTraceContext().wrap(() -> {
             Span childSpan = tracer.nextSpan(parentSpan)
@@ -111,6 +135,12 @@ public class FundScraperService {
         }));
     }
 
+    /**
+     * Returns the result of resolve instrument kind.
+     *
+     * @param instrumentName instrument name value
+     * @return resolve instrument kind result
+     */
     private String resolveInstrumentKind(String instrumentName) {
         if (funds.containsKey(instrumentName)) {
             return "fund";
@@ -120,6 +150,12 @@ public class FundScraperService {
         }
         return "unknown";
     }
+    /**
+     * Returns the result of first save to database.
+     *
+     * @param instrumentName instrument name value
+     * @return first save to database result
+     */
     private Instrument firstSaveToDatabase(String instrumentName) {
 
         String name;
@@ -149,6 +185,11 @@ public class FundScraperService {
 
         return instrumentRepository.save(instrument);
     }
+    /**
+     * Fetches and process.
+     *
+     * @param instrumentName instrument name value
+     */
     private void fetchAndProcess(String instrumentName) {
         logger.info("Fetching data for instrument: {}", instrumentName);
 

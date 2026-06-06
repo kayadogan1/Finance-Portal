@@ -9,6 +9,9 @@ import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+/**
+ * Domain model that represents portfolio item data.
+ */
 @Entity
 @Data
 @Builder

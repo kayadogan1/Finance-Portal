@@ -7,6 +7,9 @@ import lombok.Setter;
 
 import java.util.UUID;
 
+/**
+ * Data transfer object that represents user favorite instruments data.
+ */
 @Getter
 @Setter
 @NoArgsConstructor

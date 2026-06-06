@@ -7,6 +7,9 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 
+/**
+ * Data transfer object that represents instrument data.
+ */
 @NoArgsConstructor
 @Getter
 public class InstrumentDto {
@@ -35,6 +38,20 @@ public class InstrumentDto {
 
     private BigDecimal changePercent;
 
+    /**
+     * Creates a new InstrumentDto with its required dependencies.
+     *
+     * @param symbol instrument symbol used to locate market data
+     * @param name name value
+     * @param instrumentType instrument type value
+     * @param currentPrice current price value
+     * @param previousPrice previous price value
+     * @param baseCurrency base currency value
+     * @param market market value
+     * @param lastUpdateTime last update time value
+     * @param active active value
+     * @param historicalDataLoaded historical data loaded value
+     */
     public InstrumentDto(
             String symbol,
             String name,
@@ -61,6 +78,9 @@ public class InstrumentDto {
         calculateChangeFields();
     }
 
+    /**
+     * Calculates change fields.
+     */
     private void calculateChangeFields() {
         if (currentPrice == null || previousPrice == null || previousPrice.compareTo(BigDecimal.ZERO) == 0) {
             this.changeValue = null;

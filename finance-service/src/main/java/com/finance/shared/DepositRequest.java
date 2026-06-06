@@ -6,6 +6,9 @@ import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+/**
+ * Data transfer object that represents deposit request data.
+ */
 public class DepositRequest {
 
     @NotNull

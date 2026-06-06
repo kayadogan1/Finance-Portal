@@ -11,6 +11,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Objects;
 
+/**
+ * Service component that handles user operations.
+ */
 @Service
 @Transactional
 @Observed
@@ -18,9 +21,19 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final Logger logger= LogManager.getLogger(UserService.class);
+    /**
+     * Creates a new UserService with its required dependencies.
+     *
+     * @param userRepository user repository value
+     */
     public UserService(UserRepository userRepository) {
         this.userRepository = userRepository;
     }
+    /**
+     * Returns or create user.
+     *
+     * @param jwt jwt value
+     */
     public  void getOrCreateUser(Jwt jwt){
         String userId = jwt.getSubject();
         logger.info("user id is {} ",userId);
@@ -28,6 +41,13 @@ public class UserService {
                 .map(existing -> updateUser(existing,jwt))
                 .orElseGet(()-> createUser(jwt));
     }
+    /**
+     * Updates user.
+     *
+     * @param user user value
+     * @param jwt jwt value
+     * @return update user result
+     */
     public User updateUser(User user, Jwt jwt) {
         String name = jwt.getClaimAsString("name");
         String userName = jwt.getClaimAsString("preferred_username");
@@ -44,6 +64,12 @@ public class UserService {
         return user;
     }
 
+    /**
+     * Creates user.
+     *
+     * @param jwt jwt value
+     * @return create user result
+     */
     public User createUser(Jwt jwt) {
         logger.info("user creating : {}" ,jwt.getSubject());
 

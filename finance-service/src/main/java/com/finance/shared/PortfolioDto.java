@@ -7,6 +7,9 @@ import jakarta.validation.constraints.Size;
 import lombok.Builder;
 
 import java.util.List;
+/**
+ * Data transfer object that carries portfolio dto data.
+ */
 @Builder
 public record PortfolioDto(
 

@@ -19,6 +19,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * REST controller for admin operations.
+ */
 @RestController
 @RequestMapping("api/admin")
 @AllArgsConstructor
@@ -29,12 +32,22 @@ public class AdminController {
     private final InstrumentService instrumentService;
     private final AdminService adminService;
 
+    /**
+     * Handles read requests for get total user count.
+     *
+     * @return total user count result
+     */
     @GetMapping("/totalMember")
     @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<ApiResult<Integer>>  getTotalUserCount(){
         return ResponseEntity.ok(ApiResult.success(Math.toIntExact(userRepository.count()),"users count calculated",200));
     }
 
+    /**
+     * Handles read requests for get nonactive instruments.
+     *
+     * @return nonactive instruments result
+     */
     @GetMapping("/nonactiveInstruments")
     @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<ApiResult<List<InstrumentDto>>> getNonactiveInstruments(){
@@ -45,6 +58,13 @@ public class AdminController {
         ));
     }
 
+    /**
+     * Handles update requests for update instrument active status.
+     *
+     * @param symbol instrument symbol used to locate market data
+     * @param request request payload supplied by the client
+     * @return update instrument active status result
+     */
     @PatchMapping("/instruments/{symbol}/active")
     @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<ApiResult<InstrumentDto>> updateInstrumentActiveStatus(
@@ -58,6 +78,11 @@ public class AdminController {
         ));
     }
 
+    /**
+     * Handles read requests for get provider statuses.
+     *
+     * @return provider statuses result
+     */
     @GetMapping("/providers/status")
     @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<ApiResult<ProviderStatusResponseDto>> getProviderStatuses() {

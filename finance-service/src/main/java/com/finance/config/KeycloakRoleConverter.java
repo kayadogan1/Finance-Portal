@@ -17,6 +17,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+/**
+ * Class that provides keycloak role converter behavior.
+ */
 @Component
 public class KeycloakRoleConverter implements Converter<Jwt, AbstractAuthenticationToken> {
     private final static Logger logger = LogManager.getLogger(KeycloakRoleConverter.class);
@@ -24,10 +27,21 @@ public class KeycloakRoleConverter implements Converter<Jwt, AbstractAuthenticat
     @Value("${keycloak.clientId}")
     private  String CLIENT_ID ;
 
+    /**
+     * Creates a new KeycloakRoleConverter with its required dependencies.
+     *
+     * @param userService user service value
+     */
     public KeycloakRoleConverter(UserService userService) {
         this.userService = userService;
     }
 
+    /**
+     * Returns the result of convert.
+     *
+     * @param jwt jwt value
+     * @return convert result
+     */
     @Override
     public AbstractAuthenticationToken convert(Jwt jwt) {
 

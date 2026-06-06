@@ -7,9 +7,18 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
+/**
+ * Spring configuration for redis.
+ */
 @Configuration
 public class RedisConfig {
 
+    /**
+     * Returns the result of redis template.
+     *
+     * @param connectionFactory connection factory value
+     * @return redis template result
+     */
     @Bean
     public RedisTemplate<String, Object> redisTemplate(
             RedisConnectionFactory connectionFactory) {

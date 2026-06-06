@@ -7,6 +7,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+/**
+ * Service component that handles admin operations.
+ */
 @Service
 public class AdminService {
 
@@ -19,6 +22,11 @@ public class AdminService {
     @Value("${finance.FINTABLES.API_URL:}")
     private String fintablesApiUrl;
 
+    /**
+     * Returns provider statuses.
+     *
+     * @return provider statuses result
+     */
     public ProviderStatusResponseDto getProviderStatuses() {
         return new ProviderStatusResponseDto(
                 "finance-service",
@@ -45,6 +53,15 @@ public class AdminService {
         );
     }
 
+    /**
+     * Returns the result of build status.
+     *
+     * @param key key value
+     * @param label label value
+     * @param configuredValue configured value value
+     * @param configuredDetail configured detail value
+     * @return build status result
+     */
     private ProviderStatusDto buildStatus(String key, String label, String configuredValue, String configuredDetail) {
         if (configuredValue == null || configuredValue.isBlank()) {
             return new ProviderStatusDto(

@@ -14,10 +14,19 @@ import org.springframework.web.cors.reactive.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 import java.util.List;
 
+/**
+ * Spring configuration for security.
+ */
 @Configuration
 @EnableWebFluxSecurity
 public class SecurityConfig {
 
+    /**
+     * Returns the result of spring security filter chain.
+     *
+     * @param http http value
+     * @return spring security filter chain result
+     */
     @Bean
     public SecurityWebFilterChain springSecurityFilterChain(ServerHttpSecurity http) {
         http
@@ -37,6 +46,11 @@ public class SecurityConfig {
     }
 
 
+    /**
+     * Returns the result of cors configuration source.
+     *
+     * @return cors configuration source result
+     */
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();

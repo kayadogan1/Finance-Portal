@@ -17,6 +17,9 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * REST controller for news admin operations.
+ */
 @RestController
 @RequestMapping("/api/news/admin")
 @RequiredArgsConstructor
@@ -24,6 +27,11 @@ public class NewsAdminController {
 
     private final NewsRssService newsRssService;
 
+    /**
+     * Handles read requests for get pending articles.
+     *
+     * @return pending articles result
+     */
     @GetMapping("/pending")
     public ResponseEntity<ApiResult<List<FilteredArticleDto>>> getPendingArticles() {
         return ResponseEntity.ok(ApiResult.success(
@@ -33,6 +41,13 @@ public class NewsAdminController {
         ));
     }
 
+    /**
+     * Handles update requests for update approval.
+     *
+     * @param id identifier of the target resource
+     * @param request request payload supplied by the client
+     * @return update approval result
+     */
     @PatchMapping("/articles/{id}/approval")
     public ResponseEntity<ApiResult<FilteredArticleDto>> updateApproval(
             @PathVariable UUID id,
@@ -46,6 +61,12 @@ public class NewsAdminController {
         ));
     }
 
+    /**
+     * Handles delete requests for delete article.
+     *
+     * @param id identifier of the target resource
+     * @return delete article result
+     */
     @DeleteMapping("/articles/{id}")
     public ResponseEntity<ApiResult<Void>> deleteArticle(@PathVariable UUID id) {
         newsRssService.deleteArticle(id);

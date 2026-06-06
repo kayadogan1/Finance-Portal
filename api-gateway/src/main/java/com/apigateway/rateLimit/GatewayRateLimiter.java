@@ -8,16 +8,32 @@ import org.springframework.stereotype.Component;
 import java.time.Duration;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Class that provides gateway rate limiter behavior.
+ */
 @Component
 public class GatewayRateLimiter {
 
     private final ConcurrentHashMap<String, Bucket> buckets = new ConcurrentHashMap<>();
 
+    /**
+     * Returns the result of resolve bucket.
+     *
+     * @param clientIp client ip value
+     * @param service service value
+     * @return resolve bucket result
+     */
     public Bucket resolveBucket(@NonNull String clientIp, @NonNull String service) {
         String key = clientIp + ":" + service;
         return buckets.computeIfAbsent(key, k -> buildBucket(service));
     }
 
+    /**
+     * Returns the result of build bucket.
+     *
+     * @param service service value
+     * @return build bucket result
+     */
     private Bucket buildBucket(@NonNull String service) {
         return switch (service) {
 
@@ -39,6 +55,11 @@ public class GatewayRateLimiter {
                             .build())
                     .build();
 
+            /**
+             * Returns the result of bucket.builder.
+             *
+             * @return bucket.builder result
+             */
             default -> Bucket.builder()
                     .addLimit(Bandwidth.builder()
                             .capacity(1200)

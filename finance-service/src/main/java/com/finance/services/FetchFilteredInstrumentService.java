@@ -20,6 +20,9 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+/**
+ * Service component that handles fetch filtered instrument operations.
+ */
 @Service
 @RequiredArgsConstructor
 public class FetchFilteredInstrumentService {
@@ -38,6 +41,11 @@ public class FetchFilteredInstrumentService {
     @Value("${finance.YAHOO_API_URL}")
     private String yahooApiUrl;
 
+    /**
+     * Fetches instrument close prices since last date.
+     *
+     * @param instrument instrument value
+     */
     public void fetchInstrumentClosePricesSinceLastDate(Instrument instrument) {
 
         Instant lastTimestamp = marketDataRepository
@@ -64,6 +72,13 @@ public class FetchFilteredInstrumentService {
 
         logger.info("Saved {} new records for {}", fetchedData.size(), instrument.getSymbol());
     }
+    /**
+     * Returns the result of resolve previous close.
+     *
+     * @param instrument instrument value
+     * @param fetchedData fetched data value
+     * @return resolve previous close result
+     */
     private BigDecimal resolvePreviousClose(
             Instrument instrument,
             List<MarketData> fetchedData
@@ -85,6 +100,13 @@ public class FetchFilteredInstrumentService {
     }
 
 
+    /**
+     * Fetches from yahoo.
+     *
+     * @param instrument instrument value
+     * @param lastTimestamp last timestamp value
+     * @return fetch from yahoo result
+     */
     private List<MarketData> fetchFromYahoo(Instrument instrument, Instant lastTimestamp) {
 
         String symbol = fetchMarketDataService.convertToYahooFormat(
@@ -120,6 +142,13 @@ public class FetchFilteredInstrumentService {
         return executeYahooRequest(url, instrument);
     }
 
+    /**
+     * Returns the result of execute yahoo request.
+     *
+     * @param url url value
+     * @param instrument instrument value
+     * @return execute yahoo request result
+     */
     private List<MarketData> executeYahooRequest(String url,
                                                  Instrument instrument) {
         try {
@@ -139,6 +168,11 @@ public class FetchFilteredInstrumentService {
         }
     }
 
+    /**
+     * Performs validate response.
+     *
+     * @param response response payload returned by the downstream service
+     */
     private void validateResponse(YahooChartResponse response) {
         if (response == null ||
                 response.chart() == null ||

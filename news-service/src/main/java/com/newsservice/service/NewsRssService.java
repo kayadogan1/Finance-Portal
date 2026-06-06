@@ -21,6 +21,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * Service component that handles news rss operations.
+ */
 @Service
 public class NewsRssService {
 
@@ -37,11 +40,20 @@ public class NewsRssService {
     @Value("${model.service.api.url}")
     private String modelServiceApiUrl;
 
+    /**
+     * Creates a new NewsRssService with its required dependencies.
+     *
+     * @param restClient rest client value
+     * @param newsArticleRepository news article repository value
+     */
     public NewsRssService(RestClient restClient, NewsArticleRepository newsArticleRepository) {
         this.restClient = restClient;
         this.newsArticleRepository = newsArticleRepository;
     }
 
+    /**
+     * Fetches news.
+     */
     @Scheduled(fixedRate = 600000)
     public void fetchNews() {
         if (!fetchRunning.compareAndSet(false, true)) {
@@ -60,10 +72,18 @@ public class NewsRssService {
         }
     }
 
+    /**
+     * Performs refresh.
+     */
     public void refresh() {
         fetchNews();
     }
 
+    /**
+     * Returns rss sources.
+     *
+     * @return rss sources result
+     */
     private List<RssSource> getRssSources() {
         return List.of(
                 new RssSource("Yahoo RSS", NewsCountry.US, NewsTopic.STOCK, yahooRssBaseUrl),
@@ -75,6 +95,11 @@ public class NewsRssService {
         );
     }
 
+    /**
+     * Fetches from source.
+     *
+     * @param source source value
+     */
     private void fetchFromSource(RssSource source) {
         long startedAt = System.currentTimeMillis();
         try {
@@ -102,6 +127,12 @@ public class NewsRssService {
             logger.error("RSS source fetch failed. source={}, url={}", source.name(), source.url(), e);
         }
     }
+    /**
+     * Fetches yahoo items.
+     *
+     * @param source source value
+     * @return fetch yahoo items result
+     */
     private List<NewsItem> fetchYahooItems(RssSource source) {
         try {
             YahooRssFilteredResponse response = restClient.get()
@@ -139,6 +170,12 @@ public class NewsRssService {
         }
     }
 
+    /**
+     * Fetches sozcu items.
+     *
+     * @param source source value
+     * @return fetch sozcu items result
+     */
     private List<NewsItem> fetchSozcuItems(RssSource source) {
         SozcuRssResponse response = restClient.get()
                 .uri(source.url())
@@ -155,6 +192,13 @@ public class NewsRssService {
         return response.channel().items();
     }
 
+    /**
+     * Saves items.
+     *
+     * @param source source value
+     * @param items items value
+     * @return save items result
+     */
     private SaveSummary saveItems(RssSource source, List<NewsItem> items) {
         SaveSummary summary = new SaveSummary();
         for (NewsItem item : items) {
@@ -164,6 +208,13 @@ public class NewsRssService {
         return summary;
     }
 
+    /**
+     * Saves item.
+     *
+     * @param source source value
+     * @param item item value
+     * @return save item result
+     */
     public SaveResult saveItem(RssSource source, NewsItem item) {
         if (item == null || isBlank(item.link()) || isBlank(item.title())) {
             logger.debug("RSS item skipped because mandatory fields are missing. source={}, thread={}",
@@ -227,6 +278,13 @@ public class NewsRssService {
         return classification == null ? SaveResult.CLASSIFICATION_NULL : SaveResult.SAVED;
     }
 
+    /**
+     * Returns the result of should update classification.
+     *
+     * @param article article value
+     * @param classification classification value
+     * @return true when should update classification succeeds or matches its condition
+     */
     private boolean shouldUpdateClassification(NewsArticle article, ClassificationResponse classification) {
         return article.getModelName() == null
                 || !same(article.getInstrumentSymbol(), classification.instrumentSymbol())
@@ -234,6 +292,13 @@ public class NewsRssService {
                 || article.getInstruments().isEmpty();
     }
 
+    /**
+     * Returns the result of same.
+     *
+     * @param left left value
+     * @param right right value
+     * @return true when same succeeds or matches its condition
+     */
     private boolean same(String left, String right) {
         if (left == null) {
             return right == null;
@@ -242,6 +307,12 @@ public class NewsRssService {
     }
 
 
+    /**
+     * Returns the result of classify news.
+     *
+     * @param fullText full text value
+     * @return classify news result
+     */
     private ClassificationResponse classifyNews(String fullText) {
         if (isBlank(fullText)) {
             return null;
@@ -270,6 +341,13 @@ public class NewsRssService {
 
     }
 
+    /**
+     * Returns the result of resolve topic.
+     *
+     * @param classification classification value
+     * @param fallback fallback value
+     * @return resolve topic result
+     */
     private NewsTopic resolveTopic(ClassificationResponse classification, NewsTopic fallback) {
         if (classification == null || classification.assetType() == null || classification.assetType().isBlank()) {
             return fallback;
@@ -286,6 +364,12 @@ public class NewsRssService {
         };
     }
 
+    /**
+     * Returns all articles after date.
+     *
+     * @param date date value
+     * @return all articles after date result
+     */
     public List<FilteredArticleDto> getAllArticlesAfterDate(LocalDate date) {
         return newsArticleRepository.findByIsApprovedTrueAndPublishedDateAfter(date.atStartOfDay())
                 .stream()
@@ -293,6 +377,13 @@ public class NewsRssService {
                 .toList();
     }
 
+    /**
+     * Returns articles by topic after date.
+     *
+     * @param topic topic value
+     * @param date date value
+     * @return articles by topic after date result
+     */
     public List<FilteredArticleDto> getArticlesByTopicAfterDate(NewsTopic topic, LocalDate date) {
         return newsArticleRepository.findByTopicAndIsApprovedTrueAndPublishedDateAfter(topic, date.atStartOfDay())
                 .stream()
@@ -300,6 +391,13 @@ public class NewsRssService {
                 .toList();
     }
 
+    /**
+     * Returns articles by country after date.
+     *
+     * @param country country value
+     * @param date date value
+     * @return articles by country after date result
+     */
     public List<FilteredArticleDto> getArticlesByCountryAfterDate(NewsCountry country, LocalDate date) {
         return newsArticleRepository.findByCountryAndIsApprovedTrueAndPublishedDateAfter(country, date.atStartOfDay())
                 .stream()
@@ -307,6 +405,14 @@ public class NewsRssService {
                 .toList();
     }
 
+    /**
+     * Returns articles by topic and country after date.
+     *
+     * @param topic topic value
+     * @param country country value
+     * @param date date value
+     * @return articles by topic and country after date result
+     */
     public List<FilteredArticleDto> getArticlesByTopicAndCountryAfterDate(
             NewsTopic topic,
             NewsCountry country,
@@ -318,6 +424,11 @@ public class NewsRssService {
                 .toList();
     }
 
+    /**
+     * Returns pending articles.
+     *
+     * @return pending articles result
+     */
     public List<FilteredArticleDto> getPendingArticles() {
         return newsArticleRepository.findByIsApprovedFalseOrderByPublishedDateDesc()
                 .stream()
@@ -325,6 +436,13 @@ public class NewsRssService {
                 .toList();
     }
 
+    /**
+     * Updates approval.
+     *
+     * @param id identifier of the target resource
+     * @param approved approved value
+     * @return update approval result
+     */
     public FilteredArticleDto updateApproval(UUID id, boolean approved) {
         NewsArticle article = newsArticleRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException("News article not found"));
@@ -332,6 +450,11 @@ public class NewsRssService {
         return toDto(newsArticleRepository.save(article));
     }
 
+    /**
+     * Deletes article.
+     *
+     * @param id identifier of the target resource
+     */
     public void deleteArticle(UUID id) {
         if (!newsArticleRepository.existsById(id)) {
             throw new NotFoundException("News article not found");
@@ -339,6 +462,12 @@ public class NewsRssService {
         newsArticleRepository.deleteById(id);
     }
 
+    /**
+     * Converts data to dto.
+     *
+     * @param entity entity value
+     * @return to dto result
+     */
     private FilteredArticleDto toDto(NewsArticle entity) {
         return new FilteredArticleDto(
                 new Source(entity.getId() != null ? entity.getId().toString() : null, entity.getSourceName()),
@@ -358,6 +487,12 @@ public class NewsRssService {
         );
     }
 
+    /**
+     * Converts data to instrument dtos.
+     *
+     * @param entity entity value
+     * @return to instrument dtos result
+     */
     private List<NewsInstrumentDto> toInstrumentDtos(NewsArticle entity) {
         if (entity.getInstruments() == null || entity.getInstruments().isEmpty()) {
             return List.of();
@@ -375,6 +510,12 @@ public class NewsRssService {
                 .toList();
     }
 
+    /**
+     * Performs replace article instruments.
+     *
+     * @param article article value
+     * @param classification classification value
+     */
     private void replaceArticleInstruments(NewsArticle article, ClassificationResponse classification) {
         if (article.getInstruments() == null) {
             article.setInstruments(new ArrayList<>());
@@ -389,6 +530,13 @@ public class NewsRssService {
         article.getInstruments().addAll(instruments);
     }
 
+    /**
+     * Returns the result of build article instruments.
+     *
+     * @param article article value
+     * @param classification classification value
+     * @return build article instruments result
+     */
     private List<NewsArticleInstrument> buildArticleInstruments(
             NewsArticle article,
             ClassificationResponse classification) {
@@ -437,6 +585,18 @@ public class NewsRssService {
         return instruments;
     }
 
+    /**
+     * Converts data to article instrument.
+     *
+     * @param article article value
+     * @param symbol instrument symbol used to locate market data
+     * @param assetType asset type value
+     * @param score score value
+     * @param rank rank value
+     * @param primaryMatch primary match value
+     * @param matchSource match source value
+     * @return to article instrument result
+     */
     private NewsArticleInstrument toArticleInstrument(
             NewsArticle article,
             String symbol,
@@ -457,6 +617,12 @@ public class NewsRssService {
                 .build();
     }
 
+    /**
+     * Returns the result of parse candidate.
+     *
+     * @param candidate candidate value
+     * @return parse candidate result
+     */
     private CandidateInstrument parseCandidate(String candidate) {
         if (candidate == null || candidate.isBlank()) {
             return null;
@@ -474,10 +640,23 @@ public class NewsRssService {
         return new CandidateInstrument(value, null);
     }
 
+    /**
+     * Returns the result of build full text.
+     *
+     * @param title title value
+     * @param description description value
+     * @return build full text result
+     */
     private String buildFullText(String title, String description) {
         return (stripHtml(safe(title)) + " " + stripHtml(safe(description))).trim();
     }
 
+    /**
+     * Returns the result of resolve image url.
+     *
+     * @param item item value
+     * @return resolve image url result
+     */
     private String resolveImageUrl(NewsItem item) {
         if (item.mediaContent() == null || isBlank(item.mediaContent().url())) {
             return null;
@@ -485,6 +664,12 @@ public class NewsRssService {
         return item.mediaContent().url().trim();
     }
 
+    /**
+     * Returns the result of parse rss date.
+     *
+     * @param value value value
+     * @return parse rss date result
+     */
     private LocalDateTime parseRssDate(String value) {
         if (isBlank(value)) {
             return LocalDateTime.now();
@@ -511,6 +696,12 @@ public class NewsRssService {
         return LocalDateTime.now();
     }
 
+    /**
+     * Returns the result of strip html.
+     *
+     * @param value value value
+     * @return strip html result
+     */
     private String stripHtml(String value) {
         return value
                 .replaceAll("<[^>]*>", " ")
@@ -522,22 +713,45 @@ public class NewsRssService {
                 .trim();
     }
 
+    /**
+     * Returns the result of safe.
+     *
+     * @param value value value
+     * @return safe result
+     */
     private String safe(String value) {
         return value == null ? "" : value.trim();
     }
 
+    /**
+     * Indicates whether blank.
+     *
+     * @param value value value
+     * @return true when is blank succeeds or matches its condition
+     */
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
     }
 
+    /**
+     * Data transfer object that carries candidate instrument data.
+     */
     private record CandidateInstrument(String symbol, String score) {
     }
 
+    /**
+     * Returns the result of thread info.
+     *
+     * @return thread info result
+     */
     private String threadInfo() {
         Thread thread = Thread.currentThread();
         return thread.getName() + "(virtual=" + thread.isVirtual() + ")";
     }
 
+    /**
+     * Enumeration of supported save result values.
+     */
     public enum SaveResult {
         SAVED,
         UPDATED,
@@ -545,6 +759,9 @@ public class NewsRssService {
         CLASSIFICATION_NULL
     }
 
+    /**
+     * Class that provides save summary behavior.
+     */
     private static class SaveSummary {
         private int saved;
         private int updated;

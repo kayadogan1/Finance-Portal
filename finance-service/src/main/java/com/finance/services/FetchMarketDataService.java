@@ -23,6 +23,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 
+/**
+ * Service component that handles fetch market data operations.
+ */
 @Service
 public class FetchMarketDataService {
 
@@ -39,6 +42,15 @@ public class FetchMarketDataService {
     @Value("${finance.YAHOO_API_BASE_URL}")
     private String YAHOO_API_URL;
 
+    /**
+     * Creates a new FetchMarketDataService with its required dependencies.
+     *
+     * @param instrumentProperties instrument properties value
+     * @param persistenceService persistence service value
+     * @param restClient rest client value
+     * @param tracer tracer value
+     * @param instrumentRepository instrument repository value
+     */
     public FetchMarketDataService(InstrumentPropertiesConfig instrumentProperties,
                                   MarketDataPersistenceService persistenceService,
                                   RestClient restClient, Tracer tracer, InstrumentRepository instrumentRepository) {
@@ -48,6 +60,11 @@ public class FetchMarketDataService {
         this.tracer = tracer;
         this.instrumentRepository = instrumentRepository;
     }
+    /**
+     * Returns the result of partition market data.
+     *
+     * @return partition market data result
+     */
     private List<List<FetchTask>> partitionMarketData(){
         List<FetchTask> allTasks = new ArrayList<>();
         instrumentProperties.getStock().forEach((exchange, symbolsMap) -> {
@@ -77,6 +94,9 @@ public class FetchMarketDataService {
         return chunks;
     }
 
+    /**
+     * Updates all market data.
+     */
     @Observed()
     public void updateAllMarketData() {
         logger.info("Starting GLOBAL market data update from YAHOO FINANCE...");
@@ -99,6 +119,13 @@ public class FetchMarketDataService {
         logger.info("GLOBAL market data update completed.");
     }
 
+    /**
+     * Fetches and save.
+     *
+     * @param dbSymbol db symbol value
+     * @param category category value
+     * @param baseCurrency base currency value
+     */
     @Observed
     @ConcurrencyLimit(limit = 10)
     @Retryable(
@@ -131,6 +158,14 @@ public class FetchMarketDataService {
         }
     }
 
+    /**
+     * Returns the result of convert to yahoo format.
+     *
+     * @param dbSymbol db symbol value
+     * @param category category value
+     * @param currency currency value
+     * @return convert to yahoo format result
+     */
     public String convertToYahooFormat(String dbSymbol, String category, Currency currency) {
         return switch (category) {
             case "FOREX" -> dbSymbol + "=X";
@@ -153,6 +188,12 @@ public class FetchMarketDataService {
         };
     }
 
+    /**
+     * Returns the result of parse yahoo price.
+     *
+     * @param root root value
+     * @return parse yahoo price result
+     */
     public BigDecimal parseYahooPrice(JsonNode root) {
         try {
             JsonNode result = root.path("chart").path("result");
@@ -173,6 +214,12 @@ public class FetchMarketDataService {
         return null;
     }
 
+    /**
+     * Returns commodity code.
+     *
+     * @param symbol instrument symbol used to locate market data
+     * @return commodity code result
+     */
     public String getCommodityCode(String symbol) {
         return switch (symbol) {
             case "GOLD" -> "GC=F";
@@ -193,6 +240,12 @@ public class FetchMarketDataService {
         };
     }
 
+    /**
+     * Returns index code.
+     *
+     * @param symbol instrument symbol used to locate market data
+     * @return index code result
+     */
     public String getIndexCode(String symbol) {
         if (symbol != null && symbol.startsWith("X")) {
             return symbol + ".IS";
@@ -211,6 +264,12 @@ public class FetchMarketDataService {
         };
     }
 
+    /**
+     * Returns bond code.
+     *
+     * @param symbol instrument symbol used to locate market data
+     * @return bond code result
+     */
     public String getBondCode(String symbol) {
         return switch (symbol) {
             case "US10Y" -> "^TNX";

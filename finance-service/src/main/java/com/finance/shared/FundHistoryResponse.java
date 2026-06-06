@@ -6,6 +6,9 @@ import lombok.Builder;
 
 import java.math.BigDecimal;
 import java.util.List;
+/**
+ * Data transfer object that carries fund history response data.
+ */
 @Builder
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record FundHistoryResponse(

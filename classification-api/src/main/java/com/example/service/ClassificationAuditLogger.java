@@ -14,6 +14,9 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 
+/**
+ * Class that provides classification audit logger behavior.
+ */
 @Component
 public class ClassificationAuditLogger {
 
@@ -23,17 +26,32 @@ public class ClassificationAuditLogger {
     private final Path auditPath;
     private final Object lock = new Object();
 
+    /**
+     * Creates a new ClassificationAuditLogger with its required dependencies.
+     *
+     * @param auditPath audit path value
+     */
     public ClassificationAuditLogger(
             @Value("${classification.audit.path:output/classification_audit.csv}") String auditPath) {
         this.auditPath = Path.of(auditPath);
     }
 
+    /**
+     * Performs log.
+     *
+     * @param response response payload returned by the downstream service
+     */
     public void log(ClassificationResponse response) {
         if (response == null) {
             return;
         }
 
         try {
+            /**
+             * Performs synchronized.
+             *
+             * @param lock lock value
+             */
             synchronized (lock) {
                 ensureFileExists();
                 Files.writeString(
@@ -47,6 +65,11 @@ public class ClassificationAuditLogger {
         }
     }
 
+    /**
+     * Performs ensure file exists.
+     *
+     * @throws IOException when the operation cannot be completed
+     */
     private void ensureFileExists() throws IOException {
         Path parent = auditPath.getParent();
         if (parent != null) {
@@ -62,6 +85,12 @@ public class ClassificationAuditLogger {
         }
     }
 
+    /**
+     * Converts data to csv line.
+     *
+     * @param response response payload returned by the downstream service
+     * @return to csv line result
+     */
     private String toCsvLine(ClassificationResponse response) {
         return String.join(",",
                 escape(Instant.now().toString()),
@@ -76,6 +105,12 @@ public class ClassificationAuditLogger {
                 escape(response.modelVersion()));
     }
 
+    /**
+     * Returns the result of escape.
+     *
+     * @param value value value
+     * @return escape result
+     */
     static String escape(String value) {
         String safeValue = value == null ? "" : value;
         String escaped = safeValue.replace("\"", "\"\"");

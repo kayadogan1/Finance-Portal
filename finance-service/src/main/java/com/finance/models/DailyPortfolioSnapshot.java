@@ -7,6 +7,9 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.UUID;
 
+/**
+ * Domain model that represents daily portfolio snapshot data.
+ */
 @Entity
 @Table(name = "daily_portfolio_snapshots")
 @Builder

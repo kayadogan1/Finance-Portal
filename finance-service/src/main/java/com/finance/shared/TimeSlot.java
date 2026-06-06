@@ -1,6 +1,9 @@
 package com.finance.shared;
 
 
+/**
+ * Enumeration of supported time slot values.
+ */
 public enum TimeSlot {
     M1(1,      "1m",   "1 Dakika"),
     M5(5,      "5m",   "5 Dakika"),
@@ -21,24 +24,52 @@ public enum TimeSlot {
 
     private final String label;
 
+    /**
+     * Creates a new TimeSlot with its required dependencies.
+     *
+     * @param minutes minutes value
+     * @param code code value
+     * @param label label value
+     */
     TimeSlot(int minutes, String code, String label) {
         this.minutes = minutes;
         this.code = code;
         this.label = label;
     }
 
+    /**
+     * Returns minutes.
+     *
+     * @return minutes result
+     */
     public int getMinutes() {
         return minutes;
     }
 
+    /**
+     * Returns code.
+     *
+     * @return code result
+     */
     public String getCode() {
         return code;
     }
 
+    /**
+     * Returns label.
+     *
+     * @return label result
+     */
     public String getLabel() {
         return label;
     }
 
+    /**
+     * Returns the result of from code.
+     *
+     * @param code code value
+     * @return from code result
+     */
     public static TimeSlot fromCode(String code) {
         for (TimeSlot r : values()) {
             if (r.code.equalsIgnoreCase(code)) {

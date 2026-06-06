@@ -12,6 +12,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Domain model that represents portfolio data.
+ */
 @Entity
 @Getter
 @Builder

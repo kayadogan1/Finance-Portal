@@ -16,6 +16,9 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+/**
+ * Service component that handles inflation fetch operations.
+ */
 @RequiredArgsConstructor
 @Service
 public class InflationFetchService {
@@ -25,6 +28,11 @@ public class InflationFetchService {
     @Value("${evds.api.key}")
     private String API_KEY ;
     private static final DateTimeFormatter EVDS_DATE_FORMATTER = DateTimeFormatter.ofPattern("dd-MM-yyyy");
+    /**
+     * Fetches inflation data from api.
+     *
+     * @return fetch inflation data from api result
+     */
     public List<Inflation> fetchInflationDataFromApi(){
         try {
             String endDate = LocalDate.now().format(EVDS_DATE_FORMATTER);
@@ -49,9 +57,20 @@ public class InflationFetchService {
         }
 
     }
+    /**
+     * Returns all inflation rates.
+     *
+     * @return all inflation rates result
+     */
     public List<Inflation> getALlInflationRates(){
         return inflationRepository.findAll();
     }
+    /**
+     * Converts data to inflation entity.
+     *
+     * @param inflationItem inflation item value
+     * @return to inflation entity result
+     */
     private Inflation toInflationEntity(InflationItem inflationItem){
         return Inflation.builder()
                 .rate(inflationItem.rate())
@@ -59,6 +78,12 @@ public class InflationFetchService {
                 .timestamp(toLocalDate(inflationItem.date()))
                 .build();
     }
+    /**
+     * Converts data to local date.
+     *
+     * @param date date value
+     * @return to local date result
+     */
     private LocalDate toLocalDate(String date){
         String[] parts = date.split("-");
         if (parts[0].length() == 4) {
@@ -69,6 +94,12 @@ public class InflationFetchService {
         }
         return LocalDate.of(Integer.parseInt(parts[2]), Integer.parseInt(parts[1]), 1);
     }
+    /**
+     * Saves to database.
+     *
+     * @param inflationList inflation list value
+     * @return save to database result
+     */
     private List<Inflation> saveToDatabase(List<Inflation> inflationList){
         logger.info("inflation records saving ....");
 
@@ -79,6 +110,12 @@ public class InflationFetchService {
         return inflationRepository.saveAll(inflationListToSave);
     }
 
+    /**
+     * Returns the result of resolve inflation for save.
+     *
+     * @param inflation inflation value
+     * @return resolve inflation for save result
+     */
     private Inflation resolveInflationForSave(Inflation inflation) {
         return inflationRepository.findByTimestamp(inflation.getTimestamp())
                 .map(existingInflation -> {

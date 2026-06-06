@@ -25,6 +25,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 
+/**
+ * Service component that handles portfolio operations.
+ */
 @Service
 public class PortfolioService {
     private static final BigDecimal COMMISSION_RATE = new BigDecimal("0");
@@ -36,6 +39,16 @@ public class PortfolioService {
     private final InstrumentRepository instrumentRepository;
     private final UserRepository userRepository;
     private final InstrumentService instrumentService;
+    /**
+     * Creates a new PortfolioService with its required dependencies.
+     *
+     * @param instrumentRepository instrument repository value
+     * @param portfolioRepository portfolio repository value
+     * @param marketDataRepository market data repository value
+     * @param transactionRepository transaction repository value
+     * @param userRepository user repository value
+     * @param instrumentService instrument service value
+     */
     public PortfolioService(InstrumentRepository instrumentRepository, PortfolioRepository portfolioRepository, MarketDataRepository marketDataRepository, TransactionRepository transactionRepository, UserRepository userRepository, InstrumentService instrumentService) {
         this.marketDataRepository = marketDataRepository;
         this.userRepository = userRepository;
@@ -45,10 +58,25 @@ public class PortfolioService {
         this.instrumentService = instrumentService;
     }
 
+    /**
+     * Returns portfolio.
+     *
+     * @param userId identifier of the user
+     * @param portfolioId identifier of the portfolio
+     * @return portfolio result
+     */
     public PortfolioReadDto getPortfolio(String userId, UUID portfolioId){
         return getPortfolio(userId, portfolioId, Currency.TRY);
     }
 
+    /**
+     * Returns portfolio.
+     *
+     * @param userId identifier of the user
+     * @param portfolioId identifier of the portfolio
+     * @param displayCurrency display currency value
+     * @return portfolio result
+     */
     public PortfolioReadDto getPortfolio(String userId, UUID portfolioId, Currency displayCurrency){
         logger.info("fetching Portfolio for {}", userId);
 
@@ -60,10 +88,23 @@ public class PortfolioService {
                 ));
 
     }
+    /**
+     * Returns user portfolios.
+     *
+     * @param userId identifier of the user
+     * @return user portfolios result
+     */
     public List<PortfolioReadDto> getUserPortfolios(String userId){
         return getUserPortfolios(userId, Currency.TRY);
     }
 
+    /**
+     * Returns user portfolios.
+     *
+     * @param userId identifier of the user
+     * @param displayCurrency display currency value
+     * @return user portfolios result
+     */
     public List<PortfolioReadDto> getUserPortfolios(String userId, Currency displayCurrency){
         logger.info("fetching Portfolios for {}", userId);
 
@@ -72,6 +113,14 @@ public class PortfolioService {
                 .map(portfolio -> toPortfolioReadDto(portfolio, displayCurrency))
                 .collect(Collectors.toList());
     }
+    /**
+     * Calculates current portfolio profit.
+     *
+     * @param userId identifier of the user
+     * @param portfolioId identifier of the portfolio
+     * @param displayCurrency display currency value
+     * @return calculate current portfolio profit result
+     */
     public List<PortfolioCurrentProfitDto> calculateCurrentPortfolioProfit(String userId, UUID portfolioId, Currency displayCurrency) {
         Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
         Currency targetCurrency = normalizeCurrency(displayCurrency);
@@ -87,6 +136,14 @@ public class PortfolioService {
                 .toList();
     }
 
+    /**
+     * Converts data to portfolio current profit dto.
+     *
+     * @param portfolioItem portfolio item value
+     * @param displayCurrency display currency value
+     * @param usdTryRate usd try rate value
+     * @return to portfolio current profit dto result
+     */
     private PortfolioCurrentProfitDto toPortfolioCurrentProfitDto(PortfolioItem portfolioItem, Currency displayCurrency, BigDecimal usdTryRate) {
         Instrument instrument = portfolioItem.getInstrument();
         Currency instrumentCurrency = normalizeCurrency(instrument.getBaseCurrency());
@@ -116,6 +173,13 @@ public class PortfolioService {
     }
 
 
+    /**
+     * Converts data to portfolio read dto.
+     *
+     * @param portfolio portfolio value
+     * @param displayCurrency display currency value
+     * @return to portfolio read dto result
+     */
     private PortfolioReadDto toPortfolioReadDto(Portfolio portfolio, Currency displayCurrency) {
         Currency targetCurrency = normalizeCurrency(displayCurrency);
         BigDecimal usdTryRate = resolveUsdTryRate();
@@ -157,6 +221,13 @@ public class PortfolioService {
                 .build();
     }
 
+    /**
+     * Returns portfolio entity.
+     *
+     * @param userId identifier of the user
+     * @param portfolioId identifier of the portfolio
+     * @return portfolio entity result
+     */
     private Portfolio getPortfolioEntity(String userId, UUID portfolioId) {
         return portfolioRepository.findByIdAndUserId(portfolioId,userId)
                 .orElseThrow(() ->
@@ -164,6 +235,14 @@ public class PortfolioService {
     }
 
 
+    /**
+     * Converts data to portfolio item dto.
+     *
+     * @param item item value
+     * @param displayCurrency display currency value
+     * @param usdTryRate usd try rate value
+     * @return to portfolio item dto result
+     */
     private PortfolioItemDto toPortfolioItemDto(PortfolioItem item, Currency displayCurrency, BigDecimal usdTryRate) {
         Instrument instrument = item.getInstrument();
         Currency instrumentCurrency = normalizeCurrency(instrument.getBaseCurrency());
@@ -195,10 +274,25 @@ public class PortfolioService {
 
 
 
+    /**
+     * Returns portfolio chart values.
+     *
+     * @param userId identifier of the user
+     * @param portfolioId identifier of the portfolio
+     * @return portfolio chart values result
+     */
     public List<PieChartDto> getPortfolioChartValues(String userId, UUID portfolioId) {
         return getPortfolioChartValues(userId, portfolioId, Currency.TRY);
     }
 
+    /**
+     * Returns portfolio chart values.
+     *
+     * @param userId identifier of the user
+     * @param portfolioId identifier of the portfolio
+     * @param displayCurrency display currency value
+     * @return portfolio chart values result
+     */
     public List<PieChartDto> getPortfolioChartValues(String userId, UUID portfolioId, Currency displayCurrency) {
         Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
         Currency targetCurrency = normalizeCurrency(displayCurrency);
@@ -223,6 +317,12 @@ public class PortfolioService {
     }
 
 
+    /**
+     * Creates portfolio.
+     *
+     * @param userId identifier of the user
+     * @param portfolio portfolio value
+     */
     public void createPortfolio(String userId,PortfolioDto portfolio){
         logger.info("creating Portfolio {}", portfolio.portfolioName());
 
@@ -243,6 +343,14 @@ public class PortfolioService {
 
     }
 
+    /**
+     * Returns portfolio type allocation.
+     *
+     * @param userId identifier of the user
+     * @param portfolioId identifier of the portfolio
+     * @param displayCurrency display currency value
+     * @return portfolio type allocation result
+     */
     public List<PieChartDto> getPortfolioTypeAllocation(String userId, UUID portfolioId, Currency displayCurrency) {
         Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
         Currency targetCurrency = normalizeCurrency(displayCurrency);
@@ -298,6 +406,14 @@ public class PortfolioService {
                 .toList();
     }
 
+    /**
+     * Converts data to instrument pie slice.
+     *
+     * @param item item value
+     * @param displayCurrency display currency value
+     * @param usdTryRate usd try rate value
+     * @return to instrument pie slice result
+     */
     private PieChartDto toInstrumentPieSlice(PortfolioItem item, Currency displayCurrency, BigDecimal usdTryRate) {
         Instrument instrument = item.getInstrument();
         Currency instrumentCurrency = normalizeCurrency(instrument.getBaseCurrency());
@@ -317,6 +433,13 @@ public class PortfolioService {
         );
     }
 
+    /**
+     * Returns the result of with percentage.
+     *
+     * @param slice slice value
+     * @param total total value
+     * @return with percentage result
+     */
     private PieChartDto withPercentage(PieChartDto slice, BigDecimal total) {
         return new PieChartDto(
                 slice.label(),
@@ -333,6 +456,12 @@ public class PortfolioService {
         );
     }
 
+    /**
+     * Returns the result of normalize currency.
+     *
+     * @param currency currency value
+     * @return normalize currency result
+     */
     private Currency normalizeCurrency(Currency currency) {
         if (currency == null) return Currency.TRY;
         return switch (currency) {
@@ -341,6 +470,12 @@ public class PortfolioService {
         };
     }
 
+    /**
+     * Returns the result of resolve market currency.
+     *
+     * @param currency currency value
+     * @return resolve market currency result
+     */
     private Currency resolveMarketCurrency(Currency currency) {
         Currency normalized = normalizeCurrency(currency);
         if (normalized == Currency.TRY) return Currency.TRY;
@@ -348,6 +483,11 @@ public class PortfolioService {
         return normalized;
     }
 
+    /**
+     * Returns the result of resolve usd try rate.
+     *
+     * @return resolve usd try rate result
+     */
     private BigDecimal resolveUsdTryRate() {
         return instrumentRepository.findInstrumentBySymbol("USDTRY")
                 .or(() -> instrumentRepository.findInstrumentBySymbol("TRY"))
@@ -356,6 +496,15 @@ public class PortfolioService {
                 .orElse(BigDecimal.ONE);
     }
 
+    /**
+     * Returns the result of convert value.
+     *
+     * @param value value value
+     * @param sourceCurrency source currency value
+     * @param displayCurrency display currency value
+     * @param usdTryRate usd try rate value
+     * @return convert value result
+     */
     private BigDecimal convertValue(BigDecimal value, Currency sourceCurrency, Currency displayCurrency, BigDecimal usdTryRate) {
         Currency source = normalizeCurrency(sourceCurrency);
         Currency target = normalizeCurrency(displayCurrency);
@@ -370,6 +519,14 @@ public class PortfolioService {
         return value;
     }
 
+    /**
+     * Returns the result of resolve fx rate.
+     *
+     * @param sourceCurrency source currency value
+     * @param displayCurrency display currency value
+     * @param usdTryRate usd try rate value
+     * @return resolve fx rate result
+     */
     private BigDecimal resolveFxRate(Currency sourceCurrency, Currency displayCurrency, BigDecimal usdTryRate) {
         Currency source = normalizeCurrency(sourceCurrency);
         Currency target = normalizeCurrency(displayCurrency);
@@ -383,15 +540,37 @@ public class PortfolioService {
         return BigDecimal.ONE;
     }
 
+    /**
+     * Returns the result of convert instrument value.
+     *
+     * @param value value value
+     * @param sourceCurrency source currency value
+     * @param displayCurrency display currency value
+     * @param usdTryRate usd try rate value
+     * @return convert instrument value result
+     */
     private BigDecimal convertInstrumentValue(BigDecimal value, Currency sourceCurrency, Currency displayCurrency, BigDecimal usdTryRate) {
         return convertValue(value, sourceCurrency, displayCurrency, usdTryRate);
     }
 
+    /**
+     * Calculates raw item value.
+     *
+     * @param item item value
+     * @return calculate raw item value result
+     */
     private BigDecimal calculateRawItemValue(PortfolioItem item) {
         return valueOrZero(item.getInstrument().getCurrentPrice())
                 .multiply(valueOrZero(item.getQuantity()));
     }
 
+    /**
+     * Calculates percentage.
+     *
+     * @param numerator numerator value
+     * @param denominator denominator value
+     * @return calculate percentage result
+     */
     private BigDecimal calculatePercentage(BigDecimal numerator, BigDecimal denominator) {
         if (denominator == null || denominator.compareTo(BigDecimal.ZERO) == 0) {
             return null;
@@ -401,10 +580,22 @@ public class PortfolioService {
                 .divide(denominator, 2, RoundingMode.HALF_UP);
     }
 
+    /**
+     * Returns the result of value or zero.
+     *
+     * @param value value value
+     * @return value or zero result
+     */
     private BigDecimal valueOrZero(BigDecimal value) {
         return Optional.ofNullable(value).orElse(BigDecimal.ZERO);
     }
 
+    /**
+     * Returns the result of market label.
+     *
+     * @param marketCode market code value
+     * @return market label result
+     */
     private String marketLabel(String marketCode) {
         return switch (marketCode) {
             case "TR" -> "TR";
@@ -413,6 +604,12 @@ public class PortfolioService {
         };
     }
 
+    /**
+     * Returns the result of instrument type label.
+     *
+     * @param type type value
+     * @return instrument type label result
+     */
     private String instrumentTypeLabel(InstrumentType type) {
         return switch (type) {
             case STOCK -> "Hisse";
@@ -426,6 +623,12 @@ public class PortfolioService {
         };
     }
 
+    /**
+     * Returns the result of resolve start date.
+     *
+     * @param portfolioRange portfolio range value
+     * @return resolve start date result
+     */
     private LocalDate resolveStartDate(PortfolioRange portfolioRange){
         LocalDate today = LocalDate.now();
         return switch (portfolioRange){
@@ -435,11 +638,25 @@ public class PortfolioService {
             case THREE_MONTHS -> today.minusMonths(3);
             case SIX_MONTHS -> today.minusMonths(6);
             case YEARLY -> today.minusYears(1);
+            /**
+             * Returns the result of illegal state exception.
+             *
+             * @param portfolioRange portfolio range value
+             * @return illegal state exception result
+             */
             default -> throw new IllegalStateException("Unexpected value: " + portfolioRange);
         };
     }
 
 
+    /**
+     * Calculates performance line chart.
+     *
+     * @param portfolioRange portfolio range value
+     * @param portfolio portfolio value
+     * @param displayCurrency display currency value
+     * @return calculate performance line chart result
+     */
     public List<PerformanceLineChartDto> calculatePerformanceLineChart(PortfolioRange portfolioRange, Portfolio portfolio, Currency displayCurrency) {
         Currency targetCurrency = normalizeCurrency(displayCurrency);
         BigDecimal usdTryRate = resolveUsdTryRate();
@@ -514,6 +731,12 @@ public class PortfolioService {
         }
         return performanceLineChartList;
     }
+    /**
+     * Performs apply transaction.
+     *
+     * @param quantityMap quantity map value
+     * @param transaction transaction value
+     */
     private void applyTransaction(Map<UUID,BigDecimal> quantityMap,Transaction transaction) {
         if(transaction.getInstrument()== null) return;
         UUID instrumentId = transaction.getInstrument().getId();
@@ -525,19 +748,47 @@ public class PortfolioService {
         }
 
     }
+    /**
+     * Returns calculated performance chart values.
+     *
+     * @param userId identifier of the user
+     * @param portfolioId identifier of the portfolio
+     * @param range range value
+     * @return calculated performance chart values result
+     */
     public List<PerformanceLineChartDto> getCalculatedPerformanceChartValues(String userId, UUID portfolioId, PortfolioRange range) {
         return getCalculatedPerformanceChartValues(userId, portfolioId, range, Currency.TRY);
     }
 
+    /**
+     * Returns calculated performance chart values.
+     *
+     * @param userId identifier of the user
+     * @param portfolioId identifier of the portfolio
+     * @param range range value
+     * @param displayCurrency display currency value
+     * @return calculated performance chart values result
+     */
     public List<PerformanceLineChartDto> getCalculatedPerformanceChartValues(String userId, UUID portfolioId, PortfolioRange range, Currency displayCurrency) {
         Portfolio portfolio = getPortfolioEntity(userId, portfolioId);
         logger.info("calculating {} days performance line chart for :{}",range.toString(),userId);
         return calculatePerformanceLineChart(range , portfolio, displayCurrency);
     }
+    /**
+     * Returns all portfolios.
+     *
+     * @return all portfolios result
+     */
     public List<PortfolioReadDto> getAllPortfolios() {
         return getAllPortfolios(Currency.TRY);
     }
 
+    /**
+     * Returns all portfolios.
+     *
+     * @param displayCurrency display currency value
+     * @return all portfolios result
+     */
     public List<PortfolioReadDto> getAllPortfolios(Currency displayCurrency) {
 
         logger.info("fetching all portfolios");
@@ -548,6 +799,14 @@ public class PortfolioService {
                 .toList();
     }
 
+    /**
+     * Performs sell instrument.
+     *
+     * @param userId identifier of the user
+     * @param instrumentSymbol instrument symbol value
+     * @param quantity quantity value
+     * @param portfolioId identifier of the portfolio
+     */
     @Transactional
     public void sellInstrument(String userId, String instrumentSymbol, BigDecimal quantity,UUID portfolioId){
         Instrument instrument= instrumentRepository.findInstrumentBySymbol(instrumentSymbol)
@@ -601,6 +860,14 @@ public class PortfolioService {
         logger.info("Sale completed for user {}: Sold {} of {} at {} each. Total Proceeds: {}, Commission: {}, New Balance: {}",
                 userId, quantity, instrumentSymbol, price, totalProceeds, commission, portfolio.getCashBalance());
     }
+    /**
+     * Performs buy instrument.
+     *
+     * @param userId identifier of the user
+     * @param instrumentSymbol instrument symbol value
+     * @param quantity quantity value
+     * @param portfolioId identifier of the portfolio
+     */
     @Transactional
     public void buyInstrument(String userId, String instrumentSymbol, BigDecimal quantity, UUID portfolioId){
         Instrument instrument= instrumentRepository.findInstrumentBySymbol(instrumentSymbol)
@@ -674,6 +941,13 @@ public class PortfolioService {
 
     }
 
+    /**
+     * Performs deposit cash.
+     *
+     * @param userId identifier of the user
+     * @param amount amount value
+     * @param portfolioId identifier of the portfolio
+     */
     @Transactional
     public void depositCash(String userId, BigDecimal amount, UUID portfolioId){
         Portfolio portfolio = getPortfolioEntity(userId,portfolioId);
