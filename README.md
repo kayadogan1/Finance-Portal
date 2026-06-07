@@ -1,450 +1,8 @@
-# Finance Portal [TR]
-
-Finance Portal; piyasa verileri, finans haberleri, haber sınıflandırma, portföy yönetimi, login/rol yönetimi ve observability altyapısı olan mikroservis tabanlı bir finans uygulamasıdır.
-
-Bu README'nin önceliği uygulamayı hızlıca çalıştırmaktır. Mimari ve genel bilgiler daha alt bölümlerdedir.
-
-## 1. Uygulama Nasıl Çalıştırılır?
-
-Bu proje default değerlerle Docker üzerinden çalışır. Ekstra `.env` dosyası oluşturmak zorunlu değildir.
-
-Gerekenler:
-
-- Docker Desktop veya Docker Engine
-- Git
-
-Adımlar:
-
-```bash
-git clone https://github.com/kayadogan1/Finance-Portal
-cd Finance-Portal
-docker compose up -d --build
-```
-
-Container durumunu kontrol et:
-
-```bash
-docker compose ps
-```
-
-İlk açılışta iki bootstrap container kısa süre çalışıp tamamlanır:
-
-- `finance_postgres_bootstrap`: `finance_db`, `news_db`, `keycloak` database'lerini kontrol eder ve eksik olanları oluşturur.
-- `finance_keycloak_bootstrap`: registration ayarını açar, default `USER` rol mapping'ini ekler ve mevcut kullanıcılara `USER` rolünü uygular.
-
-Bu container'ların `Exited (0)` görünmesi normaldir; görevlerini tamamlayıp kapanırlar.
-
-Ana sayfayı aç:
-
-[http://localhost:5173](http://localhost:5173)
-
-Uygulama açıldıktan sonra ilk bakılacak ekran frontend ana sayfasıdır. Giriş yapmak için sağ üstteki `Giriş` veya `Kayıt Ol` akışı kullanılabilir.
-
-Uygulamayı durdurmak için:
-
-```bash
-docker compose down
-```
-
-Geliştirme ortamında verileri de sıfırlamak gerekirse:
-
-```bash
-docker compose down -v
-docker compose up -d --build
-```
-
-## 2. Çalışan Servisler ve URL'ler
-
-| Amaç | URL |
-| --- | --- |
-| Web uygulaması | [http://localhost:5173](http://localhost:5173) |
-| API Gateway | [http://localhost:8080](http://localhost:8080) |
-| Gateway Swagger | [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html) |
-| Finance Swagger | [http://localhost:8081/swagger-ui.html](http://localhost:8081/swagger-ui.html) |
-| News Swagger | [http://localhost:8082/swagger-ui.html](http://localhost:8082/swagger-ui.html) |
-| Classification Swagger | [http://localhost:8083/swagger-ui.html](http://localhost:8083/swagger-ui.html) |
-| Classification Health | [http://localhost:8083/api/v1/news/health](http://localhost:8083/api/v1/news/health) |
-| Keycloak | [http://localhost:9090](http://localhost:9090) |
-| phpLDAPadmin | [http://localhost:8085](http://localhost:8085) |
-
-Keycloak lokal admin bilgisi:
-
-```text
-username: admin
-password: admin
-```
-
-### Admin Kullanıcı Nasıl Eklenir?
-
-Admin panelini, haber yenileme/onaylama akışını ve admin endpointlerini görebilmek için kullanıcıya `finance-gateway-client` client'ı altındaki `ADMIN` rolü verilmelidir.
-
-Arayüzden ekleme:
-
-1. [http://localhost:9090](http://localhost:9090) adresinden Keycloak admin console'u aç.
-2. `admin / admin` ile giriş yap.
-3. Sol üst realm seçiminden `FinancePortal` realm'ini seç.
-4. Sol menüden `Users` ekranına gir ve admin yapılacak kullanıcıyı aç.
-5. `Role mapping` sekmesine geç.
-6. `Assign role` butonuna bas.
-7. Filtreyi client roles tarafına alıp `finance-gateway-client ADMIN` rolünü seç.
-8. `Assign` ile kaydet.
-9. Uygulamadaki kullanıcı çıkış yapıp tekrar giriş yapsın.
-
-Container üzerinden hızlı ekleme:
-
-```bash
-docker exec finance_keycloak /opt/keycloak/bin/kcadm.sh config credentials \
-  --server http://localhost:8080 \
-  --realm master \
-  --user admin \
-  --password admin
-
-docker exec finance_keycloak /opt/keycloak/bin/kcadm.sh add-roles \
-  -r FinancePortal \
-  --uusername <kullanici-adi> \
-  --cclientid finance-gateway-client \
-  --rolename ADMIN
-```
-
-Örnek:
-
-```bash
-docker exec finance_keycloak /opt/keycloak/bin/kcadm.sh add-roles \
-  -r FinancePortal \
-  --uusername dodo \
-  --cclientid finance-gateway-client \
-  --rolename ADMIN
-```
-
-Admin rolü verildikten sonra frontend'de `Admin` menüsü görünür. Bu ekrandan provider durumları, admin metrikleri, enstrüman yönetimi ve haber yenileme/onaylama akışları kontrol edilebilir.
-
-## 3. Container Üzerinden Kontrol
-
-Bu proje değerlendirme/test sürecinde container üzerinden çalıştırılacak şekilde hazırlanmıştır. Servisleri host makinede tek tek ayağa kaldırmak zorunlu değildir.
-
-Logları izlemek:
-
-```bash
-docker compose logs -f api-gateway finance-service news-service classification-api
-```
-
-Tek servis logu:
-
-```bash
-docker compose logs -f finance-service
-```
-
-Beklenen ana container'lar:
-
-| Container | Açıklama |
-| --- | --- |
-| `finance-frontend` | React uygulamasını Nginx ile servis eder |
-| `api-gateway` | Backend servislerinin tek giriş noktası |
-| `finance-service` | Market, portföy, admin ve enflasyon işlemleri |
-| `news-service` | Haber listeleme ve RSS yenileme |
-| `classification-api` | Haber sınıflandırma servisi |
-| `finance_db` | PostgreSQL |
-| `finance-redis` | Redis cache |
-| `finance_keycloak` | Kimlik yönetimi |
-| `finance_openldap` | LDAP directory |
-| `finance_filebeat` | Log collector |
-| `finance_postgres_bootstrap` | İlk açılış DB hazırlığı, tamamlanınca kapanır |
-| `finance_keycloak_bootstrap` | İlk açılış Keycloak ayarları, tamamlanınca kapanır |
-
-### Bootstrap Container'ları Neden Var?
-
-Bootstrap container'ları ana uygulama servisi değildir. Bunlar `docker compose up` sırasında kısa süre çalışan, kurulum eksiklerini otomatik tamamlayan one-shot init job'lardır.
-
-Amaç, uygulamanın başka bir bilgisayarda veya EC2 gibi uzak bir sunucuda localdeki gibi manuel işlem gerektirmeden açılmasıdır.
-
-`finance_postgres_bootstrap` şunları yapar:
-
-- PostgreSQL hazır olana kadar bekler.
-- `finance_db`, `news_db` ve `keycloak` database'lerini kontrol eder.
-- Eksik database varsa oluşturur.
-- Database zaten varsa dokunmaz.
-- İşini bitirince kapanır.
-
-`finance_keycloak_bootstrap` şunları yapar:
-
-- Keycloak hazır olana kadar bekler.
-- `FinancePortal` realm hazır olana kadar bekler.
-- Kullanıcı kaydını açar: `registrationAllowed=true`.
-- Login temasını ayarlar: `loginTheme=finance`.
-- Yeni kullanıcılara otomatik `USER` rolü gelsin diye default role mapping ekler.
-- Daha önce oluşturulmuş kullanıcılara da `USER` rolünü vermeye çalışır.
-- İşini bitirince kapanır.
-
-Bu container'lar özel image build etmez. Hazır image kullanırlar:
-
-- `postgres:16-alpine`
-- `quay.io/keycloak/keycloak:23.0.7`
-
-Sadece [scripts](scripts) klasöründeki shell scriptleri mount edilip çalıştırılır.
-
-`docker compose ps -a` çıktısında şu şekilde görünmeleri normaldir:
-
-```text
-finance_postgres_bootstrap   Exited (0)
-finance_keycloak_bootstrap   Exited (0)
-```
-
-Bu durum hata değil, başarılı tamamlandı anlamına gelir.
-
-Bu bootstrap adımları olmasaydı yeni kurulumlarda şu işler manuel yapılmak zorunda kalırdı:
-
-- `keycloak` database'ini oluşturmak
-- Keycloak registration ayarını açmak
-- `finance` login temasını seçmek
-- `default-roles-financeportal` içine `USER` rol mapping'i eklemek
-- Mevcut kullanıcılara `USER` rolü vermek
-
-## 4. Başka PC'de İlk Çalıştırma ve Boş Veri Durumu
-
-Başka bir bilgisayarda ilk kez çalıştırıldığında PostgreSQL volume boş olur. Bu normaldir, uygulama patlamaz.
-
-Temiz kurulumda beklenen durum:
-
-- Flyway migration'ları tabloları otomatik oluşturur.
-- Keycloak realm import edilir, roller ve client ayarları gelir.
-- Finance tarafında enstrüman kataloğu uygulama açılışında `instruments.properties` ve `bist-instruments.json` üzerinden yüklenir.
-- Market fiyatları ve geçmiş veriler scheduler'lar çalıştıkça Yahoo Finance, Binance, Fintables ve diğer sağlayıcılardan çekilir.
-- Haberler ilk başta boş görünebilir; RSS scheduler veya admin panelindeki haber yenileme akışı çalışınca dolar.
-- Portföy verisi kullanıcıya bağlıdır; yeni kullanıcı portföy oluşturana kadar portföy ekranı boş olur.
-
-Dikkat edilmesi gerekenler:
-
-- İnternet yoksa dış veri sağlayıcılarından fiyat/haber çekilemez. Bu durumda ekranlar boş veri gösterebilir ama ana uygulama çalışmaya devam eder.
-- Chart endpointleri ilgili sembol için henüz market data yoksa boş liste dönebilir.
-- Geçmiş getiri hesaplama gibi market data isteyen işlemler, veri oluşmadan önce hata mesajı dönebilir.
-- Admin ekranı için Keycloak'ta kullanıcıya `ADMIN` rolü verilmelidir.
-
-Kısacası başka PC'de backup restore etmek zorunlu değildir. Uygulama default kurulumla açılır; veri tarafı zamanla scheduler'lar ve kullanıcı işlemleriyle dolar.
-
-## 5. Endpoint Özeti
-
-Tüm detaylar Swagger UI üzerinden görülebilir. Ana giriş noktası API Gateway'dir:
-
-```text
-http://localhost:8080
-```
-
-Gateway route'ları:
-
-| Path | Servis | Açıklama |
-| --- | --- | --- |
-| `/api/market/**` | finance-service | Enstrüman, market data, grafik ve fiyat verileri |
-| `/api/portfolio/**` | finance-service | Portföy, para yatırma, al/sat, kar/zarar |
-| `/api/admin/**` | finance-service | Admin metrikleri, provider status, instrument aktivasyonu |
-| `/api/inflation/**` | finance-service | Enflasyon verileri |
-| `/api/news/**` | news-service | Haber listesi, haber yenileme, provider status |
-| `/api/v1/news/**` | classification-api | Haber sınıflandırma ve health |
-| `/finance/v3/api-docs` | finance-service | OpenAPI JSON |
-| `/news/v3/api-docs` | news-service | OpenAPI JSON |
-| `/classification/v3/api-docs` | classification-api | OpenAPI JSON |
-
-Önemli endpointler:
-
-| Method | Endpoint | Açıklama |
-| --- | --- | --- |
-| `GET` | `/api/market` | Enstrümanları listeler |
-| `GET` | `/api/market/{symbol}` | Tek enstrüman getirir |
-| `GET` | `/api/market/candles/{symbol}` | Mum grafik verisi |
-| `GET` | `/api/market/line/{symbol}` | Line chart verisi |
-| `GET` | `/api/market/hypothetical-return/{symbol}` | Geçmiş alım senaryosu hesaplar |
-| `GET` | `/api/portfolio/myPortfolios` | Kullanıcının portföylerini getirir |
-| `POST` | `/api/portfolio/create` | Portföy oluşturur |
-| `POST` | `/api/portfolio/deposit` | Portföye para yatırır |
-| `POST` | `/api/portfolio/buy` | Enstrüman alır |
-| `POST` | `/api/portfolio/sell` | Enstrüman satar |
-| `GET` | `/api/portfolio/transactions` | İşlem geçmişi |
-| `GET` | `/api/news` | Haberleri listeler |
-| `POST` | `/api/news/refresh` | Haberleri manuel yeniler, admin ister |
-| `GET` | `/api/news/topics` | Haber kategorileri |
-| `GET` | `/api/admin/providers/status` | Finance provider durumları |
-| `GET` | `/api/news/admin/providers/status` | News provider durumları |
-| `GET` | `/api/v1/news/health` | Classification health |
-| `POST` | `/api/v1/news/classify` | Haber başlığını sınıflandırır |
-
-Endpointlerin güncel ve detaylı hali için servislerin Swagger UI ekranları kullanılmalıdır.
-
-## 6. Observability Bilgisi
-
-Projede observability iki parçadır:
-
-- Loglar: Spring servisleri JSON log üretir. Filebeat logları Elasticsearch'e taşır. Kibana üzerinden dashboard alınır.
-- Metric/Trace: Spring Boot Actuator + OpenTelemetry verileri OTLP ile Grafana LGTM tarafına gönderilir.
-
-Akış:
-
-```text
-Spring services -> Docker logs -> Filebeat -> Elasticsearch -> Kibana
-Spring services -> OpenTelemetry OTLP -> Grafana LGTM
-```
-
-Önemli teslim notu:
-
-- Uzak observability sunucusu güvenlik sebebiyle şu an kapalıdır ve IP bilgisi değişmiştir.
-- Lokal makinede RAM kısıtı nedeniyle Elasticsearch ve Grafana testleri çalıştırılmamıştır.
-- Elastic/Kibana ve Grafana doğrulamaları uzak sunucuda yapılmıştır.
-- İlgili ekran görüntüleri `docs` klasöründe eklenmiştir.
-- Proje sunumunda uzak sunucudaki docker imageları gösterilip sunulacaktır.
-
-Uzak sunucu tekrar açıldığında opsiyonel olarak şu değişken kullanılabilir:
-
-```bash
-REMOTE_OBSERVABILITY_HOST=<remote-host-or-ip> docker compose up -d --build
-```
-
-Default çalıştırmada `.env` gerekmez. Observability endpointleri yoksa ana uygulama yine container üzerinden çalışır; sadece log/metric aktarımı uzak sisteme yapılamaz.
-
-## 7. Ekran Görüntüleri ve Sayfa Eşleştirmesi
-
-| Sayfa | Görsel |
-| --- | --- |
-| Landing / ana giriş ekranı | ![Landing](docs/Screenshot%202026-05-08%20at%2002.13.22.png) |
-| Landing / canlı ticker görünümü | ![Landing ticker](docs/Screenshot%202026-05-08%20at%2002.15.21.png) |
-| Haberler sayfası | ![Haberler](docs/Screenshot%202026-05-27%20at%2000.06.26.png) |
-| Login sayfası | ![Login](docs/Screenshot%202026-05-27%20at%2000.07.22.png) |
-| Admin paneli | ![Admin](docs/Screenshot%202026-05-27%20at%2000.08.00.png) |
-| Enstrüman detay / fiyat grafiği ve al-sat paneli | ![Enstrüman detay](docs/Screenshot%202026-05-31%20at%2014.14.22.png) |
-| Portföy analitiği / getiri ve enflasyon analizi | ![Portföy analitiği](docs/Screenshot%202026-05-31%20at%2014.14.32.png) |
-| Genel bakış / varlık karşılaştırma grafiği | ![Genel bakış karşılaştırma](docs/Screenshot%202026-05-31%20at%2014.14.43.png) |
-| Kibana log dashboard üst görünüm | ![Kibana dashboard 1](docs/Screenshot%202026-05-05%20at%2018.00.37.png) |
-| Kibana log dashboard detay görünüm | ![Kibana dashboard 2](docs/Screenshot%202026-05-05%20at%2018.00.40.png) |
-
-## 8. Sistem Mimarisi
-
-
-
-Mermaid Live:
-
-[https://mermaid.live](https://mermaid.live)
-
-```mermaid
-flowchart LR
-    subgraph client [Client Layer]
-        browser["User Browser"]
-    end
-
-    subgraph edge [Web / Edge Layer]
-        frontend["finance-frontend\nReact + Vite build\nNginx static hosting\n:5173 local / :80 prod"]
-        gateway["api-gateway\nSpring Cloud Gateway\nCentral API entrypoint\n:8080"]
-    end
-
-    subgraph identity [Identity Layer]
-        keycloak["Keycloak\nOAuth2 / OIDC / JWT\nRealm: FinancePortal\n:9090"]
-        ldap["OpenLDAP\nUser directory\n:389 / :636"]
-    end
-
-    subgraph services [Core Microservices]
-        finance["finance-service\nMarket data, portfolio,\ntrade, admin, inflation\n:8081"]
-        news["news-service\nRSS ingestion,\nnews API, approvals\n:8082"]
-        classify["classification-api\nNews text classification,\nasset type and symbol match\n:8083"]
-    end
-
-    subgraph data [Data Layer]
-        postgres[("PostgreSQL 16\nfinance_db\nnews_db\nkeycloak")]
-        redis[("Redis 7\nmarket and instrument cache")]
-    end
-
-    subgraph external [External Data Providers]
-        yahoo["Yahoo Finance\nprices, charts, RSS"]
-        binance["Binance API\ncrypto prices"]
-        fintables["Fintables API\nfund / VIOP history"]
-        sozcu["Sozcu RSS\nTR finance news"]
-        evds["EVDS API\ninflation data"]
-    end
-
-    subgraph observability [Observability Layer: local or remote server]
-        filebeat["Filebeat\nDocker log collector"]
-        elastic["Elasticsearch\nlog storage\n:9200"]
-        kibana["Kibana\nlog dashboard\n:5601"]
-        otlp["OTLP HTTP Collector\nmetrics + traces\n:4318"]
-        grafana["Grafana LGTM\nmetrics + traces UI\n:3000"]
-    end
-
-    browser -->|"HTTPS / HTTP"| frontend
-    frontend -->|"REST API: /api/*"| gateway
-    frontend -->|"Login / token flow"| keycloak
-
-    gateway -->|"JWT validation / JWK"| keycloak
-    keycloak -->|"LDAP federation"| ldap
-    keycloak -->|"realm, users, sessions"| postgres
-
-    gateway -->|"finance routes"| finance
-    gateway -->|"news routes"| news
-    gateway -->|"classification routes"| classify
-
-    finance -->|"JPA / Flyway"| postgres
-    finance -->|"cache read/write"| redis
-    finance -->|"market data"| yahoo
-    finance -->|"crypto data"| binance
-    finance -->|"fund / VIOP data"| fintables
-    finance -->|"inflation data"| evds
-
-    news -->|"JPA / Flyway"| postgres
-    news -->|"classify article"| classify
-    news -->|"global news RSS"| yahoo
-    news -->|"TR news RSS"| sozcu
-
-    gateway -. "OTLP metrics / traces" .-> otlp
-    finance -. "OTLP metrics / traces" .-> otlp
-    news -. "OTLP metrics / traces" .-> otlp
-    otlp --> grafana
-
-    gateway -. "JSON container logs" .-> filebeat
-    finance -. "JSON container logs" .-> filebeat
-    news -. "JSON container logs" .-> filebeat
-    classify -. "JSON container logs" .-> filebeat
-    filebeat --> elastic
-    elastic --> kibana
-```
-
-## 9. Kullanılan Teknolojiler
-
-| Alan | Teknoloji |
-| --- | --- |
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS, Axios, React Query, Keycloak JS |
-| Gateway | Spring Boot 4, Spring Cloud Gateway, Spring Security |
-| Backend | Java 21, Spring Boot 4, Spring Data JPA, Flyway |
-| Auth | Keycloak, OpenLDAP, OAuth2/OIDC, JWT |
-| Database | PostgreSQL 16 |
-| Cache | Redis 7 |
-| News classification | Spring Boot, OpenNLP model dosyaları, lexicon/rule matching |
-| API docs | Springdoc OpenAPI, Swagger UI |
-| Observability | Filebeat, Elasticsearch, Kibana, OpenTelemetry, Grafana OTEL LGTM |
-| DevOps | Docker, Docker Compose, GitHub Actions, GHCR, EC2 |
-
-## 10. Deployment Özeti
-
-Prod deployment akışı [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) içindedir.
-
-EC2 testlerinde karsilasilan ana hatalar ve cozum notlari bu README icinde ozetlenmistir.
-
-Özet:
-
-1. `main`, `master` veya `develop` branch'ine push yapılır.
-2. GitHub Actions Maven build çalıştırır.
-3. Değişen servislerin Docker imajları build edilir.
-4. Imajlar GHCR'a push edilir.
-5. EC2 sunucusuna bağlanılır.
-6. Sunucuda `docker compose pull` ve `docker compose up -d --remove-orphans` çalışır.
-
-Prod compose:
-
-```bash
-docker compose -f docker-compose.prod.yml pull
-docker compose -f docker-compose.prod.yml up -d
-```
-
----
-
-# Finance Portal - [EN]
+# Finance Portal
 
 Finance Portal is a microservice-based finance application with market data, financial news, news classification, portfolio management, authentication/authorization, and observability support.
 
-This section follows the same structure as the Turkish guide. The main goal is to run the application quickly with Docker, open the frontend, and inspect the services through Swagger.
+The main goal of this README is to run the application quickly with Docker, open the frontend, and inspect the services through Swagger.
 
 ## 1. How to Run the Application
 
@@ -481,7 +39,7 @@ Open the homepage:
 
 [http://localhost:5173](http://localhost:5173)
 
-After the application starts, the first screen to check is the frontend homepage. Use the `Giriş` or `Kayıt Ol` flow from the top-right area to sign in or register.
+After the application starts, the first screen to check is the frontend homepage. Use the sign-in or registration flow from the top-right area to authenticate.
 
 Stop the application:
 
@@ -509,6 +67,9 @@ docker compose up -d --build
 | Classification Health | [http://localhost:8083/api/v1/news/health](http://localhost:8083/api/v1/news/health) |
 | Keycloak | [http://localhost:9090](http://localhost:9090) |
 | phpLDAPadmin | [http://localhost:8085](http://localhost:8085) |
+| Kibana logs UI (EC2) | [http://63.177.252.23:5601](http://63.177.252.23:5601) |
+| Grafana LGTM metrics/traces (EC2) | [http://63.177.252.23:3000](http://63.177.252.23:3000) |
+| Elasticsearch health (EC2) | [http://63.177.252.23:9200](http://63.177.252.23:9200) |
 
 Local Keycloak admin credentials:
 
@@ -727,18 +288,47 @@ Spring services -> OpenTelemetry OTLP -> Grafana LGTM
 
 Important delivery note:
 
-- The remote observability server is currently shut down for security reasons, and its IP address has changed.
-- Elasticsearch and Grafana could not be tested locally because of local RAM limitations.
-- Elastic/Kibana and Grafana validation was performed on the remote server.
+- The observability stack is hosted on an AWS EC2 instance that will remain available for the presentation.
+- The fixed EC2 IP is `63.177.252.23`.
+- Docker Compose uses this remote IP by default for metric, trace, and log forwarding.
+- During testing, Grafana and Kibana should be opened in the browser through the EC2 IP, not through `localhost`.
+- Elasticsearch and Grafana are not preferred for local testing because of local RAM limitations.
+- Elastic/Kibana and Grafana validation was performed on the remote EC2 server.
 - Related screenshots are included under the `docs` directory.
 
-When the remote server is available again, the optional host can be passed like this:
+Browser URLs for observability validation:
+
+| Purpose | URL |
+| --- | --- |
+| Kibana Discover / log search | [http://63.177.252.23:5601](http://63.177.252.23:5601) |
+| Grafana LGTM / metrics and traces | [http://63.177.252.23:3000](http://63.177.252.23:3000) |
+| Elasticsearch API check | [http://63.177.252.23:9200](http://63.177.252.23:9200) |
+
+If a different remote observability server is used, override the host like this:
 
 ```bash
 REMOTE_OBSERVABILITY_HOST=<remote-host-or-ip> docker compose up -d --build
 ```
 
 The default run does not require `.env`. If observability endpoints are unavailable, the main application still runs through containers; only log/metric forwarding to the remote stack is unavailable.
+
+### Filebeat Root Permission Error
+
+If `docker logs finance_filebeat` shows the following error on EC2, `filebeat.yml` must be owned by root:
+
+```text
+Exiting: error loading config file: config file ("filebeat.yml") must be owned by the user identifier (uid=0) or root
+```
+
+Fix:
+
+```bash
+sudo chown root:root filebeat.yml
+sudo chmod 644 filebeat.yml
+docker compose restart filebeat
+```
+
+After restarting Filebeat, verify log ingestion from the `finance-logs` data view in Kibana.
 
 ## 7. Screenshots and Page Mapping
 
@@ -754,6 +344,10 @@ The default run does not require `.env`. If observability endpoints are unavaila
 | Overview / asset comparison chart | ![Overview comparison](docs/Screenshot%202026-05-31%20at%2014.14.43.png) |
 | Kibana log dashboard overview | ![Kibana dashboard 1](docs/Screenshot%202026-05-05%20at%2018.00.37.png) |
 | Kibana log dashboard detail | ![Kibana dashboard 2](docs/Screenshot%202026-05-05%20at%2018.00.40.png) |
+| Grafana metrics drilldown / news-service filtered metrics | ![Grafana metrics drilldown](docs/Screenshot%202026-06-07%20at%2014.38.04.png) |
+| Grafana traces drilldown / finance-service and api-gateway spans | ![Grafana traces drilldown](docs/Screenshot%202026-06-07%20at%2014.38.19.png) |
+| Filebeat root ownership error and fix note | ![Filebeat root ownership error](docs/Screenshot%202026-06-07%20at%2014.42.10.png) |
+| Kibana Discover / finance logs from EC2 | ![Kibana Discover finance logs](docs/Screenshot%202026-06-07%20at%2014.44.26.png) |
 
 ## 8. System Architecture
 
