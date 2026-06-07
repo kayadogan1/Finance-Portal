@@ -17,7 +17,7 @@ Requirements:
 Steps:
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/kayadogan1/Finance-Portal
 cd Finance-Portal
 docker compose up -d --build
 ```
