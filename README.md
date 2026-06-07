@@ -355,15 +355,85 @@ Mermaid Live:
 
 [https://mermaid.live](https://mermaid.live)
 
-The architecture is organized into these layers:
+```mermaid
+flowchart LR
+    subgraph client [Client Layer]
+        browser["User Browser"]
+    end
 
-- Client Layer
-- Web / Edge Layer
-- Identity Layer
-- Core Microservices
-- Data Layer
-- External Data Providers
-- Observability Layer
+    subgraph edge [Web / Edge Layer]
+        frontend["finance-frontend\nReact + Vite build\nNginx static hosting\n:5173 local / :80 prod"]
+        gateway["api-gateway\nSpring Cloud Gateway\nCentral API entrypoint\n:8080"]
+    end
+
+    subgraph identity [Identity Layer]
+        keycloak["Keycloak\nOAuth2 / OIDC / JWT\nRealm: FinancePortal\n:9090"]
+        ldap["OpenLDAP\nUser directory\n:389 / :636"]
+    end
+
+    subgraph services [Core Microservices]
+        finance["finance-service\nMarket data, portfolio,\ntrade, admin, inflation\n:8081"]
+        news["news-service\nRSS ingestion,\nnews API, approvals\n:8082"]
+        classify["classification-api\nNews text classification,\nasset type and symbol match\n:8083"]
+    end
+
+    subgraph data [Data Layer]
+        postgres[("PostgreSQL 16\nfinance_db\nnews_db\nkeycloak")]
+        redis[("Redis 7\nmarket and instrument cache")]
+    end
+
+    subgraph external [External Data Providers]
+        yahoo["Yahoo Finance\nprices, charts, RSS"]
+        binance["Binance API\ncrypto prices"]
+        fintables["Fintables API\nfund / VIOP history"]
+        sozcu["Sozcu RSS\nTR finance news"]
+        evds["EVDS API\ninflation data"]
+    end
+
+    subgraph observability [Observability Layer: EC2 or local]
+        filebeat["Filebeat\nDocker log collector"]
+        elastic["Elasticsearch\nlog storage\n:9200"]
+        kibana["Kibana\nlog dashboard\n:5601"]
+        otlp["OTLP HTTP Collector\nmetrics + traces\n:4318"]
+        grafana["Grafana LGTM\nmetrics + traces UI\n:3000"]
+    end
+
+    browser -->|"HTTPS / HTTP"| frontend
+    frontend -->|"REST API: /api/*"| gateway
+    frontend -->|"Login / token flow"| keycloak
+
+    gateway -->|"JWT validation / JWK"| keycloak
+    keycloak -->|"LDAP federation"| ldap
+    keycloak -->|"realm, users, sessions"| postgres
+
+    gateway -->|"finance routes"| finance
+    gateway -->|"news routes"| news
+    gateway -->|"classification routes"| classify
+
+    finance -->|"JPA / Flyway"| postgres
+    finance -->|"cache read/write"| redis
+    finance -->|"market data"| yahoo
+    finance -->|"crypto data"| binance
+    finance -->|"fund / VIOP data"| fintables
+    finance -->|"inflation data"| evds
+
+    news -->|"JPA / Flyway"| postgres
+    news -->|"classify article"| classify
+    news -->|"global news RSS"| yahoo
+    news -->|"TR news RSS"| sozcu
+
+    gateway -. "OTLP metrics / traces" .-> otlp
+    finance -. "OTLP metrics / traces" .-> otlp
+    news -. "OTLP metrics / traces" .-> otlp
+    otlp --> grafana
+
+    gateway -. "JSON container logs" .-> filebeat
+    finance -. "JSON container logs" .-> filebeat
+    news -. "JSON container logs" .-> filebeat
+    classify -. "JSON container logs" .-> filebeat
+    filebeat --> elastic
+    elastic --> kibana
+```
 
 ## 9. Technologies Used
 
