@@ -32,21 +32,24 @@ import java.util.UUID;
 public class InflationService {
 
     private final Logger logger = LogManager.getLogger(InflationService.class);
-    private final InflationRepository inflationRepository ;
+    private final InflationRepository inflationRepository;
     private final InstrumentRepository instrumentRepository;
     private final PortfolioRepository portfolioRepository;
     private final PortfolioService portfolioService;
     private final TransactionRepository transactionRepository;
+
     /**
      * Creates a new InflationService with its required dependencies.
      *
-     * @param inflationRepository inflation repository value
-     * @param instrumentRepository instrument repository value
-     * @param portfolioRepository portfolio repository value
-     * @param portfolioService portfolio service value
+     * @param inflationRepository   inflation repository value
+     * @param instrumentRepository  instrument repository value
+     * @param portfolioRepository   portfolio repository value
+     * @param portfolioService      portfolio service value
      * @param transactionRepository transaction repository value
      */
-    public InflationService(InflationRepository inflationRepository, InstrumentRepository instrumentRepository, PortfolioRepository portfolioRepository, PortfolioService portfolioService, TransactionRepository transactionRepository) {
+    public InflationService(InflationRepository inflationRepository, InstrumentRepository instrumentRepository,
+            PortfolioRepository portfolioRepository, PortfolioService portfolioService,
+            TransactionRepository transactionRepository) {
         this.inflationRepository = inflationRepository;
         this.instrumentRepository = instrumentRepository;
         this.portfolioRepository = portfolioRepository;
@@ -57,37 +60,43 @@ public class InflationService {
     /**
      * Calculates inflation effect in portfolio.
      *
-     * @param userId identifier of the user
+     * @param userId      identifier of the user
      * @param portfolioId identifier of the portfolio
-     * @param currency currency value
+     * @param currency    currency value
      * @return calculate inflation effect in portfolio result
      */
-    public PerformanceLineChartDtoWithInflationDto calculateInflationEffectInPortfolio(String userId, UUID portfolioId, Currency currency) {
+    public PerformanceLineChartDtoWithInflationDto calculateInflationEffectInPortfolio(String userId, UUID portfolioId,
+            Currency currency) {
         Portfolio portfolio = portfolioRepository.findByIdAndUserId(portfolioId, userId)
                 .orElseThrow(() -> new NotFoundException("portfolio not found"));
-        return calculateInflationEffectInPortfolio(portfolio,currency);
+        return calculateInflationEffectInPortfolio(portfolio, currency);
     }
 
     /**
      * Calculates inflation effect in portfolio.
      *
      * @param portfolio portfolio value
-     * @param currency currency value
+     * @param currency  currency value
      * @return calculate inflation effect in portfolio result
      */
-    public PerformanceLineChartDtoWithInflationDto calculateInflationEffectInPortfolio(Portfolio portfolio,Currency currency){
+    public PerformanceLineChartDtoWithInflationDto calculateInflationEffectInPortfolio(Portfolio portfolio,
+            Currency currency) {
         Currency targetCurrency = normalizeCurrency(currency);
         BigDecimal usdTryRate = resolveUsdTryRate();
-        Map<String,Queue<InstrumentLot>> lotQueueMap = new HashMap<>();
-        List<Transaction> transactionList = transactionRepository.findByPortfolioIdOrderByTimestampAsc(portfolio.getId());
-        PortfolioReadDto portfolioSummary = portfolioService.getPortfolio(portfolio.getUser().getId(), portfolio.getId(), targetCurrency);
-        for (Transaction transaction : transactionList){
-            if (transaction.getInstrument() == null || transaction.getType() == null || transaction.getTimestamp() == null) {
+        Map<String, Queue<InstrumentLot>> lotQueueMap = new HashMap<>();
+        List<Transaction> transactionList = transactionRepository
+                .findByPortfolioIdOrderByTimestampAsc(portfolio.getId());
+        PortfolioReadDto portfolioSummary = portfolioService.getPortfolio(portfolio.getUser().getId(),
+                portfolio.getId(), targetCurrency);
+        for (Transaction transaction : transactionList) {
+            if (transaction.getInstrument() == null || transaction.getType() == null
+                    || transaction.getTimestamp() == null) {
                 continue;
             }
-            if(transaction.getType()== TransactionType.BUY){
+            if (transaction.getType() == TransactionType.BUY) {
                 if (transaction.getQuantity() == null || transaction.getPrice() == null) {
-                    logger.warn("Skipping BUY transaction with missing quantity or price. transactionId={}", transaction.getId());
+                    logger.warn("Skipping BUY transaction with missing quantity or price. transactionId={}",
+                            transaction.getId());
                     continue;
                 }
                 lotQueueMap.computeIfAbsent(transaction.getInstrument().getSymbol(), key -> new LinkedList<>())
@@ -97,31 +106,31 @@ public class InflationService {
                                 .buyDate(transaction.getTimestamp().toLocalDate())
                                 .buyPrice(transaction.getPrice())
                                 .remainingQuantity(transaction.getQuantity())
-                                .build()
-                        );
+                                .build());
             }
-            if(transaction.getType() == TransactionType.SELL){
+            if (transaction.getType() == TransactionType.SELL) {
                 Queue<InstrumentLot> lotQueue = lotQueueMap.get(transaction.getInstrument().getSymbol());
-                consumeLots(transaction.getQuantity(),lotQueue);
+                consumeLots(transaction.getQuantity(), lotQueue);
             }
 
         }
         BigDecimal nominalCost = BigDecimal.ZERO;
         BigDecimal inflationAdjustedCost = BigDecimal.ZERO;
         BigDecimal totalRemainingQuantity = BigDecimal.ZERO;
-        for(Queue<InstrumentLot> lots : lotQueueMap.values()){
-            for(InstrumentLot lot : lots ){
+        for (Queue<InstrumentLot> lots : lotQueueMap.values()) {
+            for (InstrumentLot lot : lots) {
                 BigDecimal remainingQuantity = lot.getRemainingQuantity();
                 BigDecimal buyPrice = lot.getBuyPrice();
 
                 if (remainingQuantity == null || buyPrice == null || lot.getBuyDate() == null) {
                     continue;
                 }
-                BigDecimal lotNominalCost = convertValue(remainingQuantity.multiply(buyPrice), lot.getCurrency(), targetCurrency, usdTryRate);
+                BigDecimal lotNominalCost = convertValue(remainingQuantity.multiply(buyPrice), lot.getCurrency(),
+                        targetCurrency, usdTryRate);
                 BigDecimal inflationMultiplier = BigDecimal.valueOf(calculateCumulativeInflation(lot.getBuyDate()));
                 BigDecimal lotInflationAdjustedCost = lotNominalCost.multiply(inflationMultiplier);
                 nominalCost = nominalCost.add(lotNominalCost);
-                inflationAdjustedCost= inflationAdjustedCost.add(lotInflationAdjustedCost);
+                inflationAdjustedCost = inflationAdjustedCost.add(lotInflationAdjustedCost);
                 totalRemainingQuantity = totalRemainingQuantity.add(remainingQuantity);
             }
         }
@@ -132,16 +141,14 @@ public class InflationService {
             nominalCost = portfolioNominalCost;
         }
         BigDecimal currentPortfolioValue = valueOrZero(portfolioSummary.holdingsValue());
-        BigDecimal nominalReturn =
-                currentPortfolioValue.subtract(nominalCost);
-        BigDecimal realReturn =
-                currentPortfolioValue.subtract(inflationAdjustedCost);
+        BigDecimal nominalReturn = currentPortfolioValue.subtract(nominalCost);
+        BigDecimal realReturn = currentPortfolioValue.subtract(inflationAdjustedCost);
 
         BigDecimal inflationImpact = inflationAdjustedCost.subtract(nominalCost);
         BigDecimal inflationRatePercent = nominalCost.compareTo(BigDecimal.ZERO) == 0 ? BigDecimal.ZERO
                 : inflationAdjustedCost.subtract(nominalCost)
-                .multiply(BigDecimal.valueOf(100))
-                .divide(nominalCost,2, RoundingMode.HALF_UP);
+                        .multiply(BigDecimal.valueOf(100))
+                        .divide(nominalCost, 2, RoundingMode.HALF_UP);
         return PerformanceLineChartDtoWithInflationDto.builder()
                 .dateTime(LocalDate.now())
                 .portfolioValue(currentPortfolioValue)
@@ -155,13 +162,14 @@ public class InflationService {
                 .build();
 
     }
+
     /**
      * Performs consume lots.
      *
      * @param quantity quantity value
-     * @param lots lots value
+     * @param lots     lots value
      */
-    private void consumeLots(BigDecimal quantity, Queue<InstrumentLot> lots){
+    private void consumeLots(BigDecimal quantity, Queue<InstrumentLot> lots) {
         if (quantity == null || quantity.compareTo(BigDecimal.ZERO) <= 0) {
             logger.warn("quantity is null ");
             return;
@@ -172,7 +180,7 @@ public class InflationService {
             return;
         }
         BigDecimal remainingSellQuantity = quantity;
-        while(remainingSellQuantity.compareTo(BigDecimal.ZERO)>0 && !lots.isEmpty() ){
+        while (remainingSellQuantity.compareTo(BigDecimal.ZERO) > 0 && !lots.isEmpty()) {
             InstrumentLot oldestLot = lots.peek();
             if (oldestLot == null || oldestLot.getRemainingQuantity() == null) {
                 lots.poll();
@@ -180,13 +188,12 @@ public class InflationService {
             }
             BigDecimal remainingQuantity = oldestLot.getRemainingQuantity();
 
-            if(oldestLot.getRemainingQuantity().compareTo(remainingSellQuantity)<=0){
+            if (oldestLot.getRemainingQuantity().compareTo(remainingSellQuantity) <= 0) {
                 remainingSellQuantity = remainingSellQuantity.subtract(remainingQuantity);
                 lots.poll();
-            }
-            else if (oldestLot.getRemainingQuantity().compareTo(remainingSellQuantity)>0){
+            } else if (oldestLot.getRemainingQuantity().compareTo(remainingSellQuantity) > 0) {
                 oldestLot.setRemainingQuantity(oldestLot.getRemainingQuantity().subtract(remainingSellQuantity));
-                remainingSellQuantity= BigDecimal.ZERO;
+                remainingSellQuantity = BigDecimal.ZERO;
             }
 
         }
@@ -200,16 +207,22 @@ public class InflationService {
      */
     public Double calculateCumulativeInflation(LocalDate startDay) {
         LocalDate startMonth = startDay.withDayOfMonth(1);
-        List<Inflation> inflationList = inflationRepository.findByTimestampGreaterThanEqualOrderByTimestampAsc(startMonth);
+        LocalDate currentMonth = LocalDate.now().withDayOfMonth(1);
+
+        if (!startMonth.isBefore(currentMonth)) {
+            return 1.0;
+        }
+
+        List<Inflation> inflationList = inflationRepository
+                .findByTimestampGreaterThanEqualOrderByTimestampAsc(startMonth);
 
         if (inflationList.isEmpty()) {
             Double lastInflationMultiplier = inflationRepository.findTopByOrderByTimestampDesc()
                     .map(Inflation::getRate)
                     .map(rate -> (rate + 100) / 100)
                     .orElse(1.0);
-            LocalDate currentMonth = LocalDate.now().withDayOfMonth(1);
             long monthCount = ChronoUnit.MONTHS.between(startMonth, currentMonth);
-            return Math.pow(lastInflationMultiplier, Math.max(monthCount, 1));
+            return Math.pow(lastInflationMultiplier, Math.max(monthCount, 0));
         }
 
         Double cumulativeInflation = inflationList.stream()
@@ -223,7 +236,6 @@ public class InflationService {
         }
 
         LocalDate lastInflationMonth = lastInflation.getTimestamp().withDayOfMonth(1);
-        LocalDate currentMonth = LocalDate.now().withDayOfMonth(1);
         long missingMonthCount = ChronoUnit.MONTHS.between(lastInflationMonth, currentMonth);
         if (missingMonthCount <= 0) {
             return cumulativeInflation;
@@ -265,13 +277,14 @@ public class InflationService {
     /**
      * Returns the result of convert value.
      *
-     * @param value value value
-     * @param sourceCurrency source currency value
+     * @param value           value value
+     * @param sourceCurrency  source currency value
      * @param displayCurrency display currency value
-     * @param usdTryRate usd try rate value
+     * @param usdTryRate      usd try rate value
      * @return convert value result
      */
-    private BigDecimal convertValue(BigDecimal value, Currency sourceCurrency, Currency displayCurrency, BigDecimal usdTryRate) {
+    private BigDecimal convertValue(BigDecimal value, Currency sourceCurrency, Currency displayCurrency,
+            BigDecimal usdTryRate) {
         Currency source = normalizeCurrency(sourceCurrency);
         Currency target = normalizeCurrency(displayCurrency);
         BigDecimal amount = valueOrZero(value);
@@ -298,6 +311,5 @@ public class InflationService {
     private BigDecimal valueOrZero(BigDecimal value) {
         return Optional.ofNullable(value).orElse(BigDecimal.ZERO);
     }
-
 
 }

@@ -1,4 +1,4 @@
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
 import type { PieChartDto } from '../../services/portfolioService';
 import { formatMarketPrice } from '../../utils/currency';
 
@@ -82,55 +82,52 @@ export default function PortfolioPieChartComponent({ data, displayCurrency }: Po
     });
 
     return (
-        <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
-                <Pie
-                    data={chartData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
-                    paddingAngle={3}
-                    minAngle={2}
-                    dataKey="value"
-                    nameKey="name"
-                    animationDuration={600}
-                    animationEasing="ease-out"
-                >
-                    {chartData.map((_, index) => (
-                        <Cell
-                            key={`cell-${index}`}
-                            fill={COLORS[index % COLORS.length]}
-                            stroke="transparent"
+        <div>
+            <ResponsiveContainer width="100%" height={240}>
+                <PieChart>
+                    <Pie
+                        data={chartData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={100}
+                        paddingAngle={3}
+                        minAngle={2}
+                        dataKey="value"
+                        nameKey="name"
+                        animationDuration={600}
+                        animationEasing="ease-out"
+                    >
+                        {chartData.map((_, index) => (
+                            <Cell
+                                key={`cell-${index}`}
+                                fill={COLORS[index % COLORS.length]}
+                                stroke="transparent"
+                            />
+                        ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip displayCurrency={displayCurrency} />} />
+                </PieChart>
+            </ResponsiveContainer>
+            <div className="mt-3 grid grid-cols-1 gap-1.5 px-2">
+                {chartData.map((item, index) => (
+                    <div key={`${item.name}-${index}`} className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                        <span
+                            className="inline-block h-2.5 w-2.5 rounded-sm flex-shrink-0"
+                            style={{ background: COLORS[index % COLORS.length] }}
                         />
-                    ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip displayCurrency={displayCurrency} />} />
-                <Legend
-                    verticalAlign="bottom"
-                    content={() => (
-                        <div className="mt-2 grid grid-cols-1 gap-1.5 px-2">
-                            {chartData.map((item, index) => (
-                                <div key={`${item.name}-${index}`} className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                                    <span
-                                        className="inline-block h-2.5 w-2.5 rounded-sm"
-                                        style={{ background: COLORS[index % COLORS.length] }}
-                                    />
-                                    <span className="min-w-0 flex-1 truncate text-foreground">{item.name}</span>
-                                    {(displayCurrency ?? item.currency) && (
-                                        <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
-                                            {displayCurrency ?? item.currency}
-                                        </span>
-                                    )}
-                                    {formatPercentage(item.percentage) && (
-                                        <span className="tabular-nums text-muted-foreground">{formatPercentage(item.percentage)}</span>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                />
-            </PieChart>
-        </ResponsiveContainer>
+                        <span className="min-w-0 flex-1 truncate text-foreground">{item.name}</span>
+                        {(displayCurrency ?? item.currency) && (
+                            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold text-primary">
+                                {displayCurrency ?? item.currency}
+                            </span>
+                        )}
+                        {formatPercentage(item.percentage) && (
+                            <span className="tabular-nums text-muted-foreground">{formatPercentage(item.percentage)}</span>
+                        )}
+                    </div>
+                ))}
+            </div>
+        </div>
     );
 }

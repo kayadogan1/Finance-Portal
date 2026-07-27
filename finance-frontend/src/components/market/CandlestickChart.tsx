@@ -35,7 +35,7 @@ const DATE_RANGES: { label: string; value: DateRange }[] = [
 ];
 
 /** Convert DateRange to a `from` ISO LocalDateTime string for the backend */
-function dateRangeToFrom(range: DateRange): string | undefined {
+function dateRangeToFrom(range: DateRange, padDays: number = 0): string | undefined {
     if (range === 'ALL') return '1970-01-01T00:00:00';
 
     const now = new Date();
@@ -48,7 +48,7 @@ function dateRangeToFrom(range: DateRange): string | undefined {
         '1Y': 365 * 24 * 60 * 60 * 1000,
     };
 
-    const from = new Date(now.getTime() - offsets[range]);
+    const from = new Date(now.getTime() - offsets[range] - (padDays * 24 * 60 * 60 * 1000));
     return from.toISOString().replace('Z', '').split('.')[0];
 }
 
@@ -471,8 +471,22 @@ const CandlestickChart = ({
         });
     };
 
-    // Compute `from` string based on selected DateRange
-    const fromDate = useMemo(() => dateRangeToFrom(range), [range]);
+    // Compute `from` string based on selected DateRange with 60 days padding for indicators
+    const fromDate = useMemo(() => dateRangeToFrom(range, 60), [range]);
+    
+    const exactFromTimestamp = useMemo(() => {
+        if (range === 'ALL') return 0;
+        const offsets: Record<Exclude<DateRange, 'ALL'>, number> = {
+            '1G': 24 * 60 * 60 * 1000,
+            '1H': 7 * 24 * 60 * 60 * 1000,
+            '1A': 30 * 24 * 60 * 60 * 1000,
+            '3A': 90 * 24 * 60 * 60 * 1000,
+            '6A': 180 * 24 * 60 * 60 * 1000,
+            '1Y': 365 * 24 * 60 * 60 * 1000,
+        };
+        // Subtract an extra day just to make sure we don't cut off too aggressively due to timezone offsets
+        return Math.floor((Date.now() - offsets[range] - (24 * 60 * 60 * 1000)) / 1000);
+    }, [range]);
 
     // ──── Candle data query ────
     const {
@@ -538,13 +552,27 @@ const CandlestickChart = ({
         if (activeIndicators.has('sma50')) overlays.push({ id: 'sma50', data: calculateSMA(candleData, 50), color: '#8b5cf6' });
         if (activeIndicators.has('ema12')) overlays.push({ id: 'ema12', data: calculateEMA(candleData, 12), color: '#06b6d4' });
         if (activeIndicators.has('ema26')) overlays.push({ id: 'ema26', data: calculateEMA(candleData, 26), color: '#ec4899' });
-        return overlays;
-    }, [candleData, activeIndicators, mode]);
+        
+        // Filter out padding data
+        return overlays.map(overlay => ({
+            ...overlay,
+            data: overlay.data.filter(d => d.time >= exactFromTimestamp)
+        }));
+    }, [candleData, activeIndicators, mode, exactFromTimestamp]);
 
     const rsiData = useMemo(() => {
         if (!activeIndicators.has('rsi') || candleData.length === 0) return [];
-        return calculateRSI(candleData, 14);
-    }, [candleData, activeIndicators]);
+        const rsi = calculateRSI(candleData, 14);
+        return rsi.filter(d => d.time >= exactFromTimestamp);
+    }, [candleData, activeIndicators, exactFromTimestamp]);
+
+    const displayCandleData = useMemo(() => {
+        return candleData.filter(d => d.time >= exactFromTimestamp);
+    }, [candleData, exactFromTimestamp]);
+
+    const displayLineData = useMemo(() => {
+        return lineChartData.filter(d => d.time >= exactFromTimestamp);
+    }, [lineChartData, exactFromTimestamp]);
 
     const showToolbar = !!symbol;
     const isLoading = mode === 'candle' ? candleLoading : lineLoading;
@@ -552,7 +580,7 @@ const CandlestickChart = ({
     const isFetching = mode === 'candle' ? candleFetching : lineFetching;
     const loading = !!symbol && isLoading;
 
-    const hasData = mode === 'candle' ? candleData.length > 0 : lineChartData.length > 0;
+    const hasData = mode === 'candle' ? displayCandleData.length > 0 : displayLineData.length > 0;
     const priceFormatter = useCallback((value: number) => formatMarketPrice(value, baseCurrency), [baseCurrency]);
 
     // Empty fallback
@@ -672,7 +700,7 @@ const CandlestickChart = ({
             {/* Chart */}
             {!loading && hasData && (
                 <>
-                    <ChartRenderer ohlcData={candleData} lineData={lineChartData} mode={mode} overlays={indicatorOverlays} priceFormatter={priceFormatter} />
+                    <ChartRenderer ohlcData={displayCandleData} lineData={displayLineData} mode={mode} overlays={indicatorOverlays} priceFormatter={priceFormatter} />
 
                     {/* Indicator legend */}
                     {indicatorOverlays.length > 0 && (
