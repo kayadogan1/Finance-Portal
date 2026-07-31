@@ -1,0 +1,24 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: news-service-config
+  namespace: finance
+data:
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/news_db
+  SPRING_DATASOURCE_USERNAME: postgres
+  SPRING_DATASOURCE_PASSWORD: "253421"
+  SPRING_FLYWAY_URL: jdbc:postgresql://postgres:5432/news_db
+  SPRING_FLYWAY_USER: postgres
+  SPRING_FLYWAY_PASSWORD: "253421"
+  SPRING_FLYWAY_ENABLED: "true"
+  MODEL_SERVICE_API_URL: http://classification-api:8083/api/v1/news/classify
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak-service:9090/realms/FinancePortal}
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak-service:8080/realms/FinancePortal/protocol/openid-connect/certs
+  MANAGEMENT_OTLP_METRICS_EXPORT_URL: http://grafana-lgtm-service:4318/v1/metrics
+  MANAGEMENT_OTLP_LOGS_EXPORT_URL: "http://grafana-lgtm-service:4318/v1/logs"
+  MANAGEMENT_OPENTELEMETRY_TRACING_EXPORT_OTLP_ENDPOINT: http://grafana-lgtm-service:4318/v1/traces
+  SPRING_JPA_SHOW_SQL: "false"
+  SPRING_JPA_PROPERTIES_HIBERNATE_FORMAT_SQL: "false"
+  LOGGING_LEVEL_ORG_HIBERNATE: "OFF"
+  LOGGING_LEVEL_ORG_HIBERNATE_SQL: WARN
+  LOGGING_LEVEL_ORG_HIBERNATE_ORM_JDBC_BIND: WARN

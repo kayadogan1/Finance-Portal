@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+# yaml-language-server: $schema=https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/v1.22.0-standalone-strict/deployment-apps-v1.json
+kind: Deployment
+metadata:
+  name: finance-service
+  namespace: finance
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: finance-service
+  template:
+    metadata:
+      labels:
+        app: finance-service
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: diskType
+                    operator: In
+                    values:
+                      - ssd
+      containers:
+        - name: finance-service
+          image: finance-service:latest
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: finance-service-config
+          resources:
+            requests:
+              cpu: "300m"
+              memory: "1000Mi"
+            limits:
+              cpu: "500m"
+              memory: "2000Mi"
