@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: phpldapadmin-config
+data:
+  PHPLDAPADMIN_LDAP_HOSTS: "openldap"
+  PHPLDAPADMIN_HTTPS: "false"

@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: keycloak-bootstrap-config
+data:
+  KEYCLOAK_SERVER: "http://keycloak:8080"
+  KEYCLOAK_ADMIN: "admin"
+  KEYCLOAK_REALM: "FinancePortal"
+  KEYCLOAK_CLIENT_ID: "finance-gateway-client"
+  KEYCLOAK_DEFAULT_ROLE: "default-roles-financeportal"
+  KEYCLOAK_USER_ROLE: "USER"

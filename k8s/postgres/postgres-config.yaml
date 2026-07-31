@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: finance
+data:
+  POSTGRES_DB: finance_db
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: "253421"
+---

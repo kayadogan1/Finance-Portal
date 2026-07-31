@@ -1,0 +1,63 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana-lgtm
+  namespace: finance
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana-lgtm
+  template:
+    metadata:
+      labels:
+        app: grafana-lgtm
+    spec:
+      containers:
+        - name: grafana-lgtm
+          image: grafana/otel-lgtm:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 3000
+              name: ui
+            - containerPort: 4317
+              name: otlp-grpc
+            - containerPort: 4318
+              name: otlp-http
+            - containerPort: 3100
+              name: loki-http
+          volumeMounts:
+            - name: grafana-data
+              mountPath: /data
+          resources:
+            requests:
+              cpu: 300m
+              memory: 512Mi
+            limits:
+              cpu: 800m
+              memory: 1Gi
+      volumes:
+        - name: grafana-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana-lgtm-service
+  namespace: finance
+spec:
+  selector:
+    app: grafana-lgtm
+  ports:
+    - name: ui
+      port: 3000
+      targetPort: 3000
+    - name: otlp-grpc
+      port: 4317
+      targetPort: 4317
+    - name: otlp-http
+      port: 4318
+      targetPort: 4318
+    - name: loki-http
+      port: 3100
+      targetPort: 3100

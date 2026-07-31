@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: classification-service
+  namespace: finance
+  labels:
+    app: classification-service
+spec:
+  selector:
+    matchLabels:
+      app: classification-service
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: classification-service
+    spec:
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: diskType
+                    operator: In
+                    values:
+                      - ssd
+      containers:
+        - name: classification-service
+          image: classification-service:latest
+          ports:
+            - containerPort: 8083
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 500m
+              memory: 1000Mi
+            limits:
+              cpu: 1
+              memory: 2000Mi
+          livenessProbe:
+            tcpSocket:
+              port: 8083
+            initialDelaySeconds: 20
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 2
+            periodSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /api/v1/news/health
+              port: 8083
+            initialDelaySeconds: 5
+            timeoutSeconds: 2
+            successThreshold: 1
+            failureThreshold: 3
+            periodSeconds: 10
